@@ -7,8 +7,8 @@
     { "id": "task-02", "file": "tasks/02-tool-discovery.md", "status": "completed" },
     { "id": "task-03", "file": "tasks/03-recursive-loop.md", "status": "completed" },
     { "id": "task-04", "file": "tasks/04-agent-personas.md", "status": "completed" },
-    { "id": "task-05", "file": "tasks/05-interactive-scaffolder.md", "status": "active" },
-    { "id": "task-06", "file": "tasks/06-distribution-prep.md", "status": "pending" },
+    { "id": "task-05", "file": "tasks/05-interactive-scaffolder.md", "status": "completed" },
+    { "id": "task-06", "file": "tasks/06-distribution-prep.md", "status": "active" },
     { "id": "task-07", "file": "tasks/07-sprint-isolation.md", "status": "pending" }
   ]
 }

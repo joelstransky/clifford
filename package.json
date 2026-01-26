@@ -11,7 +11,8 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "lint": "eslint .",
-    "test": "jest"
+    "test": "jest",
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -24,8 +25,12 @@
     "sprint"
   ],
   "author": "Joel Stransky",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
+  "files": [
+    "dist",
+    "templates"
+  ],
   "bugs": {
     "url": "https://github.com/joelstransky/clifford/issues"
   },

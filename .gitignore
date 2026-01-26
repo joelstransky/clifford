@@ -3,3 +3,4 @@ read_only_demo_project
 node_modules/
 dist/
 .DS_Store
+*.tgz
