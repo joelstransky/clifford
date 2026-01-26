@@ -3,15 +3,40 @@
 
 set -e
 
-# Find active sprint
-MANIFEST=$(find sprints -name "manifest.json" -exec grep -l '"status": "active"' {} + | head -n 1)
+# Support passing a specific sprint directory
+TARGET_DIR=$1
+
+if [ -n "$TARGET_DIR" ]; then
+  MANIFEST="$TARGET_DIR/manifest.json"
+  if [ ! -f "$MANIFEST" ]; then
+    echo "❌ Manifest not found at $MANIFEST"
+    exit 1
+  fi
+else
+  # Find active sprint
+  MANIFEST=$(find sprints -name "manifest.json" -exec grep -l '"status": "active"' {} + | head -n 1)
+fi
 
 if [ -z "$MANIFEST" ]; then
-  echo "❌ No active sprint found in sprints/*/manifest.json"
+  echo "❌ No active sprint found in sprints/*/manifest.json and no target provided."
   exit 1
 fi
 
 SPRINT_DIR=$(dirname "$MANIFEST")
+
+# --- Sprint State Synchronization ---
+echo "🔄 Synchronizing sprint states..."
+for m in sprints/*/manifest.json; do
+  if [ "$m" == "$MANIFEST" ]; then
+    # Force target to active
+    sed -i '0,/"status": "[^"]*"/s//"status": "active"/' "$m"
+  else
+    # Set any other active sprints to pending
+    sed -i '0,/"status": "active"/s//"status": "pending"/' "$m"
+  fi
+done
+# ------------------------------------
+
 echo "🚀 Clifford Loop Started for: $SPRINT_DIR"
 
 while true; do
@@ -35,29 +60,24 @@ while true; do
   echo "🔍 Next Task: $PENDING_TASK"
   
   # Calculate manifest hash to detect progress
-  # Using md5sum on Linux, will fallback to md5 if needed (not needed here as env is Linux)
   PREV_HASH=$(md5sum "$MANIFEST" | awk '{print $1}')
 
   echo "🤖 Invoking Agent..."
   
+  # Load prompt content
+  PROMPT_CONTENT=$(cat .opencode/agent/developer.md 2>/dev/null || echo "Implement the next task.")
+
   # Attempt to invoke the agent. 
-  # In this environment, we might use 'opencode', 'clifford', or just 'npm run dev'.
   if command -v opencode &> /dev/null; then
-    opencode run --agent developer "CURRENT_SPRINT_DIR: $SPRINT_DIR"
+    opencode run --agent developer "CURRENT_SPRINT_DIR: $SPRINT_DIR\n\n$PROMPT_CONTENT"
   elif [ -f "package.json" ]; then
-    # If clifford is the tool being developed, we might call it directly
-    # But usually the loop is what TRIGGERS the agent.
     echo "Waiting for Agent to process task..."
     # Placeholder for actual invocation if needed
-    # npm run dev -- sprint "$SPRINT_DIR" 
   else
     echo "❌ No agent execution method found (opencode or local clifford)."
     exit 1
   fi
 
-  # In this simulation/bootstrap, we expect the manifest to be updated by the agent.
-  # For the script to work in a real loop, it needs to wait for the agent.
-  
   # Check if manifest updated
   NEW_HASH=$(md5sum "$MANIFEST" | awk '{print $1}')
   

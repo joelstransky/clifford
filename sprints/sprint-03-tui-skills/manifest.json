@@ -1,7 +1,7 @@
 {
   "id": "sprint-03-tui-skills",
   "name": "TUI Dashboard & Skill Registry",
-  "status": "active",
+  "status": "pending",
   "tasks": [
     { "id": "task-01", "file": "tasks/01-deps-jsx.md", "status": "pending" },
     { "id": "task-02", "file": "tasks/02-discovery.md", "status": "pending" },

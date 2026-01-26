@@ -28,6 +28,8 @@ export class SprintRunner {
       throw new Error(`Manifest not found at ${manifestPath}`);
     }
 
+    this.syncSprintStates(manifestPath);
+
     this.bridge.start();
 
     console.log(`🚀 Starting sprint in ${this.sprintDir}`);
@@ -75,6 +77,28 @@ export class SprintRunner {
       return manifest.tasks.some(t => t.status === 'pending');
     } catch {
       return false;
+    }
+  }
+
+  private syncSprintStates(targetManifestPath: string) {
+    const sprintsBaseDir = path.dirname(path.dirname(targetManifestPath));
+    if (!fs.existsSync(sprintsBaseDir)) return;
+    
+    const sprintDirs = fs.readdirSync(sprintsBaseDir);
+
+    for (const dir of sprintDirs) {
+      const mPath = path.join(sprintsBaseDir, dir, 'manifest.json');
+      if (fs.existsSync(mPath)) {
+        let content = fs.readFileSync(mPath, 'utf8');
+        if (path.resolve(mPath) === path.resolve(targetManifestPath)) {
+          // Force target to active
+          content = content.replace(/"status":\s*"[^"]*"/, '"status": "active"');
+        } else {
+          // Set other active sprints to pending
+          content = content.replace(/"status":\s*"active"/, '"status": "pending"');
+        }
+        fs.writeFileSync(mPath, content, 'utf8');
+      }
     }
   }
 }
