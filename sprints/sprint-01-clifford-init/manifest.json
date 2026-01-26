@@ -4,7 +4,7 @@
   "status": "active",
   "tasks": [
     { "id": "task-01", "file": "tasks/01-cli-foundation.md", "status": "completed" },
-    { "id": "task-02", "file": "tasks/02-tool-discovery.md", "status": "pending" },
+    { "id": "task-02", "file": "tasks/02-tool-discovery.md", "status": "active" },
     { "id": "task-03", "file": "tasks/03-recursive-loop.md", "status": "pending" },
     { "id": "task-04", "file": "tasks/04-agent-personas.md", "status": "pending" },
     { "id": "task-05", "file": "tasks/05-interactive-scaffolder.md", "status": "pending" },

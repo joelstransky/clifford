@@ -1,0 +1,11 @@
+{
+  "id": "sprint-02-comms-afk",
+  "name": "Comms Bridge & AFK Integration",
+  "status": "active",
+  "tasks": [
+    { "id": "task-01", "file": "tasks/01-comms-bridge.md", "status": "pending" },
+    { "id": "task-02", "file": "tasks/02-persona-updates.md", "status": "pending" },
+    { "id": "task-03", "file": "tasks/03-afk-telegram.md", "status": "pending" },
+    { "id": "task-04", "file": "tasks/04-timeout-logic.md", "status": "pending" }
+  ]
+}
