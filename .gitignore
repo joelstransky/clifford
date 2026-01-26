@@ -1,0 +1,5 @@
+read_only_demo_project
+# Node.js
+node_modules/
+dist/
+.DS_Store

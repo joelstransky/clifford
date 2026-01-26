@@ -1,0 +1,47 @@
+{
+  "name": "clifford",
+  "version": "1.0.0",
+  "description": "Clifford: The Recursive Implementation Agent",
+  "main": "dist/index.js",
+  "bin": {
+    "clifford": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joelstransky/clifford.git"
+  },
+  "keywords": [
+    "cli",
+    "agent",
+    "recursive",
+    "sprint"
+  ],
+  "author": "Joel Stransky",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/joelstransky/clifford/issues"
+  },
+  "homepage": "https://github.com/joelstransky/clifford#readme",
+  "dependencies": {
+    "commander": "^14.0.2"
+  },
+  "devDependencies": {
+    "@types/commander": "^2.12.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.10",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
+    "eslint": "^9.39.2",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
