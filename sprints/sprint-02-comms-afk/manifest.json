@@ -1,7 +1,7 @@
 {
   "id": "sprint-02-comms-afk",
   "name": "Comms Bridge & AFK Integration",
-  "status": "active",
+  "status": "pending",
   "tasks": [
     { "id": "task-01", "file": "tasks/01-comms-bridge.md", "status": "completed" },
     { "id": "task-02", "file": "tasks/02-persona-updates.md", "status": "pending" },

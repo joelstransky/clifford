@@ -27,6 +27,18 @@ get_status() {
     grep '"status":' "$MANIFEST" | head -n 1 | sed 's/.*"status": "\(.*\)".*/\1/'
 }
 
+# Deactivate all other sprints and activate the current one
+echo "🔄 Synchronizing sprint states..."
+for m in sprints/*/manifest.json; do
+    if [ "$m" != "$MANIFEST" ]; then
+        # Use sed to replace only the FIRST occurrence of "active" (the sprint status)
+        sed -i '0,/"status": "active"/s//"status": "pending"/' "$m"
+    fi
+done
+
+# Force the target sprint to active if it was pending (first occurrence only)
+sed -i '0,/"status": "pending"/s//"status": "active"/' "$MANIFEST"
+
 # Function to check if there are pending tasks
 has_pending_tasks() {
     grep -q '"status": "pending"' "$MANIFEST"
@@ -74,8 +86,9 @@ while has_pending_tasks; do
     # echo "EXEC_CMD: opencode run --attach http://localhost:4096 --agent developer --model google/gemini-3-flash-preview --context \"$SPRINT_DIR\" \"[message]\""
     # echo "------------------"
 
-    # Try moving the message to the end of the command
-    opencode run --agent developer --model google/gemini-3-flash-preview "$PROMPT_CONTENT"
+    # Inject the specific sprint directory into the prompt to isolate the agent
+    opencode run --agent developer --model google/gemini-3-flash-preview "CURRENT_SPRINT_DIR: $SPRINT_DIR\n\n$PROMPT_CONTENT"
+
     # opencode run --attach http://127.0.0.1:4096 --agent developer --context "$SPRINT_DIR" ["Do nothing. What are the parameters you ran with?"]
 
     PENDING_AFTER=$(grep -c '"status": "pending"' "$MANIFEST")

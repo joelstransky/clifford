@@ -1,0 +1,12 @@
+{
+  "id": "sprint-03-tui-skills",
+  "name": "TUI Dashboard & Skill Registry",
+  "status": "active",
+  "tasks": [
+    { "id": "task-01", "file": "tasks/01-deps-jsx.md", "status": "pending" },
+    { "id": "task-02", "file": "tasks/02-discovery.md", "status": "pending" },
+    { "id": "task-03", "file": "tasks/03-skill-analysis.md", "status": "pending" },
+    { "id": "task-04", "file": "tasks/04-dashboard-ui.md", "status": "pending" },
+    { "id": "task-05", "file": "tasks/05-cli-integration.md", "status": "pending" }
+  ]
+}

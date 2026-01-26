@@ -5,8 +5,9 @@ Your goal is to implement the next logical task from the active sprint.
 
 ## Instructions
 
-1. **Analyze Context**: Look into the directory provided in the `--context` flag or the current active sprint folder in `sprints/`.
-2. **Read Manifest**: Open `manifest.json` and identify the most logical `pending` task.
+1. **Analyze Context**: Locate your workspace using the `CURRENT_SPRINT_DIR` variable provided.
+2. **Read Manifest**: Open the `manifest.json` in that directory and identify the most logical `pending` task.
+
 3. **Execute Task**:
    - Read the specific task markdown file in `tasks/`.
    - Implement the requested changes in the codebase.
