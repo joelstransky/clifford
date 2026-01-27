@@ -1,4 +1,7 @@
 import { execSync } from 'child_process';
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
 
 export interface AIEngine {
   id: string;
@@ -9,30 +12,38 @@ export interface AIEngine {
   getInvokeArgs: (prompt: string) => string[];
 }
 
-const ENGINE_CONFIGS: Omit<AIEngine, 'isInstalled' | 'version'>[] = [
+interface EngineConfig extends Omit<AIEngine, 'isInstalled' | 'version'> {
+  configPaths: string[];
+}
+
+const ENGINE_CONFIGS: EngineConfig[] = [
   {
     id: 'codex',
     name: 'Codex',
     command: 'codex',
     getInvokeArgs: (prompt: string) => [prompt],
+    configPaths: ['.codex'],
   },
   {
     id: 'gemini',
     name: 'Gemini CLI',
     command: 'gemini',
     getInvokeArgs: (prompt: string) => [prompt],
+    configPaths: ['.gemini'],
   },
   {
     id: 'claude',
     name: 'Claude Code',
     command: 'claude',
     getInvokeArgs: (prompt: string) => [prompt],
+    configPaths: ['.claude'],
   },
   {
     id: 'opencode',
     name: 'OpenCode',
     command: 'opencode',
     getInvokeArgs: (prompt: string) => ['run', '--agent', 'developer', prompt],
+    configPaths: ['.config/opencode', '.claude/skills'],
   },
 ];
 
@@ -40,15 +51,36 @@ const ENGINE_CONFIGS: Omit<AIEngine, 'isInstalled' | 'version'>[] = [
  * Discovers available AI CLI engines on the system.
  */
 export function discoverTools(): AIEngine[] {
+  const homeDir = os.homedir();
+
   return ENGINE_CONFIGS.map((config) => {
     let isInstalled = false;
     let version: string | undefined;
 
-    try {
-      // Check if command exists
-      execSync(`command -v ${config.command}`, { stdio: 'ignore' });
-      isInstalled = true;
+    // 1. Check filesystem for config directories (prioritized for reliability)
+    for (const relPath of config.configPaths) {
+      const fullPath = path.join(homeDir, relPath);
+      if (fs.existsSync(fullPath)) {
+        isInstalled = true;
+        break;
+      }
+    }
 
+    // 2. Fallback: Check if command exists in PATH
+    if (!isInstalled) {
+      try {
+        // command -v works on Unix, where -v is the standard way to check for command existence
+        // On Windows, we might need 'where' but for now we follow the task's lead.
+        // The task says "Keep the fallback logic to check if the command itself is executable"
+        const checkCmd = process.platform === 'win32' ? `where ${config.command}` : `command -v ${config.command}`;
+        execSync(checkCmd, { stdio: 'ignore' });
+        isInstalled = true;
+      } catch {
+        // Command does not exist
+      }
+    }
+
+    if (isInstalled) {
       // Try to get version
       try {
         version = execSync(`${config.command} --version`, {
@@ -57,14 +89,15 @@ export function discoverTools(): AIEngine[] {
           timeout: 2000,
         }).trim();
       } catch {
-        // Version check failed or timed out, but command exists
+        // Version check failed or timed out, but tool is considered installed
       }
-    } catch {
-      // Command does not exist
     }
 
     return {
-      ...config,
+      id: config.id,
+      name: config.name,
+      command: config.command,
+      getInvokeArgs: config.getInvokeArgs,
       isInstalled,
       version,
     };

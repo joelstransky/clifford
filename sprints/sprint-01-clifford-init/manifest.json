@@ -11,6 +11,6 @@
     { "id": "task-06", "file": "tasks/06-distribution-prep.md", "status": "completed" },
     { "id": "task-07", "file": "tasks/07-sprint-isolation.md", "status": "completed" },
     { "id": "task-08", "file": "uat.md", "status": "pending" },
-    { "id": "task-09", "file": "tasks/09-robust-discovery.md", "status": "pending" }
+    { "id": "task-09", "file": "tasks/09-robust-discovery.md", "status": "completed" }
   ]
 }
