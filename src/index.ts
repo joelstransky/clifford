@@ -38,9 +38,16 @@ program
   .command('init')
   .description('Initialize a new Clifford project')
   .action(async () => {
+    console.log('🔍 Discovering compatible AI agents...');
     const tools = discoverTools();
     const installedTools = tools.filter(t => t.isInstalled);
     
+    if (installedTools.length === 0) {
+      console.log('⚠️ No compatible AI agents (OpenCode, Claude Code, etc.) were found on your system.');
+    } else {
+      console.log(`✅ Found ${installedTools.length} compatible agent(s): ${installedTools.map(t => t.name).join(', ')}`);
+    }
+
     const answers = await inquirer.prompt([
       {
         type: 'list',
