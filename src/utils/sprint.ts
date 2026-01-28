@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { spawnSync } from 'child_process';
 import { CommsBridge } from './bridge';
+import { discoverTools } from './discovery';
 
 export interface SprintManifest {
   id: string;
@@ -23,12 +25,30 @@ export class SprintRunner {
   }
 
   async run() {
+    if (this.sprintDir === '.') {
+      this.sprintDir = this.findActiveSprintDir();
+    }
+
     const manifestPath = path.resolve(this.sprintDir, 'manifest.json');
     if (!fs.existsSync(manifestPath)) {
       throw new Error(`Manifest not found at ${manifestPath}`);
     }
 
+    const projectRoot = path.dirname(path.dirname(manifestPath));
+
     this.syncSprintStates(manifestPath);
+
+    const configPath = path.join(projectRoot, '.clifford/config.json');
+    const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+    const aiToolId = config.aiTool || 'opencode';
+    const model = config.model || 'google/gemini-3-flash-preview';
+
+    const tools = discoverTools();
+    const engine = tools.find(t => t.id === aiToolId) || tools.find(t => t.id === 'opencode');
+
+    if (!engine) {
+      throw new Error(`AI engine ${aiToolId} not found.`);
+    }
 
     try {
       await this.bridge.start();
@@ -48,21 +68,28 @@ export class SprintRunner {
 
         console.log(`🔍 Next task: ${nextTask.id} (${nextTask.file})`);
         
-        const promptPath = path.resolve('.clifford/prompt.md');
-        const promptContent = fs.existsSync(promptPath) ? fs.readFileSync(promptPath, 'utf8') : '';
+        const promptPath = path.join(projectRoot, '.clifford/prompt.md');
+        let promptContent = fs.existsSync(promptPath) ? fs.readFileSync(promptPath, 'utf8') : '';
         
         if (promptContent) {
           console.log('📝 Using prompt from .clifford/prompt.md');
         }
 
-        // In future tasks, we will implement agent invocation here.
-        // For now, we simulate work to allow bridge testing.
-        console.log('⏳ Agent working... (Press Ctrl+C to stop or use bridge to block)');
+        // Inject current sprint directory into prompt
+        promptContent = `CURRENT_SPRINT_DIR: ${this.sprintDir}\n\n${promptContent}`;
+
+        console.log('🤖 Invoking Agent...');
         
-        // We'll wait here, but we should check for pause frequently
-        for (let i = 0; i < 10; i++) {
-          if (this.bridge.checkPaused()) break;
-          await new Promise(resolve => setTimeout(resolve, 500));
+        const args = engine.getInvokeArgs(promptContent, model);
+        
+        const result = spawnSync(engine.command, args, {
+          stdio: 'inherit',
+          shell: true
+        });
+
+        if (result.error) {
+          console.error(`❌ Error invoking agent: ${result.error.message}`);
+          break;
         }
 
         if (this.bridge.checkPaused()) {
@@ -70,14 +97,42 @@ export class SprintRunner {
           continue;
         }
 
-        // To prevent infinite loop in this stage of development:
-        console.log('Task processing simulation ended. Breaking loop.');
-        break; 
+        // Check if progress was made (manifest updated)
+        const updatedManifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        const stillPending = updatedManifest.tasks.find(t => t.id === nextTask.id && t.status === 'pending');
+        
+        if (stillPending) {
+          console.log('⚠️ No progress detected on the current task. Breaking loop to prevent infinite recursion.');
+          break;
+        }
+
+        console.log('✅ Task completed. Moving to next...');
       }
     } finally {
       console.log('🏁 Sprint loop finished.');
       this.bridge.stop();
     }
+  }
+
+  private findActiveSprintDir(): string {
+    const sprintsDir = path.resolve('sprints');
+    if (fs.existsSync(sprintsDir)) {
+      const sprintDirs = fs.readdirSync(sprintsDir);
+      for (const dir of sprintDirs) {
+        const mPath = path.join(sprintsDir, dir, 'manifest.json');
+        if (fs.existsSync(mPath)) {
+          try {
+            const m = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+            if (m.status === 'active') {
+              return path.join('sprints', dir);
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+    }
+    return 'sprints/sprint-01'; // Fallback
   }
 
   private hasPendingTasks(manifestPath: string): boolean {
@@ -98,15 +153,25 @@ export class SprintRunner {
     for (const dir of sprintDirs) {
       const mPath = path.join(sprintsBaseDir, dir, 'manifest.json');
       if (fs.existsSync(mPath)) {
-        let content = fs.readFileSync(mPath, 'utf8');
-        if (path.resolve(mPath) === path.resolve(targetManifestPath)) {
-          // Force target to active
-          content = content.replace(/"status":\s*"[^"]*"/, '"status": "active"');
-        } else {
-          // Set other active sprints to pending
-          content = content.replace(/"status":\s*"active"/, '"status": "pending"');
+        try {
+          let content = fs.readFileSync(mPath, 'utf8');
+          const m = JSON.parse(content);
+          if (path.resolve(mPath) === path.resolve(targetManifestPath)) {
+            // Force target to active if not already
+            if (m.status !== 'active') {
+              m.status = 'active';
+              fs.writeFileSync(mPath, JSON.stringify(m, null, 2), 'utf8');
+            }
+          } else {
+            // Set other active sprints to pending
+            if (m.status === 'active') {
+              m.status = 'pending';
+              fs.writeFileSync(mPath, JSON.stringify(m, null, 2), 'utf8');
+            }
+          }
+        } catch {
+          // Ignore
         }
-        fs.writeFileSync(mPath, content, 'utf8');
       }
     }
   }

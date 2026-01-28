@@ -9,7 +9,7 @@ export interface AIEngine {
   command: string;
   isInstalled: boolean;
   version?: string;
-  getInvokeArgs: (prompt: string) => string[];
+  getInvokeArgs: (prompt: string, model?: string) => string[];
 }
 
 interface EngineConfig extends Omit<AIEngine, 'isInstalled' | 'version'> {
@@ -42,7 +42,14 @@ const ENGINE_CONFIGS: EngineConfig[] = [
     id: 'opencode',
     name: 'OpenCode',
     command: 'opencode',
-    getInvokeArgs: (prompt: string) => ['run', '--agent', 'developer', prompt],
+    getInvokeArgs: (prompt: string, model?: string) => {
+      const args = ['run', '--agent', 'developer'];
+      if (model) {
+        args.push('--model', model);
+      }
+      args.push(prompt);
+      return args;
+    },
     configPaths: ['.config/opencode', '.claude/skills'],
   },
 ];

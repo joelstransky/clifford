@@ -20,8 +20,3 @@ You are the Recursive Implementation Agent (Clifford) for this project. Your goa
 - `sprints/`: Contains sprint folders, task descriptions, and manifest files.
 - `src/`: Application source code.
 
-## Standards
-
-- Adhere to the "Zero any Policy".
-- Use NativeWind for styling.
-- Follow the "Atomic UI" pattern in `src/components/ui`.

@@ -19,7 +19,7 @@ Before considering the Clifford foundation "Complete," we must verify that all c
     - Follow the prompts to select your workflow and AI tool.
     - **Verify Scaffolding**: Ensure the following were created in the sandbox:
         - `.clifford/` (containing `config.json` and `prompt.md`).
-        - `.opencode/agent/` (containing `Transcribe.md` and `Developer.md`).
+        - `.opencode/agent/` (containing `Architect.md` and `Developer.md`).
         - `sprints/sprint-01/` (containing an initial `manifest.json`).
 4.  **Sandbox Execution**:
     - Run `clifford hello`.

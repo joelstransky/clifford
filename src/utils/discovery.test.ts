@@ -45,6 +45,13 @@ describe('discovery', () => {
     
     expect(gemini?.isInstalled).toBe(false);
     expect(codex?.isInstalled).toBe(false);
+
+    // Test getInvokeArgs
+    const opencodeArgs = opencode?.getInvokeArgs('test prompt', 'test-model');
+    expect(opencodeArgs).toEqual(['run', '--agent', 'developer', '--model', 'test-model', 'test prompt']);
+
+    const opencodeArgsNoModel = opencode?.getInvokeArgs('test prompt');
+    expect(opencodeArgsNoModel).toEqual(['run', '--agent', 'developer', 'test prompt']);
   });
 
   it('should handle version check failures gracefully', () => {

@@ -9,7 +9,7 @@ The `init` command must correctly scaffold the core Clifford environment. This i
    - `sprints/`: For task management.
    - `.opencode/agent/`: Specifically for agent personas.
 2. Scaffold the Agent Personas and Prompt:
-   - Write `Transcribe.md` to `.opencode/agent/`.
+   - Write `Architect.md` to `.opencode/agent/`.
    - Write `Developer.md` to `.opencode/agent/`.
    - Write `prompt.md` to `.clifford/`. This file acts as the bridge for OpenCode execution, instructing the Developer agent to process the next task.
 3. Ensure these files are sourced from a `templates/` directory within the Clifford package to maintain consistency.
@@ -19,7 +19,7 @@ The `init` command must correctly scaffold the core Clifford environment. This i
 - Run `clifford init` in a clean directory.
 - Verify the existence of:
   - `.clifford/config.json`
-  - `.opencode/agent/Transcribe.md`
+  - `.opencode/agent/Architect.md`
   - `.opencode/agent/Developer.md`
   - `sprints/sprint-01/manifest.json` (as the default first sprint).
 - Check that the `Transcribe.md` and `Developer.md` content matches the intended personas.
