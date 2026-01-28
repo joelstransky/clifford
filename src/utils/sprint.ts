@@ -11,7 +11,7 @@ export interface SprintManifest {
   tasks: Array<{
     id: string;
     file: string;
-    status: 'pending' | 'active' | 'completed';
+    status: 'pending' | 'active' | 'completed' | 'blocked' | 'pushed';
   }>;
 }
 

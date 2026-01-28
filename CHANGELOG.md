@@ -22,3 +22,10 @@
     { "id": "task-08", "file": "uat.md", "status": "pushed" },
 - 09-robust-discovery
 - 10-prompt-injection
+
+## [2026-01-27] sprint-02-comms-afk
+- 01-comms-bridge
+- 02-persona-updates
+- 03-afk-telegram
+- 04-stdin-proxy
+- 05-remote-decision-api
