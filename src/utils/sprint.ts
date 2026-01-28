@@ -30,45 +30,54 @@ export class SprintRunner {
 
     this.syncSprintStates(manifestPath);
 
-    this.bridge.start();
+    try {
+      await this.bridge.start();
 
-    console.log(`🚀 Starting sprint in ${this.sprintDir}`);
+      console.log(`🚀 Starting sprint in ${this.sprintDir}`);
 
-    while (this.hasPendingTasks(manifestPath)) {
-      if (this.bridge.checkPaused()) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        continue;
+      while (this.hasPendingTasks(manifestPath)) {
+        if (this.bridge.checkPaused()) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+
+        const manifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        const nextTask = manifest.tasks.find(t => t.status === 'pending');
+
+        if (!nextTask) break;
+
+        console.log(`🔍 Next task: ${nextTask.id} (${nextTask.file})`);
+        
+        const promptPath = path.resolve('.clifford/prompt.md');
+        const promptContent = fs.existsSync(promptPath) ? fs.readFileSync(promptPath, 'utf8') : '';
+        
+        if (promptContent) {
+          console.log('📝 Using prompt from .clifford/prompt.md');
+        }
+
+        // In future tasks, we will implement agent invocation here.
+        // For now, we simulate work to allow bridge testing.
+        console.log('⏳ Agent working... (Press Ctrl+C to stop or use bridge to block)');
+        
+        // We'll wait here, but we should check for pause frequently
+        for (let i = 0; i < 10; i++) {
+          if (this.bridge.checkPaused()) break;
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        if (this.bridge.checkPaused()) {
+          console.log('\n⏸️ Sprint loop paused due to blocker.');
+          continue;
+        }
+
+        // To prevent infinite loop in this stage of development:
+        console.log('Task processing simulation ended. Breaking loop.');
+        break; 
       }
-
-      const manifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-      const nextTask = manifest.tasks.find(t => t.status === 'pending');
-
-      if (!nextTask) break;
-
-      console.log(`🔍 Next task: ${nextTask.id} (${nextTask.file})`);
-      
-      // In future tasks, we will implement agent invocation here.
-      // For now, we simulate work to allow bridge testing.
-      console.log('⏳ Agent working... (Press Ctrl+C to stop or use bridge to block)');
-      
-      // We'll wait here, but we should check for pause frequently
-      for (let i = 0; i < 10; i++) {
-        if (this.bridge.checkPaused()) break;
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      if (this.bridge.checkPaused()) {
-        console.log('\n⏸️ Sprint loop paused due to blocker.');
-        continue;
-      }
-
-      // To prevent infinite loop in this stage of development:
-      console.log('Task processing simulation ended. Breaking loop.');
-      break; 
+    } finally {
+      console.log('🏁 Sprint loop finished.');
+      this.bridge.stop();
     }
-
-    console.log('🏁 Sprint loop finished.');
-    this.bridge.stop();
   }
 
   private hasPendingTasks(manifestPath: string): boolean {

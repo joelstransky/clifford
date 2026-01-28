@@ -37,9 +37,30 @@ export class CommsBridge {
     });
   }
 
-  start() {
-    this.server.listen(this.port, () => {
-      console.log(`🚀 Comms Bridge listening on port ${this.port}`);
+  start(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const tryListen = (portToTry: number) => {
+        const tempServer = http.createServer();
+        tempServer.on('error', (e: NodeJS.ErrnoException) => {
+          if (e.code === 'EADDRINUSE') {
+            tryListen(portToTry + 1);
+          } else {
+            reject(e);
+          }
+        });
+
+        tempServer.listen(portToTry, () => {
+          tempServer.close(() => {
+            this.port = portToTry;
+            this.server.listen(this.port, () => {
+              console.log(`🚀 Comms Bridge listening on port ${this.port}`);
+              resolve();
+            });
+          });
+        });
+      };
+
+      tryListen(this.port);
     });
   }
 

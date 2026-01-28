@@ -1,0 +1,12 @@
+{
+  "id": "uat-sprint",
+  "name": "UAT Verification Sprint",
+  "status": "active",
+  "tasks": [
+    {
+      "id": "task-01",
+      "file": "tasks/01-test.md",
+      "status": "pending"
+    }
+  ]
+}

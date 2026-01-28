@@ -6,6 +6,7 @@
     { "id": "task-01", "file": "tasks/01-comms-bridge.md", "status": "completed" },
     { "id": "task-02", "file": "tasks/02-persona-updates.md", "status": "pending" },
     { "id": "task-03", "file": "tasks/03-afk-telegram.md", "status": "pending" },
-    { "id": "task-04", "file": "tasks/04-timeout-logic.md", "status": "pending" }
+    { "id": "task-04", "file": "tasks/04-stdin-proxy.md", "status": "pending" },
+    { "id": "task-05", "file": "tasks/05-remote-decision-api.md", "status": "pending" }
   ]
 }

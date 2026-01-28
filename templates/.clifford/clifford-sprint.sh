@@ -43,7 +43,15 @@ while true; do
   # Attempt to invoke the agent. 
   # In this environment, we might use 'opencode', 'clifford', or just 'npm run dev'.
   if command -v opencode &> /dev/null; then
-    opencode run --agent developer "CURRENT_SPRINT_DIR: $SPRINT_DIR"
+    PROMPT_FILE=".clifford/prompt.md"
+    if [ -f "$PROMPT_FILE" ]; then
+      PROMPT_CONTENT=$(cat "$PROMPT_FILE")
+      opencode run --agent developer "CURRENT_SPRINT_DIR: $SPRINT_DIR
+
+$PROMPT_CONTENT"
+    else
+      opencode run --agent developer "CURRENT_SPRINT_DIR: $SPRINT_DIR"
+    fi
   elif [ -f "package.json" ]; then
     # If clifford is the tool being developed, we might call it directly
     # But usually the loop is what TRIGGERS the agent.
