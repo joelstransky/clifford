@@ -1,7 +1,7 @@
 {
   "id": "sprint-01-clifford-init",
   "name": "Clifford Core & Distribution",
-  "status": "active",
+  "status": "pushed",
   "tasks": [
     { "id": "task-01", "file": "tasks/01-cli-foundation.md", "status": "pushed" },
     { "id": "task-02", "file": "tasks/02-tool-discovery.md", "status": "pushed" },
@@ -12,6 +12,6 @@
     { "id": "task-07", "file": "tasks/07-sprint-isolation.md", "status": "pushed" },
     { "id": "task-08", "file": "uat.md", "status": "pushed" },
     { "id": "task-09", "file": "tasks/09-robust-discovery.md", "status": "pushed" },
-    { "id": "task-10", "file": "tasks/10-prompt-injection.md", "status": "active" }
+    { "id": "task-10", "file": "tasks/10-prompt-injection.md", "status": "pushed" }
   ]
 }
