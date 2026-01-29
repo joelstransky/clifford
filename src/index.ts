@@ -107,4 +107,41 @@ program
     }
   });
 
+program
+  .command('resolve <response>')
+  .description('Resolve a blocker by sending a response to the active agent')
+  .action(async (response) => {
+    try {
+      const http = await import('http');
+      const postData = JSON.stringify({ answer: response });
+      
+      const req = http.request({
+        hostname: 'localhost',
+        port: 4096,
+        path: '/resolve',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      }, (res) => {
+        if (res.statusCode === 200) {
+          console.log(`✅ Sent resolution: ${response}`);
+        } else {
+          console.error(`❌ Failed to resolve blocker. Status: ${res.statusCode}`);
+        }
+      });
+
+      req.on('error', (e) => {
+        console.error(`❌ Connection error: ${e.message}`);
+        console.log('Is the sprint loop running?');
+      });
+
+      req.write(postData);
+      req.end();
+    } catch (error) {
+      console.error(`Error: ${(error as Error).message}`);
+    }
+  });
+
 program.parse();

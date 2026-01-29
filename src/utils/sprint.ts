@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 import { CommsBridge } from './bridge';
 import { discoverTools } from './discovery';
 
@@ -84,23 +84,28 @@ export class SprintRunner {
         
         await new Promise<void>((resolve) => {
           const child = spawn(engine.command, args, {
-            stdio: ['inherit', 'pipe', 'pipe'],
+            stdio: ['pipe', 'pipe', 'pipe'],
             shell: true
           });
+
+          this.bridge.setActiveChild(child);
+          process.stdin.pipe(child.stdin);
 
           child.stdout?.on('data', (data) => {
             const output = data.toString();
             process.stdout.write(output);
-            this.checkForPrompts(output, nextTask.id, child);
+            this.checkForPrompts(output, nextTask.id);
           });
 
           child.stderr?.on('data', (data) => {
             const output = data.toString();
             process.stderr.write(output);
-            this.checkForPrompts(output, nextTask.id, child);
+            this.checkForPrompts(output, nextTask.id);
           });
 
           child.on('close', (code) => {
+            this.bridge.setActiveChild(null);
+            process.stdin.unpipe(child.stdin);
             if (code !== 0 && code !== null && !this.bridge.checkPaused()) {
               console.error(`\n❌ Agent exited with code ${code}`);
             }
@@ -137,7 +142,9 @@ export class SprintRunner {
     }
   }
 
-  private checkForPrompts(output: string, taskId: string, child: ChildProcess) {
+  private checkForPrompts(output: string, taskId: string) {
+    if (this.bridge.checkPaused()) return;
+
     const promptPatterns = [
       /Permission required:/i,
       /Confirm\? \(y\/n\)/i,
@@ -153,7 +160,6 @@ export class SprintRunner {
           question: output.trim()
         }).catch(err => console.error('Error triggering block:', err));
         
-        child.kill();
         break;
       }
     }

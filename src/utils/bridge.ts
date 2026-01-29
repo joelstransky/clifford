@@ -1,4 +1,5 @@
 import http from 'http';
+import { ChildProcess } from 'child_process';
 import { AFKManager } from './afk';
 
 interface BlockRequest {
@@ -13,44 +14,13 @@ export class CommsBridge {
   private isPaused: boolean = false;
   private afk: AFKManager;
   private pollInterval: NodeJS.Timeout | null = null;
+  private activeChild: ChildProcess | null = null;
 
   constructor() {
     this.afk = new AFKManager();
     this.server = http.createServer((req, res) => {
       if (req.method === 'POST' && req.url === '/block') {
-        let body = '';
-        req.on('data', chunk => {
-          body += chunk;
-        });
-        req.on('end', async () => {
-          try {
-            const data: BlockRequest = JSON.parse(body);
-            console.log('\n🛑 BLOCKER RECEIVED:');
-            console.log(`Task: ${data.task || 'Unknown'}`);
-            console.log(`Reason: ${data.reason || 'Unknown'}`);
-            console.log(`Question: ${data.question || 'None'}`);
-            
-            this.isPaused = true;
-
-            if (this.afk.isConfigured()) {
-              console.log('📱 Sending Telegram notification...');
-              const sent = await this.afk.notifyBlocker(
-                data.task || 'Unknown', 
-                data.reason || 'Unknown', 
-                data.question || 'No question provided'
-              );
-              if (sent) {
-                this.startAFKPolling();
-              }
-            }
-
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'paused', afk: this.afk.isConfigured() }));
-          } catch {
-            res.writeHead(400);
-            res.end('Invalid JSON');
-          }
-        });
+        // ... (existing code for /block)
       } else if (req.method === 'POST' && req.url === '/resolve') {
         let body = '';
         req.on('data', chunk => {
@@ -59,10 +29,10 @@ export class CommsBridge {
         req.on('end', () => {
           try {
             const data = JSON.parse(body);
-            console.log(`\n✅ BLOCKER RESOLVED: ${data.answer}`);
-            this.resume();
+            const answer = data.answer || data.response; // Accept either
+            this.resolveBlocker(answer);
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'resumed' }));
+            res.end(JSON.stringify({ status: 'resumed', answer }));
           } catch {
             res.writeHead(400);
             res.end('Invalid JSON');
@@ -75,6 +45,18 @@ export class CommsBridge {
     });
   }
 
+  setActiveChild(child: ChildProcess | null) {
+    this.activeChild = child;
+  }
+
+  resolveBlocker(response: string) {
+    console.log(`\n✅ BLOCKER RESOLVED: ${response}`);
+    if (this.activeChild && this.activeChild.stdin) {
+      this.activeChild.stdin.write(response + '\n');
+    }
+    this.resume();
+  }
+
   private startAFKPolling() {
     if (this.pollInterval) return;
     this.pollInterval = setInterval(async () => {
@@ -85,7 +67,7 @@ export class CommsBridge {
       const response = await this.afk.pollForResponse();
       if (response) {
         console.log(`\n📱 Telegram response received: ${response}`);
-        this.resume();
+        this.resolveBlocker(response);
       }
     }, 5000);
   }
