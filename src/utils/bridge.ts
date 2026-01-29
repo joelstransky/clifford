@@ -97,6 +97,27 @@ export class CommsBridge {
     }
   }
 
+  async triggerBlock(data: BlockRequest) {
+    console.log('\n🛑 BLOCKER TRIGGERED:');
+    console.log(`Task: ${data.task || 'Unknown'}`);
+    console.log(`Reason: ${data.reason || 'Unknown'}`);
+    console.log(`Question: ${data.question || 'None'}`);
+    
+    this.isPaused = true;
+
+    if (this.afk.isConfigured()) {
+      console.log('📱 Sending Telegram notification...');
+      const sent = await this.afk.notifyBlocker(
+        data.task || 'Unknown', 
+        data.reason || 'Unknown', 
+        data.question || 'No question provided'
+      );
+      if (sent) {
+        this.startAFKPolling();
+      }
+    }
+  }
+
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
       const tryListen = (portToTry: number) => {

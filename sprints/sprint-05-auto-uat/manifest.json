@@ -1,0 +1,10 @@
+{
+  "id": "sprint-05-auto-uat",
+  "name": "Automated Quality Documentation",
+  "status": "active",
+  "tasks": [
+    { "id": "task-01", "file": "tasks/01-uat-template.md", "status": "pending" },
+    { "id": "task-02", "file": "tasks/02-developer-uat-mandate.md", "status": "pending" },
+    { "id": "task-03", "file": "tasks/03-init-uat-support.md", "status": "pending" }
+  ]
+}

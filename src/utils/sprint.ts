@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { spawnSync } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import { CommsBridge } from './bridge';
 import { discoverTools } from './discovery';
 
@@ -82,15 +82,38 @@ export class SprintRunner {
         
         const args = engine.getInvokeArgs(promptContent, model);
         
-        const result = spawnSync(engine.command, args, {
-          stdio: 'inherit',
-          shell: true
-        });
+        await new Promise<void>((resolve) => {
+          const child = spawn(engine.command, args, {
+            stdio: ['inherit', 'pipe', 'pipe'],
+            shell: true
+          });
 
-        if (result.error) {
-          console.error(`❌ Error invoking agent: ${result.error.message}`);
-          break;
-        }
+          child.stdout?.on('data', (data) => {
+            const output = data.toString();
+            process.stdout.write(output);
+            this.checkForPrompts(output, nextTask.id, child);
+          });
+
+          child.stderr?.on('data', (data) => {
+            const output = data.toString();
+            process.stderr.write(output);
+            this.checkForPrompts(output, nextTask.id, child);
+          });
+
+          child.on('close', (code) => {
+            if (code !== 0 && code !== null && !this.bridge.checkPaused()) {
+              console.error(`\n❌ Agent exited with code ${code}`);
+            }
+            resolve();
+          });
+
+          child.on('error', (err) => {
+            if (!this.bridge.checkPaused()) {
+              console.error(`\n❌ Error invoking agent: ${err.message}`);
+            }
+            resolve();
+          });
+        });
 
         if (this.bridge.checkPaused()) {
           console.log('\n⏸️ Sprint loop paused due to blocker.');
@@ -111,6 +134,28 @@ export class SprintRunner {
     } finally {
       console.log('🏁 Sprint loop finished.');
       this.bridge.stop();
+    }
+  }
+
+  private checkForPrompts(output: string, taskId: string, child: ChildProcess) {
+    const promptPatterns = [
+      /Permission required:/i,
+      /Confirm\? \(y\/n\)/i,
+      /\[y\/N\]/i,
+      /Input:/i
+    ];
+
+    for (const pattern of promptPatterns) {
+      if (pattern.test(output)) {
+        this.bridge.triggerBlock({
+          task: taskId,
+          reason: 'Interactive prompt detected',
+          question: output.trim()
+        }).catch(err => console.error('Error triggering block:', err));
+        
+        child.kill();
+        break;
+      }
     }
   }
 
