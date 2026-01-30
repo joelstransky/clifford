@@ -69,27 +69,44 @@ export class SprintRunner {
         console.log(`🔍 Next task: ${nextTask.id} (${nextTask.file})`);
         
         const promptPath = path.join(projectRoot, '.clifford/prompt.md');
-        let promptContent = fs.existsSync(promptPath) ? fs.readFileSync(promptPath, 'utf8') : '';
+        let promptContent = '';
         
-        if (promptContent) {
-          console.log('📝 Using prompt from .clifford/prompt.md');
+        try {
+          if (fs.existsSync(promptPath)) {
+            promptContent = fs.readFileSync(promptPath, 'utf8');
+            console.log(`📝 Loaded instructions from ${promptPath}`);
+          } else {
+            console.warn(`⚠️ Warning: ${promptPath} not found. Running with basic context.`);
+          }
+        } catch (err) {
+          console.error(`❌ Error reading prompt file: ${(err as Error).message}`);
         }
 
-        // Inject current sprint directory into prompt
-        promptContent = `CURRENT_SPRINT_DIR: ${this.sprintDir}\n\n${promptContent}`;
+        // Ensure we always have the context at the top
+        const finalPrompt = `CURRENT_SPRINT_DIR: ${this.sprintDir}
+CLIFFORD_BRIDGE_PORT: ${this.bridge.getPort()}
+
+${promptContent}`;
 
         console.log('🤖 Invoking Agent...');
+        console.log('👀 Monitoring output for interactive prompts...');
         
-        const args = engine.getInvokeArgs(promptContent, model);
+        const args = engine.getInvokeArgs(finalPrompt, model);
         
         await new Promise<void>((resolve) => {
-          const child = spawn(engine.command, args, {
-            stdio: ['pipe', 'pipe', 'pipe'],
+          const isWin = process.platform === 'win32';
+          const fullCommand = isWin 
+            ? `${engine.command} ${args.map(arg => `"${arg.replace(/"/g, '""')}"`).join(' ')}`
+            : `${engine.command} ${args.map(arg => `'${arg.replace(/'/g, "'\\''")}'`).join(' ')}`;
+          
+          console.log(`🛠️ Executing via shell: ${fullCommand}`);
+
+          const child = spawn(fullCommand, {
+            stdio: ['inherit', 'pipe', 'pipe'], // stdin from YOU, others to CLIFFORD
             shell: true
           });
 
           this.bridge.setActiveChild(child);
-          process.stdin.pipe(child.stdin);
 
           child.stdout?.on('data', (data) => {
             const output = data.toString();
@@ -105,17 +122,14 @@ export class SprintRunner {
 
           child.on('close', (code) => {
             this.bridge.setActiveChild(null);
-            process.stdin.unpipe(child.stdin);
-            if (code !== 0 && code !== null && !this.bridge.checkPaused()) {
+            if (code !== 0 && code !== null) {
               console.error(`\n❌ Agent exited with code ${code}`);
             }
             resolve();
           });
 
           child.on('error', (err) => {
-            if (!this.bridge.checkPaused()) {
-              console.error(`\n❌ Error invoking agent: ${err.message}`);
-            }
+            console.error(`\n❌ Error invoking agent: ${err.message}`);
             resolve();
           });
         });
@@ -149,7 +163,10 @@ export class SprintRunner {
       /Permission required:/i,
       /Confirm\? \(y\/n\)/i,
       /\[y\/N\]/i,
-      /Input:/i
+      /Input:/i,
+      /Identify yourself:/i,
+      /Enter .*: /i,
+      /\? $/
     ];
 
     for (const pattern of promptPatterns) {

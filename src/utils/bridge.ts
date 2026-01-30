@@ -10,7 +10,7 @@ interface BlockRequest {
 
 export class CommsBridge {
   private server: http.Server;
-  private port: number = 4096;
+  private port: number = 8686; // Moved away from OpenCode's range
   private isPaused: boolean = false;
   private afk: AFKManager;
   private pollInterval: NodeJS.Timeout | null = null;
@@ -19,23 +19,28 @@ export class CommsBridge {
   constructor() {
     this.afk = new AFKManager();
     this.server = http.createServer((req, res) => {
-      if (req.method === 'POST' && req.url === '/block') {
-        // ... (existing code for /block)
-      } else if (req.method === 'POST' && req.url === '/resolve') {
+      if (req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => {
-          body += chunk;
-        });
+        req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
           try {
             const data = JSON.parse(body);
-            const answer = data.answer || data.response; // Accept either
-            this.resolveBlocker(answer);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'resumed', answer }));
+            if (req.url === '/block') {
+              this.triggerBlock(data);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ status: 'paused' }));
+            } else if (req.url === '/resolve' || req.url === '/respond') {
+              const answer = data.answer || data.response;
+              this.resolveBlocker(answer);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ status: 'resumed', answer }));
+            } else {
+              res.writeHead(404);
+              res.end();
+            }
           } catch {
-            res.writeHead(400);
-            res.end('Invalid JSON');
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid JSON' }));
           }
         });
       } else {
@@ -80,10 +85,16 @@ export class CommsBridge {
   }
 
   async triggerBlock(data: BlockRequest) {
-    console.log('\n🛑 BLOCKER TRIGGERED:');
+    console.log('\n' + '!'.repeat(50));
+    console.log('🛑 BLOCKER TRIGGERED - ACTION REQUIRED');
+    console.log('!'.repeat(50));
     console.log(`Task: ${data.task || 'Unknown'}`);
     console.log(`Reason: ${data.reason || 'Unknown'}`);
     console.log(`Question: ${data.question || 'None'}`);
+    console.log('-'.repeat(50));
+    console.log(`👉 Send your response to: POST http://localhost:${this.port}/resolve`);
+    console.log(`   JSON Body: { "response": "your answer" }`);
+    console.log('-'.repeat(50) + '\n');
     
     this.isPaused = true;
 
@@ -139,5 +150,9 @@ export class CommsBridge {
   resume() {
     this.isPaused = false;
     this.stopAFKPolling();
+  }
+
+  getPort(): number {
+    return this.port;
   }
 }

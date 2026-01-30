@@ -43,7 +43,7 @@ const ENGINE_CONFIGS: EngineConfig[] = [
     name: 'OpenCode',
     command: 'opencode',
     getInvokeArgs: (prompt: string, model?: string) => {
-      const args = ['run', '--agent', 'developer'];
+      const args = ['run', '--agent', 'Developer'];
       if (model) {
         args.push('--model', model);
       }

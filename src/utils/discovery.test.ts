@@ -48,10 +48,10 @@ describe('discovery', () => {
 
     // Test getInvokeArgs
     const opencodeArgs = opencode?.getInvokeArgs('test prompt', 'test-model');
-    expect(opencodeArgs).toEqual(['run', '--agent', 'developer', '--model', 'test-model', 'test prompt']);
+    expect(opencodeArgs).toEqual(['run', '--agent', 'Developer', '--model', 'test-model', 'test prompt']);
 
     const opencodeArgsNoModel = opencode?.getInvokeArgs('test prompt');
-    expect(opencodeArgsNoModel).toEqual(['run', '--agent', 'developer', 'test prompt']);
+    expect(opencodeArgsNoModel).toEqual(['run', '--agent', 'Developer', 'test prompt']);
   });
 
   it('should handle version check failures gracefully', () => {

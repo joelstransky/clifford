@@ -1,0 +1,13 @@
+{
+  "tasks": [
+    {
+      "id": "task-06",
+      "steps": [
+        "Check that .clifford/asm.json exists.",
+        "Verify that it has a 'tasks' object.",
+        "Run the ASM storage test: 'npm test src/utils/asm-storage.test.ts'",
+        "Alternatively, manually inspect .clifford/asm.json after a save operation to ensure 'question', 'answer', and 'timestamp' are present."
+      ]
+    }
+  ]
+}

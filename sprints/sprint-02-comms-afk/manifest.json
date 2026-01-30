@@ -7,6 +7,9 @@
     { "id": "task-02", "file": "tasks/02-persona-updates.md", "status": "completed" },
     { "id": "task-03", "file": "tasks/03-afk-telegram.md", "status": "completed" },
     { "id": "task-04", "file": "tasks/04-stdin-proxy.md", "status": "completed" },
-    { "id": "task-05", "file": "tasks/05-remote-decision-api.md", "status": "active" }
+    { "id": "task-05", "file": "tasks/05-remote-decision-api.md", "status": "completed" },
+    { "id": "task-06", "file": "tasks/06-asm-storage.md", "status": "active" },
+    { "id": "task-07", "file": "tasks/07-memory-injection.md", "status": "pending" },
+    { "id": "task-08", "file": "tasks/08-memory-lifecycle.md", "status": "pending" }
   ]
 }
