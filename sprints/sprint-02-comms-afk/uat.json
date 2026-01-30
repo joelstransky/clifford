@@ -8,6 +8,15 @@
         "Run the ASM storage test: 'npm test src/utils/asm-storage.test.ts'",
         "Alternatively, manually inspect .clifford/asm.json after a save operation to ensure 'question', 'answer', and 'timestamp' are present."
       ]
+    },
+    {
+      "id": "task-07",
+      "steps": [
+        "Create a dummy '.clifford/asm.json' with a memory for a pending task (e.g., 'task-08').",
+        "Run the sprint runner: 'npm run dev -- sprints/sprint-02-comms-afk'.",
+        "Observe the console output for the log message: '🧠 Injected human guidance for task task-08'.",
+        "Verify that the agent's prompt (visible in console as 'Executing via shell') contains the [HUMAN_GUIDANCE] block."
+      ]
     }
   ]
 }

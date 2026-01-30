@@ -3,6 +3,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { CommsBridge } from './bridge';
 import { discoverTools } from './discovery';
+import { getMemory } from './asm-storage';
 
 export interface SprintManifest {
   id: string;
@@ -82,11 +83,24 @@ export class SprintRunner {
           console.error(`❌ Error reading prompt file: ${(err as Error).message}`);
         }
 
+        // Inject human guidance from ASM if available
+        let humanGuidance = '';
+        const memory = getMemory(nextTask.id);
+        if (memory) {
+          humanGuidance = `[HUMAN_GUIDANCE]
+On a previous attempt, you hit a blocker: "${memory.question}"
+The human has provided the following guidance: "${memory.answer}"
+Proceed with this information.
+
+`;
+          console.log(`🧠 Injected human guidance for task ${nextTask.id}`);
+        }
+
         // Ensure we always have the context at the top
         const finalPrompt = `CURRENT_SPRINT_DIR: ${this.sprintDir}
 CLIFFORD_BRIDGE_PORT: ${this.bridge.getPort()}
 
-${promptContent}`;
+${humanGuidance}${promptContent}`;
 
         console.log('🤖 Invoking Agent...');
         console.log('👀 Monitoring output for interactive prompts...');
