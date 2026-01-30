@@ -57,3 +57,18 @@ export function getMemory(taskId: string): ASMMemory | null {
   
   return data.tasks[taskId] || null;
 }
+
+/**
+ * Clears memory for a specific task.
+ * @param taskId The ID of the task.
+ */
+export function clearMemory(taskId: string) {
+  ensureAsmFile();
+  const content = fs.readFileSync(ASM_FILE_PATH, 'utf8');
+  const data: ASMStorage = JSON.parse(content);
+  
+  if (data.tasks[taskId]) {
+    delete data.tasks[taskId];
+    fs.writeFileSync(ASM_FILE_PATH, JSON.stringify(data, null, 2), 'utf8');
+  }
+}

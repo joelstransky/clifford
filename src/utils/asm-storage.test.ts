@@ -1,4 +1,4 @@
-import { saveMemory, getMemory } from './asm-storage';
+import { saveMemory, getMemory, clearMemory } from './asm-storage';
 import fs from 'fs';
 import path from 'path';
 
@@ -44,5 +44,14 @@ describe('ASM Storage', () => {
     const memory = getMemory(taskId);
     expect(memory?.question).toBe('Q2');
     expect(memory?.answer).toBe('A2');
+  });
+
+  it('should clear memory for a task', () => {
+    const taskId = 'test-task';
+    saveMemory(taskId, 'Q1', 'A1');
+    expect(getMemory(taskId)).not.toBeNull();
+
+    clearMemory(taskId);
+    expect(getMemory(taskId)).toBeNull();
   });
 });

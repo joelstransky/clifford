@@ -17,6 +17,15 @@
         "Observe the console output for the log message: '🧠 Injected human guidance for task task-08'.",
         "Verify that the agent's prompt (visible in console as 'Executing via shell') contains the [HUMAN_GUIDANCE] block."
       ]
+    },
+    {
+      "id": "task-08",
+      "steps": [
+        "Manually add a dummy memory for a task in '.clifford/asm.json'.",
+        "Run the sprint runner and complete that task.",
+        "Check '.clifford/asm.json' and verify the memory for that task has been removed.",
+        "Run 'npm test src/utils/asm-storage.test.ts' to verify the clearMemory logic programmatically."
+      ]
     }
   ]
 }

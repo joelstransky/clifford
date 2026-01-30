@@ -3,7 +3,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { CommsBridge } from './bridge';
 import { discoverTools } from './discovery';
-import { getMemory } from './asm-storage';
+import { getMemory, clearMemory } from './asm-storage';
 
 export interface SprintManifest {
   id: string;
@@ -155,11 +155,16 @@ ${humanGuidance}${promptContent}`;
 
         // Check if progress was made (manifest updated)
         const updatedManifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        const stillPending = updatedManifest.tasks.find(t => t.id === nextTask.id && t.status === 'pending');
+        const taskInUpdated = updatedManifest.tasks.find(t => t.id === nextTask.id);
         
-        if (stillPending) {
+        if (taskInUpdated?.status === 'pending') {
           console.log('⚠️ No progress detected on the current task. Breaking loop to prevent infinite recursion.');
           break;
+        }
+
+        if (taskInUpdated?.status === 'completed' || taskInUpdated?.status === 'pushed') {
+          console.log(`🧹 Clearing memory for completed task: ${nextTask.id}`);
+          clearMemory(nextTask.id);
         }
 
         console.log('✅ Task completed. Moving to next...');
