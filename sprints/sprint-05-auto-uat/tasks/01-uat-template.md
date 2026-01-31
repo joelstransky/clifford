@@ -18,5 +18,5 @@ Each sprint needs a `uat.md` file that acts as a living document for task verifi
    - A checkbox for Human Sign-off.
 
 ## Verification
-- Verify the template is clear and follows the "Magazine Aesthetic".
+- Verify the template is clear.
 - Ensure it is placed in a location where the scaffolder can find it (e.g., `templates/`).

@@ -12,7 +12,7 @@ Agents need strict roles to maintain the Clifford workflow. We need to define th
    - Role: Implementation Engineer.
    - Permissions: READ all, WRITE app code.
    - Goal: Execute tasks defined by the Architect, run verification, and commit.
-3. Ensure both personas explicitly mention the directory structure (`.clifford/`, `sprints/`, etc.) and the "Magazine Aesthetic".
+3. Ensure both personas explicitly mention the directory structure (`.clifford/`, `sprints/`, etc.).
 
 ## Verification
 - Verify the filenames are `Architect.md` and `Developer.md`.

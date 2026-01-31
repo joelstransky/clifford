@@ -4,7 +4,7 @@
 
 ### 1. Dashboard Launch
 - Run `npx clifford tui`.
-- **Expected**: A clean, "Magazine Aesthetic" TUI opens.
+- **Expected**: A clean TUI opens.
 - Verify that all existing sprints (1-5) are listed with their correct status colors.
 
 ### 2. Navigation & Selection

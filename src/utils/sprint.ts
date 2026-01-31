@@ -35,7 +35,14 @@ export class SprintRunner {
       throw new Error(`Manifest not found at ${manifestPath}`);
     }
 
-    const projectRoot = path.dirname(path.dirname(manifestPath));
+    // Find project root by looking for .clifford directory
+    let projectRoot = path.dirname(manifestPath);
+    while (projectRoot !== path.dirname(projectRoot)) {
+      if (fs.existsSync(path.join(projectRoot, '.clifford'))) {
+        break;
+      }
+      projectRoot = path.dirname(projectRoot);
+    }
 
     this.syncSprintStates(manifestPath);
 
@@ -148,23 +155,23 @@ ${humanGuidance}${promptContent}`;
           });
         });
 
+        // Check if progress was made (manifest updated)
+        const updatedManifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        const taskInUpdated = updatedManifest.tasks.find(t => t.id === nextTask.id);
+        
+        if (taskInUpdated?.status === 'completed' || taskInUpdated?.status === 'pushed') {
+          console.log(`🧹 Clearing memory for completed task: ${nextTask.id}`);
+          clearMemory(nextTask.id);
+        }
+
         if (this.bridge.checkPaused()) {
           console.log('\n⏸️ Sprint loop paused due to blocker.');
           continue;
         }
 
-        // Check if progress was made (manifest updated)
-        const updatedManifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        const taskInUpdated = updatedManifest.tasks.find(t => t.id === nextTask.id);
-        
         if (taskInUpdated?.status === 'pending') {
           console.log('⚠️ No progress detected on the current task. Breaking loop to prevent infinite recursion.');
           break;
-        }
-
-        if (taskInUpdated?.status === 'completed' || taskInUpdated?.status === 'pushed') {
-          console.log(`🧹 Clearing memory for completed task: ${nextTask.id}`);
-          clearMemory(nextTask.id);
         }
 
         console.log('✅ Task completed. Moving to next...');
@@ -181,10 +188,11 @@ ${humanGuidance}${promptContent}`;
     const promptPatterns = [
       /Permission required:/i,
       /Confirm\? \(y\/n\)/i,
-      /\[y\/N\]/i,
-      /Input:/i,
-      /Identify yourself:/i,
-      /Enter .*: /i,
+      /\(y\/n\):? ?$/i,
+      /\[y\/N\]:? ?$/i,
+      /Input: ?$/i,
+      /Identify yourself: ?$/i,
+      /Enter .*: ?$/i,
       /\? $/
     ];
 

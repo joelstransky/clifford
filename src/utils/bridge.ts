@@ -1,6 +1,7 @@
 import http from 'http';
 import { ChildProcess } from 'child_process';
 import { AFKManager } from './afk';
+import { saveMemory } from './asm-storage';
 
 interface BlockRequest {
   task?: string;
@@ -15,6 +16,8 @@ export class CommsBridge {
   private afk: AFKManager;
   private pollInterval: NodeJS.Timeout | null = null;
   private activeChild: ChildProcess | null = null;
+  private currentTaskId: string | null = null;
+  private currentQuestion: string | null = null;
 
   constructor() {
     this.afk = new AFKManager();
@@ -56,6 +59,11 @@ export class CommsBridge {
 
   resolveBlocker(response: string) {
     console.log(`\n✅ BLOCKER RESOLVED: ${response}`);
+    
+    if (this.currentTaskId && this.currentQuestion) {
+      saveMemory(this.currentTaskId, this.currentQuestion, response);
+    }
+
     if (this.activeChild && this.activeChild.stdin) {
       this.activeChild.stdin.write(response + '\n');
     }
@@ -96,6 +104,8 @@ export class CommsBridge {
     console.log(`   JSON Body: { "response": "your answer" }`);
     console.log('-'.repeat(50) + '\n');
     
+    this.currentTaskId = data.task || null;
+    this.currentQuestion = data.question || null;
     this.isPaused = true;
 
     if (this.afk.isConfigured()) {
