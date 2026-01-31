@@ -9,6 +9,7 @@ export interface SprintManifest {
   id: string;
   name: string;
   status: 'planning' | 'active' | 'completed';
+  path?: string;
   tasks: Array<{
     id: string;
     file: string;
@@ -19,6 +20,47 @@ export interface SprintManifest {
 export class SprintRunner {
   private bridge: CommsBridge;
   private sprintDir: string;
+
+  static discoverSprints(): SprintManifest[] {
+    const projectRoot = this.findProjectRoot(process.cwd());
+    const sprintsDir = path.join(projectRoot, 'sprints');
+
+    if (!fs.existsSync(sprintsDir)) {
+      return [];
+    }
+
+    const entries = fs.readdirSync(sprintsDir, { withFileTypes: true });
+    const manifests: SprintManifest[] = [];
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const manifestPath = path.join(sprintsDir, entry.name, 'manifest.json');
+        if (fs.existsSync(manifestPath)) {
+          try {
+            const content = fs.readFileSync(manifestPath, 'utf8');
+            const manifest = JSON.parse(content) as SprintManifest;
+            manifest.path = path.join('sprints', entry.name);
+            manifests.push(manifest);
+          } catch (e) {
+            console.error(`Failed to parse manifest at ${manifestPath}:`, e);
+          }
+        }
+      }
+    }
+
+    return manifests;
+  }
+
+  private static findProjectRoot(startDir: string): string {
+    let current = path.resolve(startDir);
+    while (current !== path.dirname(current)) {
+      if (fs.existsSync(path.join(current, '.clifford'))) {
+        return current;
+      }
+      current = path.dirname(current);
+    }
+    return startDir;
+  }
 
   constructor(sprintDir: string) {
     this.sprintDir = sprintDir;
@@ -35,14 +77,7 @@ export class SprintRunner {
       throw new Error(`Manifest not found at ${manifestPath}`);
     }
 
-    // Find project root by looking for .clifford directory
-    let projectRoot = path.dirname(manifestPath);
-    while (projectRoot !== path.dirname(projectRoot)) {
-      if (fs.existsSync(path.join(projectRoot, '.clifford'))) {
-        break;
-      }
-      projectRoot = path.dirname(projectRoot);
-    }
+    const projectRoot = SprintRunner.findProjectRoot(path.dirname(manifestPath));
 
     this.syncSprintStates(manifestPath);
 

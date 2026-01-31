@@ -18,5 +18,14 @@
       "Verify that 'bridge.resolveBlocker' now kills the active child process to trigger a restart.",
       "To test: Run a sprint that hits a blocker, observe the red 🛑 BLOCKER section appear in the TUI, type guidance, and press Enter. The agent should restart with the provided guidance."
     ]
+  },
+  {
+    "task": "task-03",
+    "description": "Sprint Discovery Utility",
+    "steps": [
+      "Verify that 'src/utils/sprint.ts' has a static method 'discoverSprints()'.",
+      "Run 'npx ts-node test-discovery.ts' and ensure it lists all sprints in the 'sprints/' directory with their respective paths.",
+      "Check that the 'SprintManifest' interface now includes an optional 'path' property."
+    ]
   }
 ]
