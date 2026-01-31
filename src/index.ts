@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import inquirer from 'inquirer';
+import { render } from 'ink';
+import React from 'react';
 import { discoverTools } from './utils/discovery';
 import { SprintRunner } from './utils/sprint';
 import { scaffold } from './utils/scaffolder';
+import Dashboard from './tui/Dashboard';
 
 const program = new Command();
 
@@ -142,6 +145,19 @@ program
     } catch (error) {
       console.error(`Error: ${(error as Error).message}`);
     }
+  });
+
+program
+  .command('tui [sprint-dir]')
+  .description('Launch the Clifford TUI Dashboard')
+  .action((sprintDir) => {
+    let dir = sprintDir || '.';
+    if (dir === '.') {
+      const sprints = SprintRunner.discoverSprints();
+      const active = sprints.find((s) => s.status === 'active');
+      dir = active?.path || 'sprints/sprint-01';
+    }
+    render(React.createElement(Dashboard, { sprintDir: dir }));
   });
 
 program.parse();

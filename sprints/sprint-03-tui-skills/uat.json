@@ -37,5 +37,15 @@
       "Run 'npm test src/utils/skills.test.ts' and ensure all tests pass.",
       "To verify logic manually: Create a dummy task file in a sprint with a '## Required Skills' section containing '- git', then call 'analyzeSprintRequirements' on that sprint path to see it extracted correctly."
     ]
+  },
+  {
+    "task": "task-05",
+    "description": "CLI Command Integration",
+    "steps": [
+      "Verify that 'src/index.ts' now includes a 'tui' command registered with commander.",
+      "Run 'npm run build' to ensure the project compiles correctly.",
+      "Execute 'node dist/index.js tui' and verify the dashboard opens and displays the active sprint manifest.",
+      "Verify that passing an optional sprint path works: 'node dist/index.js tui sprints/sprint-03-tui-skills'."
+    ]
   }
 ]
