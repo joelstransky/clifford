@@ -27,5 +27,15 @@
       "Run 'npx ts-node test-discovery.ts' and ensure it lists all sprints in the 'sprints/' directory with their respective paths.",
       "Check that the 'SprintManifest' interface now includes an optional 'path' property."
     ]
+  },
+  {
+    "task": "task-04",
+    "description": "Skill Analysis Engine",
+    "steps": [
+      "Verify that 'src/utils/skills.ts' exists and implements 'analyzeSprintRequirements', 'fetchSkillDefinition', and 'checkMissingSkills'.",
+      "Verify that 'src/utils/discovery.ts' now exports 'isCommandAvailable'.",
+      "Run 'npm test src/utils/skills.test.ts' and ensure all tests pass.",
+      "To verify logic manually: Create a dummy task file in a sprint with a '## Required Skills' section containing '- git', then call 'analyzeSprintRequirements' on that sprint path to see it extracted correctly."
+    ]
   }
 ]

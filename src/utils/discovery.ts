@@ -55,6 +55,19 @@ const ENGINE_CONFIGS: EngineConfig[] = [
 ];
 
 /**
+ * Checks if a command is available in the system PATH.
+ */
+export function isCommandAvailable(command: string): boolean {
+  try {
+    const checkCmd = process.platform === 'win32' ? `where ${command}` : `command -v ${command}`;
+    execSync(checkCmd, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Discovers available AI CLI engines on the system.
  */
 export function discoverTools(): AIEngine[] {
@@ -75,16 +88,7 @@ export function discoverTools(): AIEngine[] {
 
     // 2. Fallback: Check if command exists in PATH
     if (!isInstalled) {
-      try {
-        // command -v works on Unix, where -v is the standard way to check for command existence
-        // On Windows, we might need 'where' but for now we follow the task's lead.
-        // The task says "Keep the fallback logic to check if the command itself is executable"
-        const checkCmd = process.platform === 'win32' ? `where ${config.command}` : `command -v ${config.command}`;
-        execSync(checkCmd, { stdio: 'ignore' });
-        isInstalled = true;
-      } catch {
-        // Command does not exist
-      }
+      isInstalled = isCommandAvailable(config.command);
     }
 
     if (isInstalled) {
