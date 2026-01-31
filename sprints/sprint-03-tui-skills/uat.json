@@ -8,5 +8,15 @@
       "Verify that 'tsconfig.json' has 'jsx': 'react' set.",
       "To see the layout in action, you can temporarily use: npx ts-node -e \"import React from 'react'; import { render } from 'ink'; import Dashboard from './src/tui/Dashboard'; render(<Dashboard sprintDir='sprints/sprint-03-tui-skills' />);\" (requires experimental-specifier-resolution if using ESM, but we are using CJS dist/TS source)"
     ]
+  },
+  {
+    "task": "task-02",
+    "description": "Integrated Blocker Handling",
+    "steps": [
+      "Verify that 'src/utils/bridge.ts' now extends EventEmitter and emits 'block' and 'resolve' events.",
+      "Verify that 'src/tui/Dashboard.tsx' uses 'useInput' to capture guidance when a blocker is active.",
+      "Verify that 'bridge.resolveBlocker' now kills the active child process to trigger a restart.",
+      "To test: Run a sprint that hits a blocker, observe the red 🛑 BLOCKER section appear in the TUI, type guidance, and press Enter. The agent should restart with the provided guidance."
+    ]
   }
 ]

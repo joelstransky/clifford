@@ -4,7 +4,7 @@
   "status": "active",
   "tasks": [
     { "id": "task-01", "file": "tasks/01-core-tui.md", "status": "completed" },
-    { "id": "task-02", "file": "tasks/02-integrated-blocker.md", "status": "pending" },
+    { "id": "task-02", "file": "tasks/02-integrated-blocker.md", "status": "completed" },
     { "id": "task-03", "file": "tasks/03-discovery.md", "status": "pending" },
     { "id": "task-04", "file": "tasks/04-skill-analysis.md", "status": "pending" },
     { "id": "task-05", "file": "tasks/05-cli-integration.md", "status": "pending" }

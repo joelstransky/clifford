@@ -1,15 +1,16 @@
 import http from 'http';
+import { EventEmitter } from 'events';
 import { ChildProcess } from 'child_process';
 import { AFKManager } from './afk';
 import { saveMemory } from './asm-storage';
 
-interface BlockRequest {
+export interface BlockRequest {
   task?: string;
   reason?: string;
   question?: string;
 }
 
-export class CommsBridge {
+export class CommsBridge extends EventEmitter {
   private server: http.Server;
   private port: number = 8686; // Moved away from OpenCode's range
   private isPaused: boolean = false;
@@ -20,6 +21,7 @@ export class CommsBridge {
   private currentQuestion: string | null = null;
 
   constructor() {
+    super();
     this.afk = new AFKManager();
     this.server = http.createServer((req, res) => {
       if (req.method === 'POST') {
@@ -64,9 +66,11 @@ export class CommsBridge {
       saveMemory(this.currentTaskId, this.currentQuestion, response);
     }
 
-    if (this.activeChild && this.activeChild.stdin) {
-      this.activeChild.stdin.write(response + '\n');
+    if (this.activeChild) {
+      this.activeChild.kill();
     }
+    
+    this.emit('resolve', response);
     this.resume();
   }
 
@@ -107,6 +111,8 @@ export class CommsBridge {
     this.currentTaskId = data.task || null;
     this.currentQuestion = data.question || null;
     this.isPaused = true;
+
+    this.emit('block', data);
 
     if (this.afk.isConfigured()) {
       console.log('📱 Sending Telegram notification...');
