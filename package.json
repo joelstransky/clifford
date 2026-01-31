@@ -36,9 +36,13 @@
   },
   "homepage": "https://github.com/joelstransky/clifford#readme",
   "dependencies": {
+    "axios": "^1.7.9",
     "commander": "^14.0.2",
     "fs-extra": "^11.3.3",
-    "inquirer": "^8.2.7"
+    "ink": "^3.2.0",
+    "ink-select-input": "^4.2.1",
+    "inquirer": "^8.2.7",
+    "react": "^17.0.2"
   },
   "devDependencies": {
     "@types/commander": "^2.12.0",
@@ -46,6 +50,7 @@
     "@types/inquirer": "^9.0.9",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.10",
+    "@types/react": "^17.0.0",
     "@typescript-eslint/eslint-plugin": "^8.53.1",
     "@typescript-eslint/parser": "^8.53.1",
     "eslint": "^9.39.2",

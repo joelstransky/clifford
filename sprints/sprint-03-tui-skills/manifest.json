@@ -1,9 +1,9 @@
 {
   "id": "sprint-03-tui-skills",
   "name": "TUI Dashboard & Skill Registry",
-  "status": "pending",
+  "status": "active",
   "tasks": [
-    { "id": "task-01", "file": "tasks/01-core-tui.md", "status": "pending" },
+    { "id": "task-01", "file": "tasks/01-core-tui.md", "status": "completed" },
     { "id": "task-02", "file": "tasks/02-integrated-blocker.md", "status": "pending" },
     { "id": "task-03", "file": "tasks/03-discovery.md", "status": "pending" },
     { "id": "task-04", "file": "tasks/04-skill-analysis.md", "status": "pending" },

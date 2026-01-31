@@ -1,0 +1,12 @@
+[
+  {
+    "task": "task-01",
+    "description": "Core TUI Layout",
+    "steps": [
+      "Verify that 'src/tui/Dashboard.tsx' exists and contains the split-screen layout logic.",
+      "Verify that dependencies 'ink', 'react', 'ink-select-input', and 'axios' were added to package.json.",
+      "Verify that 'tsconfig.json' has 'jsx': 'react' set.",
+      "To see the layout in action, you can temporarily use: npx ts-node -e \"import React from 'react'; import { render } from 'ink'; import Dashboard from './src/tui/Dashboard'; render(<Dashboard sprintDir='sprints/sprint-03-tui-skills' />);\" (requires experimental-specifier-resolution if using ESM, but we are using CJS dist/TS source)"
+    ]
+  }
+]

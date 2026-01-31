@@ -1,5 +1,25 @@
 # Clifford
 
+```text
+              _.._
+            .'    '.
+           /   _    \
+        _.'   (o)    \
+   __.-'              \
+  /             _      \
+ /  _         .' '.     \
+ | ( \      .'     '._  /
+ \  \_|    /   _      `"|
+  \       /   ( )        \
+   '._   /              /
+      '. \  _      _   /
+        \ \/ \    / \ /
+         |    |  |   |
+         |____|  |___|
+        /  o   o   o  \
+       |_______________|
+```
+
 Clifford is a Recursive Implementation Agent designed to manage and execute agile sprints. It uses a structured directory approach to track tasks and ensure project standards are met.
 
 ## Installation
