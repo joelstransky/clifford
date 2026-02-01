@@ -1,10 +1,9 @@
-#!/usr/bin/env -S node --no-warnings --loader C:/Users/stran/Documents/Work/clifford-proj/clifford/dist/scm-loader.mjs
+#!/usr/bin/env bun
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import { discoverTools } from './utils/discovery.js';
 import { SprintRunner } from './utils/sprint.js';
 import { scaffold } from './utils/scaffolder.js';
-import { launchDashboard } from './tui/Dashboard.js';
 
 const program = new Command();
 
@@ -155,6 +154,7 @@ program
       const active = sprints.find((s) => s.status === 'active');
       dir = active?.path || 'sprints/sprint-01';
     }
+    const { launchDashboard } = await import('./tui/Dashboard.js');
     await launchDashboard(dir);
   });
 

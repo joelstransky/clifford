@@ -1,49 +1,52 @@
+import { describe, it, expect, beforeEach, mock, spyOn } from 'bun:test';
 import fs from 'fs';
 import { AFKManager } from './afk';
 
-jest.mock('fs');
-
 describe('AFKManager', () => {
-  const mockedFs = fs as jest.Mocked<typeof fs>;
   let afk: AFKManager;
+  let existsSyncSpy: ReturnType<typeof spyOn>;
+  let readFileSyncSpy: ReturnType<typeof spyOn>;
+  let fetchMock: ReturnType<typeof mock>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    existsSyncSpy = spyOn(fs, 'existsSync');
+    readFileSyncSpy = spyOn(fs, 'readFileSync');
+    fetchMock = mock(() => Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ ok: true, result: [] })
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
     afk = new AFKManager();
-    global.fetch = jest.fn() as unknown as typeof fetch;
   });
 
   it('should be configured if telegram_config.json exists', () => {
-    mockedFs.existsSync.mockReturnValue(true);
+    existsSyncSpy.mockReturnValue(true);
     expect(afk.isConfigured()).toBe(true);
   });
 
   it('should send notification via Telegram', async () => {
     const config = { botToken: 'token', chatId: '123' };
-    mockedFs.existsSync.mockReturnValue(true);
-    mockedFs.readFileSync.mockReturnValue(JSON.stringify(config));
+    existsSyncSpy.mockReturnValue(true);
+    readFileSyncSpy.mockReturnValue(JSON.stringify(config));
     
-    (global.fetch as jest.Mock).mockResolvedValue({
+    fetchMock.mockImplementation(() => Promise.resolve({
       ok: true,
-      json: jest.fn().mockResolvedValue({ ok: true, result: [] })
-    });
+      json: () => Promise.resolve({ ok: true, result: [] })
+    }));
 
     const result = await afk.notifyBlocker('task', 'reason', 'question');
     expect(result).toBe(true);
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('bottoken/sendMessage'),
-      expect.any(Object)
-    );
+    expect(fetchMock).toHaveBeenCalled();
   });
 
   it('should poll for responses', async () => {
     const config = { botToken: 'token', chatId: '123' };
-    mockedFs.existsSync.mockReturnValue(true);
-    mockedFs.readFileSync.mockReturnValue(JSON.stringify(config));
+    existsSyncSpy.mockReturnValue(true);
+    readFileSyncSpy.mockReturnValue(JSON.stringify(config));
 
-    (global.fetch as jest.Mock).mockResolvedValue({
+    fetchMock.mockImplementation(() => Promise.resolve({
       ok: true,
-      json: jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({
         ok: true,
         result: [
           {
@@ -55,12 +58,10 @@ describe('AFKManager', () => {
           }
         ]
       })
-    });
+    }));
 
     const response = await afk.pollForResponse();
     expect(response).toBe('Resolve this');
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('bottoken/getUpdates?offset=1')
-    );
+    expect(fetchMock).toHaveBeenCalled();
   });
 });

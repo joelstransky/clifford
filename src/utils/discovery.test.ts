@@ -1,33 +1,30 @@
-import { execSync } from 'child_process';
+import { describe, it, expect, beforeEach, spyOn } from 'bun:test';
+import * as childProcess from 'child_process';
 import { discoverTools } from './discovery';
 
-jest.mock('child_process', () => ({
-  execSync: jest.fn(),
-}));
-
 describe('discovery', () => {
-  const mockedExecSync = execSync as jest.Mock;
+  let execSyncSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    execSyncSpy = spyOn(childProcess, 'execSync');
   });
 
   it('should discover installed tools and handle missing ones', () => {
-    mockedExecSync.mockImplementation((cmd: string) => {
-      if (cmd.startsWith('command -v')) {
+    execSyncSpy.mockImplementation((cmd: string) => {
+      if (typeof cmd === 'string' && cmd.startsWith('command -v')) {
         const tool = cmd.split(' ')[2];
         if (tool === 'opencode' || tool === 'claude') {
-          return `/usr/bin/${tool}`;
+          return Buffer.from(`/usr/bin/${tool}`);
         }
         throw new Error('Command not found');
       }
-      if (cmd.endsWith('--version')) {
+      if (typeof cmd === 'string' && cmd.endsWith('--version')) {
         const tool = cmd.split(' ')[0];
-        if (tool === 'opencode') return '1.1.0';
-        if (tool === 'claude') return '2.0.0';
-        return '';
+        if (tool === 'opencode') return Buffer.from('1.1.0');
+        if (tool === 'claude') return Buffer.from('2.0.0');
+        return Buffer.from('');
       }
-      return '';
+      return Buffer.from('');
     });
 
     const tools = discoverTools();
@@ -55,14 +52,14 @@ describe('discovery', () => {
   });
 
   it('should handle version check failures gracefully', () => {
-    mockedExecSync.mockImplementation((cmd: string) => {
-      if (cmd.startsWith('command -v')) {
-        return '/usr/bin/opencode';
+    execSyncSpy.mockImplementation((cmd: string) => {
+      if (typeof cmd === 'string' && cmd.startsWith('command -v')) {
+        return Buffer.from('/usr/bin/opencode');
       }
-      if (cmd.endsWith('--version')) {
+      if (typeof cmd === 'string' && cmd.endsWith('--version')) {
         throw new Error('Version check failed');
       }
-      return '';
+      return Buffer.from('');
     });
 
     const tools = discoverTools();

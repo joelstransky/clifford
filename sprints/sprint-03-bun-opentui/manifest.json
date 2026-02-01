@@ -1,0 +1,12 @@
+{
+  "id": "sprint-03-bun-opentui",
+  "name": "Bun Migration & OpenTUI Dashboard",
+  "status": "active",
+  "tasks": [
+    { "id": "task-01", "file": "tasks/01-bun-migration.md", "status": "completed" },
+    { "id": "task-02", "file": "tasks/02-clean-opentui.md", "status": "pending" },
+    { "id": "task-03", "file": "tasks/03-dashboard-layout.md", "status": "pending" },
+    { "id": "task-04", "file": "tasks/04-blocker-ui.md", "status": "pending" },
+    { "id": "task-05", "file": "tasks/05-cli-verification.md", "status": "pending" }
+  ]
+}

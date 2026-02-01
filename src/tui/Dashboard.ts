@@ -24,8 +24,50 @@ interface Manifest {
   tasks: Task[];
 }
 
+interface CliRenderer {
+  root: { add: (child: unknown) => void };
+  on: (event: string, handler: (key: string) => void) => void;
+  start: () => Promise<void> | void;
+}
+
 export async function launchDashboard(sprintDir: string, bridge?: CommsBridge) {
-  const renderer = await createCliRenderer();
+  let renderer: CliRenderer;
+  
+  try {
+    renderer = await createCliRenderer();
+  } catch (err) {
+    console.error(`⚠️  OpenTUI initialization failed: ${(err as Error).message}`);
+    console.log('Falling back to basic CLI monitoring mode...');
+    
+    // Simple fallback monitoring loop
+    const manifestPath = path.resolve(sprintDir, 'manifest.json');
+    const renderFallback = () => {
+      if (fs.existsSync(manifestPath)) {
+        try {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          console.log(`\n--- Sprint: ${manifest.name} ---`);
+          if (manifest.tasks && manifest.tasks.length > 0) {
+            manifest.tasks.forEach((t: { id: string; file: string; status: string }) => {
+              console.log(`${t.status === 'completed' ? '✅' : '⏳'} ${t.id}: ${t.file}`);
+            });
+          } else {
+            console.log('(No tasks found)');
+          }
+          console.log('\nMonitoring agent... Press Ctrl+C to exit.');
+        } catch {
+          // Ignore parse errors
+        }
+      } else {
+        console.log(`Searching for manifest at ${manifestPath}...`);
+      }
+    };
+    
+    renderFallback();
+    setInterval(renderFallback, 5000);
+    
+    await new Promise(() => {}); // Keep alive
+    return;
+  }
   
   // State management
   let manifest: Manifest | null = null;
@@ -220,7 +262,7 @@ export async function launchDashboard(sprintDir: string, bridge?: CommsBridge) {
   loadManifest();
   
   // Poll for manifest changes
-  const pollInterval = setInterval(loadManifest, 1000);
+  setInterval(loadManifest, 1000);
   
   // Set up bridge listeners
   if (bridge) {
@@ -277,12 +319,11 @@ export async function launchDashboard(sprintDir: string, bridge?: CommsBridge) {
   updateDisplay();
   
   // Start rendering
-  await renderer.start();
-  
-  // Cleanup on exit
-  process.on('SIGINT', () => {
-    clearInterval(pollInterval);
-    renderer.stop();
-    process.exit(0);
-  });
+  try {
+    await renderer.start();
+    // If renderer.start() resolves (e.g. stubbed renderer), keep the process alive
+    await new Promise(() => {});
+  } catch (error) {
+    console.error(`Failed to start TUI: ${(error as Error).message}`);
+  }
 }

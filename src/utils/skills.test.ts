@@ -1,25 +1,27 @@
+import { describe, it, expect, beforeEach, spyOn } from 'bun:test';
 import fs from 'fs';
 import { analyzeSprintRequirements, checkMissingSkills, fetchSkillDefinition } from './skills';
-import { isCommandAvailable } from './discovery';
-
-jest.mock('fs');
-jest.mock('./discovery');
+import * as discovery from './discovery';
 
 describe('skills', () => {
-  const mockedFs = fs as jest.Mocked<typeof fs>;
-  const mockedIsCommandAvailable = isCommandAvailable as jest.MockedFunction<typeof isCommandAvailable>;
+  let existsSyncSpy: ReturnType<typeof spyOn>;
+  let readdirSyncSpy: ReturnType<typeof spyOn>;
+  let readFileSyncSpy: ReturnType<typeof spyOn>;
+  let isCommandAvailableSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    existsSyncSpy = spyOn(fs, 'existsSync');
+    readdirSyncSpy = spyOn(fs, 'readdirSync');
+    readFileSyncSpy = spyOn(fs, 'readFileSync');
+    isCommandAvailableSpy = spyOn(discovery, 'isCommandAvailable');
   });
 
   describe('analyzeSprintRequirements', () => {
     it('should extract skills from tasks files', () => {
-      mockedFs.existsSync.mockReturnValue(true);
-      // Use a more specific mock to avoid type issues with overloads
-      (mockedFs.readdirSync as jest.Mock).mockReturnValue(['task1.md', 'task2.md']);
-      (mockedFs.readFileSync as jest.Mock).mockImplementation((filePath: string) => {
-        if (filePath.endsWith('task1.md')) {
+      existsSyncSpy.mockReturnValue(true);
+      readdirSyncSpy.mockReturnValue(['task1.md', 'task2.md'] as unknown as fs.Dirent[]);
+      readFileSyncSpy.mockImplementation((filePath: string | Buffer | number | URL) => {
+        if (typeof filePath === 'string' && filePath.endsWith('task1.md')) {
           return `
 # Task 1
 ## Required Skills
@@ -27,7 +29,7 @@ describe('skills', () => {
 - npm
 `;
         }
-        if (filePath.endsWith('task2.md')) {
+        if (typeof filePath === 'string' && filePath.endsWith('task2.md')) {
           return `
 # Task 2
 ## Required Skills
@@ -45,7 +47,7 @@ describe('skills', () => {
     });
 
     it('should return empty if tasks directory does not exist', () => {
-      mockedFs.existsSync.mockReturnValue(false);
+      existsSyncSpy.mockReturnValue(false);
       const skills = analyzeSprintRequirements('/mock/sprint');
       expect(skills).toEqual([]);
     });
@@ -66,7 +68,7 @@ describe('skills', () => {
 
   describe('checkMissingSkills', () => {
     it('should return missing skills', async () => {
-      mockedIsCommandAvailable.mockImplementation((cmd: string) => {
+      isCommandAvailableSpy.mockImplementation((cmd: string) => {
         return cmd === 'git'; // only git is installed
       });
 

@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, afterAll } from 'bun:test';
 import { saveMemory, getMemory, clearMemory } from './asm-storage';
 import fs from 'fs';
 import path from 'path';
