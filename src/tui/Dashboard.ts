@@ -6,10 +6,12 @@ import {
   bold,
   fg,
   dim,
-  t 
+  t,
+  type KeyEvent
 } from '@opentui/core';
 import fs from 'fs';
 import path from 'path';
+import { CommsBridge, BlockRequest } from '../utils/bridge.js';
 
 // Version constant
 const VERSION = '1.0.0';
@@ -77,21 +79,37 @@ function generateProgressBar(completed: number, total: number, width: number = 2
   return `${bar} ${percent}%`;
 }
 
-export async function launchDashboard(sprintDir: string): Promise<void> {
+export async function launchDashboard(sprintDir: string, bridge?: CommsBridge): Promise<void> {
   const renderer: OpenTUIRenderer = await createCliRenderer({
-    exitOnCtrlC: true,
+    exitOnCtrlC: false, // We'll handle it ourselves
   });
 
   // --- State ---
   let manifest: Manifest | null = null;
   let previousManifest: Manifest | null = null;
   let logs: LogEntry[] = [];
+  let activeBlocker: BlockRequest | null = null;
+  let blockerInput: string = '';
+  let currentRightView: 'activity' | 'blocker' = 'activity';
 
   const addLog = (message: string, type: LogEntry['type'] = 'info') => {
     logs.push({ timestamp: new Date(), message, type });
     if (logs.length > 100) logs.shift();
-    updateActivityLog();
+    if (!activeBlocker) updateActivityLog();
   };
+
+  if (bridge) {
+    bridge.on('block', (data: BlockRequest) => {
+      activeBlocker = data;
+      blockerInput = '';
+      updateDisplay();
+    });
+    bridge.on('resolve', (response: string) => {
+      activeBlocker = null;
+      addLog(`Blocker resolved: ${response.substring(0, 30)}${response.length > 30 ? '...' : ''}`, 'success');
+      updateDisplay();
+    });
+  }
 
   // --- Root ---
   const root = new BoxRenderable(renderer, {
@@ -162,15 +180,16 @@ export async function launchDashboard(sprintDir: string): Promise<void> {
   
   main.add(leftPanel);
 
-  // --- Right Panel (Activity Log) ---
+  // --- Right Panel ---
   const rightPanel = new BoxRenderable(renderer, {
     id: 'right-panel', flexGrow: 1, height: '100%', flexDirection: 'column',
     border: true, borderStyle: 'single', padding: 1, backgroundColor: COLORS.panelBg,
   });
   
-  rightPanel.add(new TextRenderable(renderer, {
+  // Activity Log Components
+  const activityHeader = new TextRenderable(renderer, {
     id: 'activity-header', content: t`${bold(fg(COLORS.purple)('ACTIVITY LOG'))}`,
-  }));
+  });
   
   const activityScroll = new ScrollBoxRenderable(renderer, {
     id: 'activity-scroll', width: '100%', flexGrow: 1, marginTop: 1,
@@ -179,6 +198,54 @@ export async function launchDashboard(sprintDir: string): Promise<void> {
     id: 'activity-log', width: '100%', flexDirection: 'column',
   });
   activityScroll.add(activityLogContainer);
+  
+  // Blocker UI Components
+  const blockerContainer = new BoxRenderable(renderer, {
+    id: 'blocker-container', width: '100%', height: '100%', flexDirection: 'column',
+  });
+  
+  const blockerHeader = new TextRenderable(renderer, {
+    id: 'blocker-header', content: t`${bold(fg(COLORS.error)('🛑 BLOCKER DETECTED'))}`,
+  });
+  const blockerDivider = new TextRenderable(renderer, {
+    id: 'blocker-divider', content: t`${dim('─'.repeat(40))}`,
+  });
+  const blockerTask = new TextRenderable(renderer, {
+    id: 'blocker-task', content: '',
+  });
+  const blockerReason = new TextRenderable(renderer, {
+    id: 'blocker-reason', content: '',
+  });
+  const blockerQuestionLabel = new TextRenderable(renderer, {
+    id: 'blocker-question-label', content: t`\n${bold('Question:')}`,
+  });
+  const blockerQuestion = new TextRenderable(renderer, {
+    id: 'blocker-question', content: '',
+  });
+  
+  const blockerInputBox = new BoxRenderable(renderer, {
+    id: 'blocker-input-box', width: '100%', height: 3, border: true, borderStyle: 'rounded', marginTop: 1, paddingLeft: 1,
+  });
+  const blockerInputText = new TextRenderable(renderer, {
+    id: 'blocker-input-text', content: '',
+  });
+  blockerInputBox.add(blockerInputText);
+  
+  const blockerFooterHint = new TextRenderable(renderer, {
+    id: 'blocker-footer-hint', content: t`\n${dim('[Enter] Submit  [Esc] Cancel')}`,
+  });
+
+  blockerContainer.add(blockerHeader);
+  blockerContainer.add(blockerDivider);
+  blockerContainer.add(blockerTask);
+  blockerContainer.add(blockerReason);
+  blockerContainer.add(blockerQuestionLabel);
+  blockerContainer.add(blockerQuestion);
+  blockerContainer.add(blockerInputBox);
+  blockerContainer.add(blockerFooterHint);
+
+  // Initial Right Panel setup
+  rightPanel.add(activityHeader);
   rightPanel.add(activityScroll);
   
   main.add(rightPanel);
@@ -260,7 +327,32 @@ export async function launchDashboard(sprintDir: string): Promise<void> {
     sprintStatusText.content = t`${fg(sColor)(`[Sprint: ${sLabel}]`)}`;
     
     updateTaskList();
-    updateActivityLog();
+    
+    // Toggle Right Panel
+    if (activeBlocker) {
+      if (currentRightView !== 'blocker') {
+        try { rightPanel.remove('activity-header'); } catch { /* ignore */ }
+        try { rightPanel.remove('activity-scroll'); } catch { /* ignore */ }
+        rightPanel.add(blockerContainer);
+        currentRightView = 'blocker';
+      }
+      
+      blockerTask.content = t`${dim('Task: ')}${fg(COLORS.text)(activeBlocker.task || 'Unknown')}`;
+      blockerReason.content = t`${dim('Reason: ')}${fg(COLORS.text)(activeBlocker.reason || 'Unknown')}`;
+      blockerQuestion.content = t`${fg(COLORS.warning)(`"${activeBlocker.question || 'No question provided'}"`)}`;
+      blockerInputText.content = t`${blockerInput}${bold(fg(COLORS.primary)('█'))}`;
+      
+      hotkeyText.content = t`${bold('[Enter]')} Submit  ${bold('[Esc]')} Cancel`;
+    } else {
+      if (currentRightView !== 'activity') {
+        try { rightPanel.remove('blocker-container'); } catch { /* ignore */ }
+        rightPanel.add(activityHeader);
+        rightPanel.add(activityScroll);
+        currentRightView = 'activity';
+      }
+      updateActivityLog();
+      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}`;
+    }
   };
 
   // --- Manifest Polling ---
@@ -290,15 +382,40 @@ export async function launchDashboard(sprintDir: string): Promise<void> {
   addLog('Dashboard initialized', 'info');
 
   // --- Input ---
-  renderer.keyInput.on('keypress', (key: { name: string; ctrl?: boolean }) => {
-    if (key.name === 'q' || (key.ctrl && key.name === 'c')) {
+  renderer.keyInput.on('keypress', (key: KeyEvent) => {
+    // Global shortcuts (Quit)
+    if (key.name === 'q' && !activeBlocker) {
       clearInterval(poll);
       renderer.destroy();
       process.exit(0);
     }
-    if (key.name === 'r') {
-      addLog('Manual refresh', 'info');
-      loadManifest();
+    if (key.ctrl && key.name === 'c') {
+      clearInterval(poll);
+      renderer.destroy();
+      process.exit(0);
+    }
+
+    if (activeBlocker) {
+      if (key.name === 'enter') {
+        if (blockerInput.trim() && bridge) {
+          bridge.resolveBlocker(blockerInput.trim());
+          // bridge resolve event will clear activeBlocker
+        }
+      } else if (key.name === 'escape') {
+        activeBlocker = null;
+        updateDisplay();
+      } else if (key.name === 'backspace') {
+        blockerInput = blockerInput.slice(0, -1);
+        updateDisplay();
+      } else if (key.sequence && key.sequence.length === 1 && key.sequence.charCodeAt(0) >= 32 && key.sequence.charCodeAt(0) <= 126) {
+        blockerInput += key.sequence;
+        updateDisplay();
+      }
+    } else {
+      if (key.name === 'r') {
+        addLog('Manual refresh', 'info');
+        loadManifest();
+      }
     }
   });
 

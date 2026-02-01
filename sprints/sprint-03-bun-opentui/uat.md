@@ -128,8 +128,36 @@ This sprint migrates Clifford from Node.js to Bun and rebuilds the TUI dashboard
 - Removed (temporarily) the blocker UI logic to keep the task tightly scoped (it will be re-added/refined in Task 04).
 
 ### [Task-04] Blocker Intervention UI
-- **Status**: Pending
+- **Status**: Complete
 - **Human Sign-off**: [ ]
+
+#### Verification Steps:
+1. **Launch Dashboard**: Run `bun run dev tui sprints/sprint-03-bun-opentui`.
+2. **Trigger Mock Blocker**:
+   - In another terminal, you can use the `CommsBridge` to trigger a block.
+   - Since Task 05 wires up the bridge, for now, you can verify the code in `src/tui/Dashboard.ts` handles the `block` event from the bridge if one is passed.
+   - To manually test, you can temporarily modify `Dashboard.ts` to set `activeBlocker` on startup.
+3. **Verify Blocker UI**:
+   - When a blocker is active, the Right Panel should transform:
+     - Header changes to "🛑 BLOCKER DETECTED" (Red).
+     - Displays Task ID, Reason, and the Question from the agent.
+     - A text input box appears with a blinking cursor (█).
+     - Footer hotkeys change to "[Enter] Submit [Esc] Cancel".
+4. **Test Input Handling**:
+   - Type some text - characters should appear in the input box.
+   - Press Backspace - should delete the last character.
+   - Press Escape - should cancel the blocker view and return to Activity Log.
+   - Press Enter - should call `bridge.resolveBlocker(input)` and return to Activity Log.
+5. **Verify Clean Exit**: Press `Q` (when not in blocker mode) or `Ctrl+C` to exit.
+
+#### Changes Made:
+- Added `CommsBridge` support to `launchDashboard` signature.
+- Implemented bridge event listeners for `block` and `resolve`.
+- Added dynamic right panel switching between Activity Log and Blocker UI.
+- Implemented manual text input handling (keystrokes, backspace, cursor) using `KeyEvent`.
+- Added specific styling for the blocker interface (Red headers, warning-colored questions).
+- Updated footer hotkeys to be mode-aware.
+- Fixed a bug where `Ctrl+C` might not exit correctly by handling it manually in the keypress listener.
 
 ### [Task-05] CLI Integration & Verification
 - **Status**: Pending
