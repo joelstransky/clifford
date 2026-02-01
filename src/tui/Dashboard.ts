@@ -31,43 +31,7 @@ interface CliRenderer {
 }
 
 export async function launchDashboard(sprintDir: string, bridge?: CommsBridge) {
-  let renderer: CliRenderer;
-  
-  try {
-    renderer = await createCliRenderer();
-  } catch (err) {
-    console.error(`⚠️  OpenTUI initialization failed: ${(err as Error).message}`);
-    console.log('Falling back to basic CLI monitoring mode...');
-    
-    // Simple fallback monitoring loop
-    const manifestPath = path.resolve(sprintDir, 'manifest.json');
-    const renderFallback = () => {
-      if (fs.existsSync(manifestPath)) {
-        try {
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-          console.log(`\n--- Sprint: ${manifest.name} ---`);
-          if (manifest.tasks && manifest.tasks.length > 0) {
-            manifest.tasks.forEach((t: { id: string; file: string; status: string }) => {
-              console.log(`${t.status === 'completed' ? '✅' : '⏳'} ${t.id}: ${t.file}`);
-            });
-          } else {
-            console.log('(No tasks found)');
-          }
-          console.log('\nMonitoring agent... Press Ctrl+C to exit.');
-        } catch {
-          // Ignore parse errors
-        }
-      } else {
-        console.log(`Searching for manifest at ${manifestPath}...`);
-      }
-    };
-    
-    renderFallback();
-    setInterval(renderFallback, 5000);
-    
-    await new Promise(() => {}); // Keep alive
-    return;
-  }
+  const renderer: CliRenderer = await createCliRenderer();
   
   // State management
   let manifest: Manifest | null = null;

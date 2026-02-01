@@ -69,8 +69,26 @@ This sprint migrates Clifford from Node.js to Bun and rebuilds the TUI dashboard
 - Removed `jest.config.cjs`
 
 ### [Task-02] Clean OpenTUI Integration  
-- **Status**: Pending
+- **Status**: Complete
 - **Human Sign-off**: [ ]
+
+#### Verification Steps:
+1. **Verify no Node.js fallback in Dashboard**: Open `src/tui/Dashboard.ts` and confirm:
+   - No `try/catch` block around `createCliRenderer()`
+   - No `console.log` based fallback rendering loop
+   - Dashboard assumes OpenTUI always works
+2. **Verify no Bun polyfills**: Run `grep -r "globalThis.Bun" src/` - should return no results
+3. **Verify no IS_NODE_FALLBACK**: Run `grep -r "IS_NODE_FALLBACK" src/` - should return no results
+4. **Verify no optionalDependencies**: Check `package.json` - `optionalDependencies` section should not exist
+5. **Run TypeScript check**: Run `npx tsc --noEmit` - should pass with no errors
+6. **Run linting**: Run `npx eslint src/**/*.ts` - should pass with no errors
+7. **Test TUI command**: Run `bun run dev tui sprints/sprint-03-bun-opentui` - OpenTUI should initialize without fallback messages
+
+#### Changes Made:
+- Removed fallback CLI monitoring mode from `src/tui/Dashboard.ts` (the `console.log` based rendering)
+- Removed `try/catch` around `createCliRenderer()` - now directly assigns renderer
+- Removed `optionalDependencies` section from `package.json` (contained `@opentui/core-win32-x64`)
+- Codebase now treats Bun + OpenTUI as the only supported runtime
 
 ### [Task-03] Dashboard Layout
 - **Status**: Pending
