@@ -91,8 +91,41 @@ This sprint migrates Clifford from Node.js to Bun and rebuilds the TUI dashboard
 - Codebase now treats Bun + OpenTUI as the only supported runtime
 
 ### [Task-03] Dashboard Layout
-- **Status**: Pending
+- **Status**: Complete
 - **Human Sign-off**: [ ]
+
+#### Verification Steps:
+1. **Launch Dashboard**: Run `bun run dev tui sprints/sprint-03-bun-opentui`. (Note: Ensure Bun is installed in your environment)
+2. **Verify Layout**:
+   - Header: Should show "CLIFFORD v1.0.0" and current sprint status.
+   - Left Panel: Should show "SPRINT PLAN", the sprint name, description, a list of tasks with icons, and a progress bar.
+   - Right Panel: Should show "ACTIVITY LOG" with a scrollable list of timestamps and messages.
+   - Footer: Should show "STATUS: Ready" and hotkeys "[Q]uit [R]efresh".
+3. **Verify Icons**:
+   - Task 01 & 02 should have ✅ icons.
+   - Task 03 should have 🔄 icon (since it's active in manifest).
+   - Tasks 04 & 05 should have ⏳ icons.
+4. **Test Manifest Polling**:
+   - Keep the TUI running.
+   - In another terminal, edit `sprints/sprint-03-bun-opentui/manifest.json`.
+   - Change Task 03 status to "completed" and Task 04 to "active".
+   - **Expected**: Within 1 second, the TUI should reflect these changes:
+     - Task 03 icon changes to ✅.
+     - Task 04 icon changes to 🔄.
+     - A new log entry appears in the Activity Log: `🔄 task-04: pending → active`.
+5. **Test Hotkeys**:
+   - Press `R`: Should see "Manual refresh" in the log.
+   - Press `Q`: Should exit the TUI cleanly.
+
+#### Changes Made:
+- Rewrote `src/tui/Dashboard.ts` from scratch with a modular structure.
+- Implemented split-screen layout using OpenTUI `BoxRenderable` and `ScrollBoxRenderable`.
+- Added manifest polling every 1000ms.
+- Implemented task status icons and progress bar calculation.
+- Added activity log with timestamped messages.
+- Styled header, footer, and panels with consistent color scheme.
+- Fixed a type error where `setContent` was used instead of `content` on `TextRenderable`.
+- Removed (temporarily) the blocker UI logic to keep the task tightly scoped (it will be re-added/refined in Task 04).
 
 ### [Task-04] Blocker Intervention UI
 - **Status**: Pending

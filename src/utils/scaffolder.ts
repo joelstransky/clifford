@@ -1,5 +1,8 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Scaffolds the Clifford directory structure and files.
