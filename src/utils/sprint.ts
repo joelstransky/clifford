@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import { CommsBridge } from './bridge';
-import { discoverTools } from './discovery';
-import { getMemory, clearMemory } from './asm-storage';
+import { CommsBridge } from './bridge.js';
+import { discoverTools } from './discovery.js';
+import { getMemory, clearMemory } from './asm-storage.js';
 
 export interface SprintManifest {
   id: string;

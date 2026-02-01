@@ -7,6 +7,7 @@
     { "id": "task-02", "file": "tasks/02-integrated-blocker.md", "status": "completed" },
     { "id": "task-03", "file": "tasks/02-discovery.md", "status": "completed" },
     { "id": "task-04", "file": "tasks/03-skill-analysis.md", "status": "completed" },
-    { "id": "task-05", "file": "tasks/05-cli-integration.md", "status": "completed" }
+    { "id": "task-05", "file": "tasks/05-cli-integration.md", "status": "completed" },
+    { "id": "task-06", "file": "tasks/06-opentui-verification.md", "status": "completed" }
   ]
 }

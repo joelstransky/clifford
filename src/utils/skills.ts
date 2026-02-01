@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { isCommandAvailable } from './discovery';
+import { isCommandAvailable } from './discovery.js';
 
 export interface Skill {
   name: string;

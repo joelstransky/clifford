@@ -1,12 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --no-warnings --loader C:/Users/stran/Documents/Work/clifford-proj/clifford/dist/scm-loader.mjs
 import { Command } from 'commander';
 import inquirer from 'inquirer';
-import { render } from 'ink';
-import React from 'react';
-import { discoverTools } from './utils/discovery';
-import { SprintRunner } from './utils/sprint';
-import { scaffold } from './utils/scaffolder';
-import Dashboard from './tui/Dashboard';
+import { discoverTools } from './utils/discovery.js';
+import { SprintRunner } from './utils/sprint.js';
+import { scaffold } from './utils/scaffolder.js';
+import { launchDashboard } from './tui/Dashboard.js';
 
 const program = new Command();
 
@@ -150,14 +148,14 @@ program
 program
   .command('tui [sprint-dir]')
   .description('Launch the Clifford TUI Dashboard')
-  .action((sprintDir) => {
+  .action(async (sprintDir) => {
     let dir = sprintDir || '.';
     if (dir === '.') {
       const sprints = SprintRunner.discoverSprints();
       const active = sprints.find((s) => s.status === 'active');
       dir = active?.path || 'sprints/sprint-01';
     }
-    render(React.createElement(Dashboard, { sprintDir: dir }));
+    await launchDashboard(dir);
   });
 
 program.parse();

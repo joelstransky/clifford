@@ -75,7 +75,7 @@ Welcome, Clifford Agent. This document defines the standards, workflows, and con
 1. **Selection**: Read `manifest.json` in the active sprint directory. Find the first `pending` task.
 2. **Execution**: Mark task `active`. Implement logic precisely.
 3. **Verification**: Run `npm test` and appropriate sandbox verification.
-4. **Documentation**: Update `uat.json` (or `uat.md`) with manual verification steps for the Human.
+4. **Documentation**: Update `uat.md` with manual verification steps for the Human.
 5. **Completion**: Mark task `completed` and create a local commit.
 
 ### Communication Bridge (The "Phone Home" Protocol)

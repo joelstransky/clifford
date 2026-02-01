@@ -1,8 +1,8 @@
 import http from 'http';
 import { EventEmitter } from 'events';
 import { ChildProcess } from 'child_process';
-import { AFKManager } from './afk';
-import { saveMemory } from './asm-storage';
+import { AFKManager } from './afk.js';
+import { saveMemory } from './asm-storage.js';
 
 export interface BlockRequest {
   task?: string;
@@ -97,16 +97,19 @@ export class CommsBridge extends EventEmitter {
   }
 
   async triggerBlock(data: BlockRequest) {
-    console.log('\n' + '!'.repeat(50));
-    console.log('🛑 BLOCKER TRIGGERED - ACTION REQUIRED');
-    console.log('!'.repeat(50));
-    console.log(`Task: ${data.task || 'Unknown'}`);
-    console.log(`Reason: ${data.reason || 'Unknown'}`);
-    console.log(`Question: ${data.question || 'None'}`);
-    console.log('-'.repeat(50));
-    console.log(`👉 Send your response to: POST http://localhost:${this.port}/resolve`);
-    console.log(`   JSON Body: { "response": "your answer" }`);
-    console.log('-'.repeat(50) + '\n');
+    // Only log to console if NOT in TUI mode (no listeners on 'block' event)
+    if (this.listenerCount('block') === 0) {
+      console.log('\n' + '!'.repeat(50));
+      console.log('🛑 BLOCKER TRIGGERED - ACTION REQUIRED');
+      console.log('!'.repeat(50));
+      console.log(`Task: ${data.task || 'Unknown'}`);
+      console.log(`Reason: ${data.reason || 'Unknown'}`);
+      console.log(`Question: ${data.question || 'None'}`);
+      console.log('-'.repeat(50));
+      console.log(`👉 Send your response to: POST http://localhost:${this.port}/resolve`);
+      console.log(`   JSON Body: { "response": "your answer" }`);
+      console.log('-'.repeat(50) + '\n');
+    }
     
     this.currentTaskId = data.task || null;
     this.currentQuestion = data.question || null;
