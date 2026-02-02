@@ -1,10 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { SprintManifest } from './sprint.js';
 
 export interface CliffordConfig {
   model?: string;
   agentName?: string;
+  aiTool?: string;
   // future-proofing for more settings
 }
 
@@ -40,4 +42,15 @@ export function loadGlobalConfig(): CliffordConfig {
     }
   }
   return {};
+}
+
+/**
+ * Resolves the effective model based on the hierarchy: Manifest > Project > Global.
+ */
+export function resolveModel(
+  manifest: SprintManifest,
+  projectConfig: CliffordConfig,
+  globalConfig: CliffordConfig
+): string | undefined {
+  return manifest.model || projectConfig.model || globalConfig.model;
 }

@@ -7,6 +7,11 @@
       "id": "task-01",
       "file": "tasks/01-restructure-scaffolding.md",
       "status": "pending"
+    },
+    {
+      "id": "task-02",
+      "file": "tasks/02-unified-sprint-command.md",
+      "status": "pending"
     }
   ]
 }

@@ -37,7 +37,14 @@
 - **Human Sign-off**: [ ]
 
 ## [Task-03] Global Config vs. Local Config
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Walkthrough**:
+  1. Verify `resolveModel` logic in `src/utils/config.ts` handles the Manifest > Project > Global priority.
+  2. Verify that `SprintRunner.run()` in `src/utils/sprint.ts` now uses `loadProjectConfig()`, `loadGlobalConfig()`, and `resolveModel()`.
+  3. Create a global config at `~/.cliffordrc.json` with a specific model.
+  4. Create a project config at `clifford.json` with a different model.
+  5. Run a sprint and verify (via logs) that it uses the project model.
+  6. Add a model override to the sprint's `manifest.json` and verify it takes precedence.
 - **Human Sign-off**: [ ]
 
 ## [Task-04] `clifford init` Command

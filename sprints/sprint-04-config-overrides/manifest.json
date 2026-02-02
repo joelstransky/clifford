@@ -5,7 +5,7 @@
   "tasks": [
     { "id": "task-01", "file": "tasks/01-config-engine.md", "status": "completed" },
     { "id": "task-02", "file": "tasks/02-manifest-overrides.md", "status": "completed" },
-    { "id": "task-03", "file": "tasks/03-resolution-cascade.md", "status": "pending" },
+    { "id": "task-03", "file": "tasks/03-resolution-cascade.md", "status": "completed" },
     { "id": "task-04", "file": "tasks/04-init-command.md", "status": "pending" }
   ]
 }

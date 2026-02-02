@@ -4,6 +4,7 @@ import { spawn } from 'child_process';
 import { CommsBridge } from './bridge.js';
 import { discoverTools } from './discovery.js';
 import { getMemory, clearMemory } from './asm-storage.js';
+import { loadProjectConfig, loadGlobalConfig, resolveModel } from './config.js';
 
 export interface SprintManifest {
   id: string;
@@ -82,10 +83,9 @@ export class SprintRunner {
 
     this.syncSprintStates(manifestPath);
 
-    const configPath = path.join(projectRoot, '.clifford/config.json');
-    const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
-    const aiToolId = config.aiTool || 'opencode';
-    const model = config.model || 'google/gemini-3-flash-preview';
+    const projectConfig = loadProjectConfig();
+    const globalConfig = loadGlobalConfig();
+    const aiToolId = projectConfig.aiTool || 'opencode';
 
     const tools = discoverTools();
     const engine = tools.find(t => t.id === aiToolId) || tools.find(t => t.id === 'opencode');
@@ -106,6 +106,7 @@ export class SprintRunner {
         }
 
         const manifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        const model = resolveModel(manifest, projectConfig, globalConfig) || 'google/gemini-3-flash-preview';
         const nextTask = manifest.tasks.find(t => t.status === 'pending');
 
         if (!nextTask) break;

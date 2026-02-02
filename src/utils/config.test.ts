@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { loadProjectConfig, loadGlobalConfig } from './config';
+import { loadProjectConfig, loadGlobalConfig, resolveModel, type CliffordConfig } from './config';
+import type { SprintManifest } from './sprint';
 
 describe('config', () => {
   let existsSyncSpy: ReturnType<typeof spyOn>;
@@ -94,6 +95,36 @@ describe('config', () => {
       const config = loadGlobalConfig();
       expect(config).toEqual({});
       expect(consoleWarnSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('resolveModel', () => {
+    it('should prioritize manifest model', () => {
+      const manifest = { model: 'manifest-model' } as unknown as SprintManifest;
+      const project: CliffordConfig = { model: 'project-model' };
+      const global: CliffordConfig = { model: 'global-model' };
+      expect(resolveModel(manifest, project, global)).toBe('manifest-model');
+    });
+
+    it('should fall back to project model', () => {
+      const manifest = {} as unknown as SprintManifest;
+      const project: CliffordConfig = { model: 'project-model' };
+      const global: CliffordConfig = { model: 'global-model' };
+      expect(resolveModel(manifest, project, global)).toBe('project-model');
+    });
+
+    it('should fall back to global model', () => {
+      const manifest = {} as unknown as SprintManifest;
+      const project: CliffordConfig = {};
+      const global: CliffordConfig = { model: 'global-model' };
+      expect(resolveModel(manifest, project, global)).toBe('global-model');
+    });
+
+    it('should return undefined if no model is defined anywhere', () => {
+      const manifest = {} as unknown as SprintManifest;
+      const project: CliffordConfig = {};
+      const global: CliffordConfig = {};
+      expect(resolveModel(manifest, project, global)).toBeUndefined();
     });
   });
 });
