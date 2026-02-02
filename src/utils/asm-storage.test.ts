@@ -8,13 +8,13 @@ describe('ASM Storage', () => {
 
   beforeEach(() => {
     if (fs.existsSync(ASM_FILE_PATH)) {
-      fs.unlinkSync(ASM_FILE_PATH);
+      fs.rmSync(ASM_FILE_PATH, { force: true });
     }
   });
 
   afterAll(() => {
     if (fs.existsSync(ASM_FILE_PATH)) {
-      fs.unlinkSync(ASM_FILE_PATH);
+      fs.rmSync(ASM_FILE_PATH, { force: true });
     }
   });
 

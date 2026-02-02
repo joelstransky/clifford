@@ -144,18 +144,28 @@ program
     }
   });
 
+function findActiveSprintDir(): string {
+  const sprints = SprintRunner.discoverSprints();
+  const active = sprints.find((s) => s.status === 'active');
+  return active?.path || 'sprints/sprint-01';
+}
+
 program
   .command('tui [sprint-dir]')
   .description('Launch the Clifford TUI Dashboard')
   .action(async (sprintDir) => {
-    let dir = sprintDir || '.';
-    if (dir === '.') {
-      const sprints = SprintRunner.discoverSprints();
-      const active = sprints.find((s) => s.status === 'active');
-      dir = active?.path || 'sprints/sprint-01';
-    }
+    const dir = sprintDir || findActiveSprintDir();
+    const { CommsBridge } = await import('./utils/bridge.js');
+    const bridge = new CommsBridge();
+    const runner = new SprintRunner(dir, bridge);
+
+    // Start the runner in the background
+    runner.run().catch((err) => {
+      console.error(`Runner Error: ${err.message}`);
+    });
+
     const { launchDashboard } = await import('./tui/Dashboard.js');
-    await launchDashboard(dir);
+    await launchDashboard(dir, bridge);
   });
 
 program.parse();

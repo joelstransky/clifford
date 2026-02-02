@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import * as child_process from 'child_process';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
@@ -60,7 +60,7 @@ const ENGINE_CONFIGS: EngineConfig[] = [
 export function isCommandAvailable(command: string): boolean {
   try {
     const checkCmd = process.platform === 'win32' ? `where ${command}` : `command -v ${command}`;
-    execSync(checkCmd, { stdio: 'ignore' });
+    child_process.execSync(checkCmd, { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -94,7 +94,7 @@ export function discoverTools(): AIEngine[] {
     if (isInstalled) {
       // Try to get version
       try {
-        version = execSync(`${config.command} --version`, {
+        version = child_process.execSync(`${config.command} --version`, {
           encoding: 'utf8',
           stdio: ['ignore', 'pipe', 'ignore'],
           timeout: 2000,

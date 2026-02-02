@@ -62,9 +62,9 @@ export class SprintRunner {
     return startDir;
   }
 
-  constructor(sprintDir: string) {
+  constructor(sprintDir: string, bridge?: CommsBridge) {
     this.sprintDir = sprintDir;
-    this.bridge = new CommsBridge();
+    this.bridge = bridge || new CommsBridge();
   }
 
   async run() {

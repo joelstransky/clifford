@@ -160,8 +160,35 @@ This sprint migrates Clifford from Node.js to Bun and rebuilds the TUI dashboard
 - Fixed a bug where `Ctrl+C` might not exit correctly by handling it manually in the keypress listener.
 
 ### [Task-05] CLI Integration & Verification
-- **Status**: Pending
+- **Status**: Complete
 - **Human Sign-off**: [ ]
+
+#### Verification Steps:
+1. **Verify `tui` auto-detection**: Run `bun run dev tui` without any arguments.
+   - It should automatically find the active sprint (`sprint-03-bun-opentui`) and launch the dashboard.
+2. **Verify `tui` with explicit path**: Run `bun run dev tui sprints/sprint-03-bun-opentui`.
+   - It should launch the dashboard for the specified sprint.
+3. **Verify Full Workflow Wiring**:
+   - The `tui` command now starts the `SprintRunner` in the background.
+   - Look at the Activity Log - you should see the sprint loop starting.
+   - If there are pending tasks, the agent should start working.
+4. **Verify Blocker Flow**:
+   - If the agent hits a blocker (or detects an interactive prompt), the TUI should switch to the Blocker UI automatically.
+   - You should be able to type a response and press Enter to resolve it.
+5. **Verify Build**: Run `bun run build`.
+   - It should produce a working `dist/index.js` using Bun's native bundler.
+6. **Verify Binary**: Run `bun run start tui`.
+   - It should work identically to the `dev` command but using the compiled output.
+7. **Verify Clean Exit**: Press `Q` to quit. The terminal should be restored correctly.
+
+#### Changes Made:
+- Simplified the `tui` command in `src/index.ts` to use `findActiveSprintDir()`.
+- Implemented `findActiveSprintDir()` to auto-detect the first sprint with status "active".
+- Wired up `CommsBridge` so that the `tui` command creates a shared bridge between the Dashboard and the `SprintRunner`.
+- Updated `SprintRunner` to accept an optional pre-existing `CommsBridge`.
+- The `tui` command now launches the sprint loop in the background, making it a true "single command" dashboard.
+- Removed dead code references and verified the build process with Bun.
+- Fixed pre-existing test failures in `asm-storage.test.ts` by using `fs.rmSync(path, { force: true })`.
 
 ---
 
