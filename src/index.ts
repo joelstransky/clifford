@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 import { Command } from 'commander';
 import inquirer from 'inquirer';
+import fs from 'fs';
+import path from 'path';
 import { discoverTools } from './utils/discovery.js';
 import { SprintRunner } from './utils/sprint.js';
 import { scaffold } from './utils/scaffolder.js';
@@ -39,9 +41,27 @@ program
   .description('Initialize a new Clifford project')
   .option('-y, --yolo', 'Skip prompts and use default settings')
   .action(async (options) => {
+    const configPath = path.join(process.cwd(), 'clifford.json');
+
+    if (fs.existsSync(configPath) && !options.yolo) {
+      const { overwrite } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'overwrite',
+          message: 'clifford.json already exists. Overwrite?',
+          default: false
+        }
+      ]);
+      if (!overwrite) {
+        console.log('🚀 Initialization aborted.');
+        return;
+      }
+    }
+
     let answers;
     if (options.yolo) {
       answers = {
+        model: 'gpt-4o',
         workflow: 'yolo',
         aiTool: 'opencode',
         extraGates: []
@@ -59,6 +79,12 @@ program
       }
 
       answers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'model',
+          message: 'Preferred Default Model:',
+          default: 'gpt-4o'
+        },
         {
           type: 'list',
           name: 'workflow',
@@ -94,6 +120,13 @@ program
     }
 
     try {
+      // Write clifford.json
+      const cliffordConfig = {
+        model: answers.model
+      };
+      fs.writeFileSync(configPath, JSON.stringify(cliffordConfig, null, 2));
+      console.log('✅ Created clifford.json');
+
       await scaffold(process.cwd(), {
         workflow: answers.workflow,
         aiTool: answers.aiTool || answers.customAiTool,

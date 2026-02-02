@@ -48,7 +48,18 @@
 - **Human Sign-off**: [ ]
 
 ## [Task-04] `clifford init` Command
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Walkthrough**:
+  1. Build the project: `npm run build`.
+  2. Create a temporary directory and change into it.
+  3. Run the init command: `node [path-to-clifford]/dist/index.js init`.
+  4. Follow the prompts:
+     - When asked for "Preferred Default Model", enter a model name (e.g., `gpt-4o`).
+     - Complete the other prompts (Workflow, AI Tool, Gates).
+  5. Verify that `clifford.json` is created in the current directory with the model you entered.
+  6. Run `node [path-to-clifford]/dist/index.js init` again in the same directory.
+  7. Verify it asks if you want to overwrite `clifford.json`.
+  8. Choose "No" and verify it aborts without changing the file.
 - **Human Sign-off**: [ ]
 
 ---
