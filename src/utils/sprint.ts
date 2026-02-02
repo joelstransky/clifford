@@ -9,7 +9,7 @@ export interface SprintManifest {
   id: string;
   name: string;
   status: 'planning' | 'active' | 'completed';
-  path?: string;
+  path: string;
   tasks: Array<{
     id: string;
     file: string;
@@ -63,7 +63,7 @@ export class SprintRunner {
   }
 
   constructor(sprintDir: string, bridge?: CommsBridge) {
-    this.sprintDir = sprintDir;
+    this.sprintDir = sprintDir.replace(/\\/g, '/');
     this.bridge = bridge || new CommsBridge();
   }
 
@@ -72,9 +72,9 @@ export class SprintRunner {
       this.sprintDir = this.findActiveSprintDir();
     }
 
-    const manifestPath = path.resolve(this.sprintDir, 'manifest.json');
+    const manifestPath = path.resolve(process.cwd(), this.sprintDir, 'manifest.json');
     if (!fs.existsSync(manifestPath)) {
-      throw new Error(`Manifest not found at ${manifestPath}`);
+      throw new Error(`Manifest not found at ${manifestPath}. Current working directory: ${process.cwd()}, sprintDir: ${this.sprintDir}`);
     }
 
     const projectRoot = SprintRunner.findProjectRoot(path.dirname(manifestPath));
@@ -293,9 +293,9 @@ ${humanGuidance}${promptContent}`;
               fs.writeFileSync(mPath, JSON.stringify(m, null, 2), 'utf8');
             }
           } else {
-            // Set other active sprints to pending
+            // Set other active sprints to planning
             if (m.status === 'active') {
-              m.status = 'pending';
+              m.status = 'planning';
               fs.writeFileSync(mPath, JSON.stringify(m, null, 2), 'utf8');
             }
           }

@@ -1,8 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-const ASM_FILE_PATH = path.resolve('.clifford/asm.json');
-
 export interface ASMMemory {
   question: string;
   answer: string;
@@ -15,26 +13,45 @@ export interface ASMStorage {
   };
 }
 
+function getAsmFilePath() {
+  return process.env.CLIFFORD_ASM_PATH || path.resolve('.clifford/asm.json');
+}
+
 function ensureAsmFile() {
-  const dir = path.dirname(ASM_FILE_PATH);
+  const filePath = getAsmFilePath();
+  const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {
+      // Ignore
+    }
   }
-  if (!fs.existsSync(ASM_FILE_PATH)) {
-    fs.writeFileSync(ASM_FILE_PATH, JSON.stringify({ tasks: {} }, null, 2), 'utf8');
+  if (!fs.existsSync(filePath)) {
+    try {
+      fs.writeFileSync(filePath, JSON.stringify({ tasks: {} }, null, 2), 'utf8');
+    } catch {
+      // Ignore
+    }
   }
 }
 
 /**
  * Saves a memory for a specific task.
- * @param taskId The ID of the task.
- * @param question The question asked.
- * @param answer The answer provided.
  */
 export function saveMemory(taskId: string, question: string, answer: string) {
   ensureAsmFile();
-  const content = fs.readFileSync(ASM_FILE_PATH, 'utf8');
-  const data: ASMStorage = JSON.parse(content);
+  const filePath = getAsmFilePath();
+  let data: ASMStorage;
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    data = JSON.parse(content || '{"tasks":{}}');
+    if (!data || typeof data !== 'object' || !data.tasks) {
+      data = { tasks: {} };
+    }
+  } catch {
+    data = { tasks: {} };
+  }
   
   data.tasks[taskId] = {
     question,
@@ -42,33 +59,38 @@ export function saveMemory(taskId: string, question: string, answer: string) {
     timestamp: new Date().toISOString()
   };
   
-  fs.writeFileSync(ASM_FILE_PATH, JSON.stringify(data, null, 2), 'utf8');
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
 }
 
 /**
  * Retrieves a memory for a specific task.
- * @param taskId The ID of the task.
- * @returns The memory or null if not found.
  */
 export function getMemory(taskId: string): ASMMemory | null {
-  ensureAsmFile();
-  const content = fs.readFileSync(ASM_FILE_PATH, 'utf8');
-  const data: ASMStorage = JSON.parse(content);
-  
-  return data.tasks[taskId] || null;
+  const filePath = getAsmFilePath();
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const data: ASMStorage = JSON.parse(content);
+    return (data && data.tasks && data.tasks[taskId]) || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Clears memory for a specific task.
- * @param taskId The ID of the task.
  */
 export function clearMemory(taskId: string) {
-  ensureAsmFile();
-  const content = fs.readFileSync(ASM_FILE_PATH, 'utf8');
-  const data: ASMStorage = JSON.parse(content);
-  
-  if (data.tasks[taskId]) {
-    delete data.tasks[taskId];
-    fs.writeFileSync(ASM_FILE_PATH, JSON.stringify(data, null, 2), 'utf8');
+  const filePath = getAsmFilePath();
+  if (!fs.existsSync(filePath)) return;
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const data: ASMStorage = JSON.parse(content);
+    if (data && data.tasks && data.tasks[taskId]) {
+      delete data.tasks[taskId];
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    }
+  } catch {
+    // Ignore
   }
 }

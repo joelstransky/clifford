@@ -37,50 +37,61 @@ program
 program
   .command('init')
   .description('Initialize a new Clifford project')
-  .action(async () => {
-    console.log('🔍 Discovering compatible AI agents...');
-    const tools = discoverTools();
-    const installedTools = tools.filter(t => t.isInstalled);
-    
-    if (installedTools.length === 0) {
-      console.log('⚠️ No compatible AI agents (OpenCode, Claude Code, etc.) were found on your system.');
+  .option('-y, --yolo', 'Skip prompts and use default settings')
+  .action(async (options) => {
+    let answers;
+    if (options.yolo) {
+      answers = {
+        workflow: 'yolo',
+        aiTool: 'opencode',
+        extraGates: []
+      };
+      console.log('🚀 Initializing with default YOLO settings...');
     } else {
-      console.log(`✅ Found ${installedTools.length} compatible agent(s): ${installedTools.map(t => t.name).join(', ')}`);
-    }
-
-    const answers = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'workflow',
-        message: 'Choose your workflow:',
-        choices: [
-          { name: 'YOLO (Direct commits to main)', value: 'yolo' },
-          { name: 'PR (Create pull requests)', value: 'pr' }
-        ]
-      },
-      {
-        type: 'list',
-        name: 'aiTool',
-        message: 'Select your preferred AI tool:',
-        choices: installedTools.map(t => ({ name: `${t.name} (${t.command})`, value: t.id })),
-        when: installedTools.length > 0
-      },
-      {
-        type: 'input',
-        name: 'customAiTool',
-        message: 'Enter the command for your custom AI tool:',
-        when: () => installedTools.length === 0
-      },
-      {
-        type: 'checkbox',
-        name: 'extraGates',
-        message: 'Select extra verification gates:',
-        choices: [
-          { name: 'Linting', value: 'lint' },
-          { name: 'Tests', value: 'test' }
-        ]
+      console.log('🔍 Discovering compatible AI agents...');
+      const tools = discoverTools();
+      const installedTools = tools.filter(t => t.isInstalled);
+      
+      if (installedTools.length === 0) {
+        console.log('⚠️ No compatible AI agents (OpenCode, Claude Code, etc.) were found on your system.');
+      } else {
+        console.log(`✅ Found ${installedTools.length} compatible agent(s): ${installedTools.map(t => t.name).join(', ')}`);
       }
-    ]);
+
+      answers = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'workflow',
+          message: 'Choose your workflow:',
+          choices: [
+            { name: 'YOLO (Direct commits to main)', value: 'yolo' },
+            { name: 'PR (Create pull requests)', value: 'pr' }
+          ]
+        },
+        {
+          type: 'list',
+          name: 'aiTool',
+          message: 'Select your preferred AI tool:',
+          choices: installedTools.map(t => ({ name: `${t.name} (${t.command})`, value: t.id })),
+          when: installedTools.length > 0
+        },
+        {
+          type: 'input',
+          name: 'customAiTool',
+          message: 'Enter the command for your custom AI tool:',
+          when: () => installedTools.length === 0
+        },
+        {
+          type: 'checkbox',
+          name: 'extraGates',
+          message: 'Select extra verification gates:',
+          choices: [
+            { name: 'Linting', value: 'lint' },
+            { name: 'Tests', value: 'test' }
+          ]
+        }
+      ]);
+    }
 
     try {
       await scaffold(process.cwd(), {
@@ -145,16 +156,26 @@ program
   });
 
 function findActiveSprintDir(): string {
-  const sprints = SprintRunner.discoverSprints();
-  const active = sprints.find((s) => s.status === 'active');
-  return active?.path || 'sprints/sprint-01';
+  try {
+    const sprints = SprintRunner.discoverSprints();
+    const active = sprints.find((s) => s.status === 'active');
+    if (active && active.path) return active.path;
+    
+    // Fallback to the first available sprint if none are active
+    if (sprints.length > 0 && sprints[0].path) return sprints[0].path;
+  } catch {
+    // Ignore and fallback
+  }
+  return 'sprints/sprint-01';
 }
 
 program
   .command('tui [sprint-dir]')
   .description('Launch the Clifford TUI Dashboard')
   .action(async (sprintDir) => {
-    const dir = sprintDir || findActiveSprintDir();
+    let dir = sprintDir || findActiveSprintDir();
+    dir = dir.replace(/\\/g, '/');
+    if (dir.startsWith('./')) dir = dir.substring(2);
     const { CommsBridge } = await import('./utils/bridge.js');
     const bridge = new CommsBridge();
     const runner = new SprintRunner(dir, bridge);

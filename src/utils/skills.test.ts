@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, spyOn } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import fs from 'fs';
 import { analyzeSprintRequirements, checkMissingSkills, fetchSkillDefinition } from './skills';
 import * as discovery from './discovery';
@@ -14,6 +14,13 @@ describe('skills', () => {
     readdirSyncSpy = spyOn(fs, 'readdirSync');
     readFileSyncSpy = spyOn(fs, 'readFileSync');
     isCommandAvailableSpy = spyOn(discovery, 'isCommandAvailable');
+  });
+
+  afterEach(() => {
+    existsSyncSpy.mockRestore();
+    readdirSyncSpy.mockRestore();
+    readFileSyncSpy.mockRestore();
+    isCommandAvailableSpy.mockRestore();
   });
 
   describe('analyzeSprintRequirements', () => {

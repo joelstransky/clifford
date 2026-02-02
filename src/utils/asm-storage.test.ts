@@ -4,17 +4,29 @@ import fs from 'fs';
 import path from 'path';
 
 describe('ASM Storage', () => {
-  const ASM_FILE_PATH = path.resolve('.clifford/asm.json');
+  const TEST_ID = Math.random().toString(36).substring(7);
+  const ASM_FILE_PATH = path.resolve(`.clifford/asm-test-${TEST_ID}.json`);
+
+  // Set the environment variable before any tests run
+  process.env.CLIFFORD_ASM_PATH = ASM_FILE_PATH;
 
   beforeEach(() => {
     if (fs.existsSync(ASM_FILE_PATH)) {
-      fs.rmSync(ASM_FILE_PATH, { force: true });
+      try {
+        fs.rmSync(ASM_FILE_PATH, { force: true });
+      } catch {
+        // Ignore
+      }
     }
   });
 
   afterAll(() => {
     if (fs.existsSync(ASM_FILE_PATH)) {
-      fs.rmSync(ASM_FILE_PATH, { force: true });
+      try {
+        fs.rmSync(ASM_FILE_PATH, { force: true });
+      } catch {
+        // Ignore
+      }
     }
   });
 
@@ -26,7 +38,7 @@ describe('ASM Storage', () => {
     saveMemory(taskId, question, answer);
     const memory = getMemory(taskId);
 
-    expect(memory).toBeDefined();
+    expect(memory).not.toBeNull();
     expect(memory?.question).toBe(question);
     expect(memory?.answer).toBe(answer);
     expect(memory?.timestamp).toBeDefined();

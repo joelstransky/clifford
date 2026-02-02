@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, mock, spyOn } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
 import fs from 'fs';
 import { AFKManager } from './afk';
 
@@ -7,6 +7,7 @@ describe('AFKManager', () => {
   let existsSyncSpy: ReturnType<typeof spyOn>;
   let readFileSyncSpy: ReturnType<typeof spyOn>;
   let fetchMock: ReturnType<typeof mock>;
+  let originalFetch: typeof fetch;
 
   beforeEach(() => {
     existsSyncSpy = spyOn(fs, 'existsSync');
@@ -15,8 +16,15 @@ describe('AFKManager', () => {
       ok: true,
       json: () => Promise.resolve({ ok: true, result: [] })
     }));
+    originalFetch = globalThis.fetch;
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     afk = new AFKManager();
+  });
+
+  afterEach(() => {
+    existsSyncSpy.mockRestore();
+    readFileSyncSpy.mockRestore();
+    globalThis.fetch = originalFetch;
   });
 
   it('should be configured if telegram_config.json exists', () => {

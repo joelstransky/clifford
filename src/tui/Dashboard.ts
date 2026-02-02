@@ -1,14 +1,3 @@
-import { 
-  createCliRenderer, 
-  BoxRenderable, 
-  TextRenderable,
-  ScrollBoxRenderable,
-  bold,
-  fg,
-  dim,
-  t,
-  type KeyEvent
-} from '@opentui/core';
 import fs from 'fs';
 import path from 'path';
 import { CommsBridge, BlockRequest } from '../utils/bridge.js';
@@ -48,8 +37,6 @@ interface LogEntry {
   type: 'info' | 'success' | 'warning' | 'error';
 }
 
-type OpenTUIRenderer = Awaited<ReturnType<typeof createCliRenderer>>;
-
 const STATUS_ICONS: Record<Task['status'], string> = {
   completed: '✅',
   active: '🔄',
@@ -80,7 +67,20 @@ function generateProgressBar(completed: number, total: number, width: number = 2
 }
 
 export async function launchDashboard(sprintDir: string, bridge?: CommsBridge): Promise<void> {
-  const renderer: OpenTUIRenderer = await createCliRenderer({
+  // Use a variable for the module name to ensure it's truly dynamic and NOT bundled
+  const opentuiModule = '@opentui/core';
+  const { 
+    createCliRenderer, 
+    BoxRenderable, 
+    TextRenderable,
+    ScrollBoxRenderable,
+    bold,
+    fg,
+    dim,
+    t
+  } = await import(opentuiModule);
+
+  const renderer = await createCliRenderer({
     exitOnCtrlC: false, // We'll handle it ourselves
   });
 
@@ -112,24 +112,24 @@ export async function launchDashboard(sprintDir: string, bridge?: CommsBridge): 
   }
 
   // --- Root ---
-  const root = new BoxRenderable(renderer, {
+  const root = new BoxRenderable(renderer as any, {
     id: 'root', width: '100%', height: '100%', flexDirection: 'column',
   });
   renderer.root.add(root);
 
   // --- Header ---
-  const header = new BoxRenderable(renderer, {
+  const header = new BoxRenderable(renderer as any, {
     id: 'header', width: '100%', height: 3, flexDirection: 'row',
     justifyContent: 'space-between', alignItems: 'center',
     border: true, borderStyle: 'rounded', paddingLeft: 2, paddingRight: 2,
     backgroundColor: COLORS.bg,
   });
   
-  const titleText = new TextRenderable(renderer, {
+  const titleText = new TextRenderable(renderer as any, {
     id: 'title', content: t`${bold(fg(COLORS.primary)(`CLIFFORD v${VERSION}`))}`,
   });
   
-  const sprintStatusText = new TextRenderable(renderer, {
+  const sprintStatusText = new TextRenderable(renderer as any, {
     id: 'sprint-status', content: t`${dim('[Sprint: Loading...]')}`,
   });
   
@@ -138,100 +138,100 @@ export async function launchDashboard(sprintDir: string, bridge?: CommsBridge): 
   root.add(header);
 
   // --- Main Content ---
-  const main = new BoxRenderable(renderer, {
+  const main = new BoxRenderable(renderer as any, {
     id: 'main', width: '100%', flexGrow: 1, flexDirection: 'row',
   });
   root.add(main);
 
   // --- Left Panel (Sprint Plan) ---
-  const leftPanel = new BoxRenderable(renderer, {
+  const leftPanel = new BoxRenderable(renderer as any, {
     id: 'left-panel', width: '40%', height: '100%', flexDirection: 'column',
     border: true, borderStyle: 'single', padding: 1, backgroundColor: COLORS.bg,
   });
   
-  leftPanel.add(new TextRenderable(renderer, {
+  leftPanel.add(new TextRenderable(renderer as any, {
     id: 'sprint-plan-header', content: t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`,
   }));
   
-  const sprintNameText = new TextRenderable(renderer, {
+  const sprintNameText = new TextRenderable(renderer as any, {
     id: 'sprint-name', content: t`${dim('Loading...')}`,
   });
-  const sprintDescText = new TextRenderable(renderer, {
+  const sprintDescText = new TextRenderable(renderer as any, {
     id: 'sprint-desc', content: '',
   });
   
   leftPanel.add(sprintNameText);
   leftPanel.add(sprintDescText);
   
-  const taskListBox = new BoxRenderable(renderer, {
+  const taskListBox = new BoxRenderable(renderer as any, {
     id: 'task-list-box', width: '100%', flexGrow: 1, flexDirection: 'column',
     border: true, borderStyle: 'rounded', marginTop: 1, padding: 1,
   });
-  const taskListContainer = new BoxRenderable(renderer, {
+  const taskListContainer = new BoxRenderable(renderer as any, {
     id: 'task-list', width: '100%', flexDirection: 'column',
   });
   taskListBox.add(taskListContainer);
   leftPanel.add(taskListBox);
 
-  const progressText = new TextRenderable(renderer, {
+  const progressText = new TextRenderable(renderer as any, {
     id: 'progress', content: t`${dim('Progress: ')}${fg(COLORS.dim)('░░░░░░░░░░░░░░░░░░░░ 0%')}`,
   });
-  leftPanel.add(new BoxRenderable(renderer, { id: 'prog-wrap', marginTop: 1 }).add(progressText));
+  leftPanel.add(new BoxRenderable(renderer as any, { id: 'prog-wrap', marginTop: 1 }).add(progressText));
   
   main.add(leftPanel);
 
   // --- Right Panel ---
-  const rightPanel = new BoxRenderable(renderer, {
+  const rightPanel = new BoxRenderable(renderer as any, {
     id: 'right-panel', flexGrow: 1, height: '100%', flexDirection: 'column',
     border: true, borderStyle: 'single', padding: 1, backgroundColor: COLORS.panelBg,
   });
   
   // Activity Log Components
-  const activityHeader = new TextRenderable(renderer, {
+  const activityHeader = new TextRenderable(renderer as any, {
     id: 'activity-header', content: t`${bold(fg(COLORS.purple)('ACTIVITY LOG'))}`,
   });
   
-  const activityScroll = new ScrollBoxRenderable(renderer, {
+  const activityScroll = new ScrollBoxRenderable(renderer as any, {
     id: 'activity-scroll', width: '100%', flexGrow: 1, marginTop: 1,
   });
-  const activityLogContainer = new BoxRenderable(renderer, {
+  const activityLogContainer = new BoxRenderable(renderer as any, {
     id: 'activity-log', width: '100%', flexDirection: 'column',
   });
   activityScroll.add(activityLogContainer);
   
   // Blocker UI Components
-  const blockerContainer = new BoxRenderable(renderer, {
+  const blockerContainer = new BoxRenderable(renderer as any, {
     id: 'blocker-container', width: '100%', height: '100%', flexDirection: 'column',
   });
   
-  const blockerHeader = new TextRenderable(renderer, {
+  const blockerHeader = new TextRenderable(renderer as any, {
     id: 'blocker-header', content: t`${bold(fg(COLORS.error)('🛑 BLOCKER DETECTED'))}`,
   });
-  const blockerDivider = new TextRenderable(renderer, {
+  const blockerDivider = new TextRenderable(renderer as any, {
     id: 'blocker-divider', content: t`${dim('─'.repeat(40))}`,
   });
-  const blockerTask = new TextRenderable(renderer, {
+  const blockerTask = new TextRenderable(renderer as any, {
     id: 'blocker-task', content: '',
   });
-  const blockerReason = new TextRenderable(renderer, {
+  const blockerReason = new TextRenderable(renderer as any, {
     id: 'blocker-reason', content: '',
   });
-  const blockerQuestionLabel = new TextRenderable(renderer, {
+  const blockerQuestionLabel = new TextRenderable(renderer as any, {
     id: 'blocker-question-label', content: t`\n${bold('Question:')}`,
   });
-  const blockerQuestion = new TextRenderable(renderer, {
+  const blockerQuestion = new TextRenderable(renderer as any, {
     id: 'blocker-question', content: '',
   });
   
-  const blockerInputBox = new BoxRenderable(renderer, {
+  const blockerInputBox = new BoxRenderable(renderer as any, {
     id: 'blocker-input-box', width: '100%', height: 3, border: true, borderStyle: 'rounded', marginTop: 1, paddingLeft: 1,
   });
-  const blockerInputText = new TextRenderable(renderer, {
+  const blockerInputText = new TextRenderable(renderer as any, {
     id: 'blocker-input-text', content: '',
   });
   blockerInputBox.add(blockerInputText);
   
-  const blockerFooterHint = new TextRenderable(renderer, {
+  const blockerFooterHint = new TextRenderable(renderer as any, {
     id: 'blocker-footer-hint', content: t`\n${dim('[Enter] Submit  [Esc] Cancel')}`,
   });
 
@@ -251,17 +251,17 @@ export async function launchDashboard(sprintDir: string, bridge?: CommsBridge): 
   main.add(rightPanel);
 
   // --- Footer ---
-  const footer = new BoxRenderable(renderer, {
+  const footer = new BoxRenderable(renderer as any, {
     id: 'footer', width: '100%', height: 3, flexDirection: 'row',
     justifyContent: 'space-between', alignItems: 'center',
     border: true, borderStyle: 'rounded', paddingLeft: 2, paddingRight: 2,
     backgroundColor: COLORS.bg,
   });
   
-  const statusText = new TextRenderable(renderer, {
+  const statusText = new TextRenderable(renderer as any, {
     id: 'status', content: t`${fg(COLORS.success)('STATUS: Ready')}`,
   });
-  const hotkeyText = new TextRenderable(renderer, {
+  const hotkeyText = new TextRenderable(renderer as any, {
     id: 'hotkeys', content: t`${dim('[Q]uit  [R]efresh')}`,
   });
   
@@ -270,8 +270,8 @@ export async function launchDashboard(sprintDir: string, bridge?: CommsBridge): 
   root.add(footer);
 
   // --- UI Update Helpers ---
-  const taskElements: TextRenderable[] = [];
-  const logElements: TextRenderable[] = [];
+  const taskElements: any[] = [];
+  const logElements: any[] = [];
 
   const updateTaskList = () => {
     taskElements.forEach(el => { try { taskListContainer.remove(el.id); } catch { /* ignore */ } });
@@ -280,7 +280,7 @@ export async function launchDashboard(sprintDir: string, bridge?: CommsBridge): 
 
     manifest.tasks.forEach((task, i) => {
       const content = `${STATUS_ICONS[task.status]} ${task.id}`;
-      const el = new TextRenderable(renderer, {
+      const el = new TextRenderable(renderer as any, {
         id: `task-${i}`,
         content: task.status === 'active' ? t`${bold(fg(STATUS_COLORS[task.status])(content))}` : t`${fg(STATUS_COLORS[task.status])(content)}`,
       });
@@ -299,7 +299,7 @@ export async function launchDashboard(sprintDir: string, bridge?: CommsBridge): 
       if (log.type === 'warning') color = COLORS.warning;
       if (log.type === 'error') color = COLORS.error;
 
-      const el = new TextRenderable(renderer, {
+      const el = new TextRenderable(renderer as any, {
         id: `log-${i}`,
         content: t`${dim(`[${formatTime(log.timestamp)}]`)} ${fg(color)(log.message)}`,
       });
@@ -382,7 +382,7 @@ export async function launchDashboard(sprintDir: string, bridge?: CommsBridge): 
   addLog('Dashboard initialized', 'info');
 
   // --- Input ---
-  renderer.keyInput.on('keypress', (key: KeyEvent) => {
+  renderer.keyInput.on('keypress', (key: any) => {
     // Global shortcuts (Quit)
     if (key.name === 'q' && !activeBlocker) {
       clearInterval(poll);

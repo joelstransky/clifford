@@ -7,7 +7,7 @@
     "clifford": "./dist/index.js"
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build": "bun build src/index.ts --outdir dist --target bun --external @opentui/core --external @opentui/core-win32-x64 --external @opentui/core-linux-x64",
     "start": "bun run dist/index.js",
     "dev": "bun run src/index.ts",
     "lint": "eslint .",

@@ -1,30 +1,39 @@
-import { describe, it, expect, beforeEach, spyOn } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import * as childProcess from 'child_process';
+import fs from 'fs';
 import { discoverTools } from './discovery';
 
 describe('discovery', () => {
   let execSyncSpy: ReturnType<typeof spyOn>;
+  let existsSyncSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
     execSyncSpy = spyOn(childProcess, 'execSync');
+    existsSyncSpy = spyOn(fs, 'existsSync');
+    existsSyncSpy.mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    execSyncSpy.mockRestore();
+    existsSyncSpy.mockRestore();
   });
 
   it('should discover installed tools and handle missing ones', () => {
     execSyncSpy.mockImplementation((cmd: string) => {
-      if (typeof cmd === 'string' && cmd.startsWith('command -v')) {
-        const tool = cmd.split(' ')[2];
+      if (typeof cmd === 'string' && (cmd.startsWith('command -v') || cmd.startsWith('where'))) {
+        const tool = cmd.split(' ')[2] || cmd.split(' ')[1];
         if (tool === 'opencode' || tool === 'claude') {
-          return Buffer.from(`/usr/bin/${tool}`);
+          return 'path/to/tool';
         }
         throw new Error('Command not found');
       }
       if (typeof cmd === 'string' && cmd.endsWith('--version')) {
         const tool = cmd.split(' ')[0];
-        if (tool === 'opencode') return Buffer.from('1.1.0');
-        if (tool === 'claude') return Buffer.from('2.0.0');
-        return Buffer.from('');
+        if (tool === 'opencode') return '1.1.0';
+        if (tool === 'claude') return '2.0.0';
+        return '';
       }
-      return Buffer.from('');
+      return '';
     });
 
     const tools = discoverTools();

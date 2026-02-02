@@ -39,3 +39,24 @@
 - 06-asm-storage
 - 07-memory-injection
 - 08-memory-lifecycle
+
+## [2026-02-01] sprint-03-bun-opentui
+- 01-bun-migration
+- 02-clean-opentui
+- 03-dashboard-layout
+- 04-blocker-ui
+- 05-cli-verification
+
+## [2026-02-01] sprint-03-bun-opentui
+- 01-bun-migration
+- 02-clean-opentui
+- 03-dashboard-layout
+- 04-blocker-ui
+- 05-cli-verification
+
+## [2026-02-01] sprint-03-bun-opentui
+- 01-bun-migration
+- 02-clean-opentui
+- 03-dashboard-layout
+- 04-blocker-ui
+- 05-cli-verification

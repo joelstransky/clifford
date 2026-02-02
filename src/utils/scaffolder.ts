@@ -12,9 +12,24 @@ export async function scaffold(targetDir: string, options: {
   aiTool: string;
   extraGates: string[];
 }): Promise<void> {
-  const templateDir = path.join(__dirname, '../../templates');
+  // When bundled, __dirname is the dist folder. 
+  // In dev, it is src/utils.
+  // We want to find the 'templates' folder in the project root.
+  let templateDir = path.join(__dirname, '../../templates');
   
-  // Create directories
+  if (!await fs.pathExists(templateDir)) {
+    // Fallback for bundled version where __dirname is 'dist'
+    templateDir = path.join(__dirname, '../templates');
+  }
+  
+  if (!await fs.pathExists(templateDir)) {
+    // Last resort: check current working directory (might be running from source root)
+    templateDir = path.join(process.cwd(), 'templates');
+  }
+
+  if (!await fs.pathExists(templateDir)) {
+     throw new Error(`Templates directory not found. Looked in: ${path.join(__dirname, '../../templates')}, ${path.join(__dirname, '../templates')}, ${path.join(process.cwd(), 'templates')}`);
+  }
   await fs.ensureDir(path.join(targetDir, '.clifford'));
   await fs.ensureDir(path.join(targetDir, '.opencode/agent'));
   await fs.ensureDir(path.join(targetDir, 'sprints'));
