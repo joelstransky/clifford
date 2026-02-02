@@ -19,7 +19,12 @@
 ---
 
 ## [Task-01] Configuration Schema & Loader
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Walkthrough**:
+  1. Inspect `src/utils/config.ts` to see the `CliffordConfig` interface and loading functions.
+  2. Run `npm test src/utils/config.test.ts` to verify the configuration loader handles missing files and malformed JSON correctly.
+  3. Create a dummy `clifford.json` in the root: `echo '{"model": "test-model"}' > clifford.json`.
+  4. (Optional) In a node REPL or a temp script, call `loadProjectConfig()` and verify it returns `{ model: "test-model" }`.
 - **Human Sign-off**: [ ]
 
 ## [Task-02] Integrating Model Selection
