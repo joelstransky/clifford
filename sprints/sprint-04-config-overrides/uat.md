@@ -27,8 +27,13 @@
   4. (Optional) In a node REPL or a temp script, call `loadProjectConfig()` and verify it returns `{ model: "test-model" }`.
 - **Human Sign-off**: [ ]
 
-## [Task-02] Integrating Model Selection
-- **Status**: ⏳ Pending
+## [Task-02] Support model overrides in sprint manifests
+- **Status**: ✅ Completed
+- **Walkthrough**:
+  1. Open `src/utils/sprint.ts` and verify the `SprintManifest` interface now includes an optional `model` field.
+  2. Modify any `manifest.json` (e.g., `sprints/sprint-04-config-overrides/manifest.json`) to include a `"model": "any-string"` field.
+  3. Run `bun test-discovery.ts` and verify that the output shows the `model` field being correctly parsed into the sprint objects.
+  4. Ensure no TypeScript errors occur during build: `npm run build`.
 - **Human Sign-off**: [ ]
 
 ## [Task-03] Global Config vs. Local Config

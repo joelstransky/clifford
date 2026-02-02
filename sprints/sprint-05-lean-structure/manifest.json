@@ -1,0 +1,12 @@
+{
+  "id": "sprint-05-lean-structure",
+  "name": "Lean Project Structure",
+  "status": "planning",
+  "tasks": [
+    {
+      "id": "task-01",
+      "file": "tasks/01-restructure-scaffolding.md",
+      "status": "pending"
+    }
+  ]
+}

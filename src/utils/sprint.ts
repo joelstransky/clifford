@@ -10,6 +10,7 @@ export interface SprintManifest {
   name: string;
   status: 'planning' | 'active' | 'completed';
   path: string;
+  model?: string;
   tasks: Array<{
     id: string;
     file: string;
