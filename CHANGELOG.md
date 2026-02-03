@@ -60,3 +60,9 @@
 - 03-dashboard-layout
 - 04-blocker-ui
 - 05-cli-verification
+
+## [2026-02-02] sprint-04-config-overrides
+- 01-config-engine
+- 02-manifest-overrides
+- 03-resolution-cascade
+- 04-init-command
