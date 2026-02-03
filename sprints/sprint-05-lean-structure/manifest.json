@@ -1,16 +1,16 @@
 {
   "id": "sprint-05-lean-structure",
-  "name": "Lean Project Structure",
-  "status": "planning",
+  "name": "CLI Simplification & Control Panel",
+  "status": "active",
   "tasks": [
     {
       "id": "task-01",
-      "file": "tasks/01-restructure-scaffolding.md",
-      "status": "pending"
+      "file": "tasks/01-root-command.md",
+      "status": "completed"
     },
     {
       "id": "task-02",
-      "file": "tasks/02-unified-sprint-command.md",
+      "file": "tasks/02-manual-start.md",
       "status": "pending"
     }
   ]

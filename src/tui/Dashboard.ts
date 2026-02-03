@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { CommsBridge, BlockRequest } from '../utils/bridge.js';
+import { SprintRunner } from '../utils/sprint.js';
 
 // Version constant
 const VERSION = '1.0.0';
@@ -66,7 +67,7 @@ function generateProgressBar(completed: number, total: number, width: number = 2
   return `${bar} ${percent}%`;
 }
 
-export async function launchDashboard(sprintDir: string, bridge?: CommsBridge): Promise<void> {
+export async function launchDashboard(sprintDir: string, bridge: CommsBridge, runner: SprintRunner): Promise<void> { // eslint-disable-line @typescript-eslint/no-unused-vars
   // Use a variable for the module name to ensure it's truly dynamic and NOT bundled
   const opentuiModule = '@opentui/core';
   const { 

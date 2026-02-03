@@ -139,19 +139,6 @@ program
   });
 
 program
-  .command('sprint <sprint-dir>')
-  .description('Execute a sprint loop')
-  .action(async (sprintDir) => {
-    try {
-      const runner = new SprintRunner(sprintDir);
-      await runner.run();
-    } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
-      process.exit(1);
-    }
-  });
-
-program
   .command('resolve <response>')
   .description('Resolve a blocker by sending a response to the active agent')
   .action(async (response) => {
@@ -203,12 +190,14 @@ function findActiveSprintDir(): string {
 }
 
 program
-  .command('tui [sprint-dir]')
-  .description('Launch the Clifford TUI Dashboard')
-  .action(async (sprintDir) => {
-    let dir = sprintDir || findActiveSprintDir();
-    dir = dir.replace(/\\/g, '/');
-    if (dir.startsWith('./')) dir = dir.substring(2);
+  .action(async () => {
+    const configPath = path.join(process.cwd(), 'clifford.json');
+    if (!fs.existsSync(configPath)) {
+      console.log("⚠️  Clifford is not initialized. Run `npx clifford init` to get started.");
+      process.exit(1);
+    }
+
+    const dir = findActiveSprintDir();
     const { CommsBridge } = await import('./utils/bridge.js');
     const bridge = new CommsBridge();
     const runner = new SprintRunner(dir, bridge);
@@ -219,7 +208,7 @@ program
     });
 
     const { launchDashboard } = await import('./tui/Dashboard.js');
-    await launchDashboard(dir, bridge);
+    await launchDashboard(dir, bridge, runner);
   });
 
 program.parse();

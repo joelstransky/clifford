@@ -106,7 +106,7 @@ export class SprintRunner {
         }
 
         const manifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        const model = resolveModel(manifest, projectConfig, globalConfig) || 'google/gemini-3-flash-preview';
+        const model = resolveModel(manifest, projectConfig, globalConfig) || 'opencode/kimi-k2.5-free';
         const nextTask = manifest.tasks.find(t => t.status === 'pending');
 
         if (!nextTask) break;
