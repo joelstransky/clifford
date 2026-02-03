@@ -6,12 +6,12 @@
     {
       "id": "task-01",
       "file": "tasks/01-lean-scaffolding.md",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "task-02",
       "file": "tasks/02-tui-controls.md",
-      "status": "pending"
+      "status": "active"
     }
   ]
 }

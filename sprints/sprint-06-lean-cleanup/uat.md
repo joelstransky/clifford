@@ -7,7 +7,7 @@
 - Start with a clean state for every full run: `npm run clifford:clean && npm run clifford:init`.
 
 ### 1. [Task-01] Lean Scaffolding & Structure
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
 - **Verification**:
   1. Run `npm run clifford:clean` in `clifford-sandbox` (or via `../clifford`).
   2. Run `node ../clifford/dist/index.js init -y`.
@@ -24,13 +24,13 @@
      - Verify it finds the active sprint in `.clifford/sprints`.
 
 ### 2. [Task-02] TUI Task Play Buttons
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
 - **Verification**:
-  1. Launch the TUI: `node ../clifford/dist/index.js`.
-  2. Look at the Task List.
-  3. **Expected**: Pending tasks should have a `[▶]` icon next to them.
+  1. Launch the TUI: `npm start` (or `npm run dev`).
+  2. Look at the Task List in the left panel.
+  3. **Expected**: Pending tasks should have a bright green `[▶]` icon aligned to the right.
   4. Start the sprint (press `S`).
-  5. **Expected**: While running, the `[▶]` icons should be dimmed or disabled.
+  5. **Expected**: While the sprint is running, the `[▶]` icons should appear dimmed.
 
 ---
 **Final Sprint Approval**: [ ]

@@ -280,14 +280,35 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     taskElements.length = 0;
     if (!manifest) return;
 
+    const isRunning = runner.getIsRunning();
+
     manifest.tasks.forEach((task, i) => {
-      const content = `${STATUS_ICONS[task.status]} ${task.id}`;
-      const el = new TextRenderable(renderer, {
-        id: `task-${i}`,
-        content: task.status === 'active' ? t`${bold(fg(STATUS_COLORS[task.status])(content))}` : t`${fg(STATUS_COLORS[task.status])(content)}`,
+      const itemBox = new BoxRenderable(renderer, {
+        id: `task-item-${i}`,
+        width: '100%',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
       });
-      taskElements.push(el);
-      taskListContainer.add(el);
+
+      const labelContent = `${STATUS_ICONS[task.status]} ${task.id}`;
+      const label = new TextRenderable(renderer, {
+        id: `task-label-${i}`,
+        content: task.status === 'active'
+          ? t`${bold(fg(STATUS_COLORS[task.status])(labelContent))}`
+          : t`${fg(STATUS_COLORS[task.status])(labelContent)}`,
+      });
+      itemBox.add(label);
+
+      if (task.status === 'pending') {
+        const playBtn = new TextRenderable(renderer, {
+          id: `task-play-${i}`,
+          content: isRunning ? t`${dim('[▶]')}` : t`${fg(COLORS.success)('[▶]')}`,
+        });
+        itemBox.add(playBtn);
+      }
+
+      taskElements.push(itemBox);
+      taskListContainer.add(itemBox);
     });
   };
 
