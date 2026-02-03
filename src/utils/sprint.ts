@@ -22,6 +22,7 @@ export interface SprintManifest {
 export class SprintRunner {
   private bridge: CommsBridge;
   private sprintDir: string;
+  private isRunning: boolean = false;
 
   static discoverSprints(): SprintManifest[] {
     const projectRoot = this.findProjectRoot(process.cwd());
@@ -69,7 +70,14 @@ export class SprintRunner {
     this.bridge = bridge || new CommsBridge();
   }
 
+  public getIsRunning(): boolean {
+    return this.isRunning;
+  }
+
   async run() {
+    if (this.isRunning) return;
+    this.isRunning = true;
+
     if (this.sprintDir === '.') {
       this.sprintDir = this.findActiveSprintDir();
     }
@@ -214,6 +222,7 @@ ${humanGuidance}${promptContent}`;
         console.log('✅ Task completed. Moving to next...');
       }
     } finally {
+      this.isRunning = false;
       console.log('🏁 Sprint loop finished.');
       this.bridge.stop();
     }

@@ -67,7 +67,7 @@ function generateProgressBar(completed: number, total: number, width: number = 2
   return `${bar} ${percent}%`;
 }
 
-export async function launchDashboard(sprintDir: string, bridge: CommsBridge, runner: SprintRunner): Promise<void> { // eslint-disable-line @typescript-eslint/no-unused-vars
+export async function launchDashboard(sprintDir: string, bridge: CommsBridge, runner: SprintRunner): Promise<void> {
   // Use a variable for the module name to ensure it's truly dynamic and NOT bundled
   const opentuiModule = '@opentui/core';
   const { 
@@ -320,12 +320,12 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     const progress = generateProgressBar(completed, manifest.tasks.length);
     progressText.content = t`${dim('Progress: ')}${fg(completed === manifest.tasks.length ? COLORS.success : COLORS.primary)(progress)}`;
     
-    const active = manifest.tasks.some(t => t.status === 'active');
+    const active = manifest.tasks.some(t => t.status === 'active') || runner.getIsRunning();
     const blocked = manifest.tasks.some(t => t.status === 'blocked');
     let sLabel = 'Idle', sColor = COLORS.dim;
     if (blocked) { sLabel = 'Blocked'; sColor = COLORS.error; }
     else if (active) { sLabel = 'Running'; sColor = COLORS.warning; }
-    else if (completed === manifest.tasks.length) { sLabel = 'Complete'; sColor = COLORS.success; }
+    else if (completed === manifest.tasks.length && manifest.tasks.length > 0) { sLabel = 'Complete'; sColor = COLORS.success; }
     sprintStatusText.content = t`${fg(sColor)(`[Sprint: ${sLabel}]`)}`;
     
     updateTaskList();
@@ -353,7 +353,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         currentRightView = 'activity';
       }
       updateActivityLog();
-      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}`;
+      const startHint = runner.getIsRunning() ? '' : t`  ${bold(fg(COLORS.success)('[S]tart'))}`;
+      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}${startHint}`;
     }
   };
 
@@ -417,6 +418,12 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       if (key.name === 'r') {
         addLog('Manual refresh', 'info');
         loadManifest();
+      }
+      if (key.name === 's' && !runner.getIsRunning()) {
+        addLog('Starting sprint manually...', 'warning');
+        runner.run().catch(err => {
+          addLog(`Runner Error: ${err.message}`, 'error');
+        });
       }
     }
   });

@@ -202,11 +202,6 @@ program
     const bridge = new CommsBridge();
     const runner = new SprintRunner(dir, bridge);
 
-    // Start the runner in the background
-    runner.run().catch((err) => {
-      console.error(`Runner Error: ${err.message}`);
-    });
-
     const { launchDashboard } = await import('./tui/Dashboard.js');
     await launchDashboard(dir, bridge, runner);
   });

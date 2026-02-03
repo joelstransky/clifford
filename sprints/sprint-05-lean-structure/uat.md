@@ -17,3 +17,22 @@
 - Environment validation: Passed ✅
 - Command deprecation: Passed ✅
 - Default action: Passed ✅ (verified via build and code inspection, TUI verified separately)
+
+## Task 02: Manual Start Wiring
+
+### Verification Steps
+1.  **Launch TUI**:
+    - Run `bun src/index.ts`.
+2.  **Verify Idle State**:
+    - **Expected**: The TUI should open, but the "Activity Log" should only show "Dashboard initialized". No tasks should start running automatically.
+    - **Expected**: The footer should show `[S]tart` in green next to `[Q]uit [R]efresh`.
+3.  **Manual Start**:
+    - Press `s`.
+    - **Expected**: The Activity Log should show "Starting sprint manually...".
+    - **Expected**: Tasks should transition from `pending` to `active` (and then `completed` if the agent proceeds).
+    - **Expected**: The `[S]tart` hint should disappear from the footer once the sprint is running.
+
+### Results
+- Initial Idle State: Verified ✅
+- Start Key Hint: Verified ✅
+- Manual Triggering: Verified ✅
