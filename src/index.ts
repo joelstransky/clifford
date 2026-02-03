@@ -61,7 +61,7 @@ program
     let answers;
     if (options.yolo) {
       answers = {
-        model: 'gpt-4o',
+        model: 'claude-3-7-sonnet-20250219',
         workflow: 'yolo',
         aiTool: 'opencode',
         extraGates: []
@@ -83,7 +83,7 @@ program
           type: 'input',
           name: 'model',
           message: 'Preferred Default Model:',
-          default: 'gpt-4o'
+          default: 'claude-3-7-sonnet-20250219'
         },
         {
           type: 'list',
