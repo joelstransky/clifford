@@ -26,7 +26,7 @@ export class SprintRunner {
 
   static discoverSprints(): SprintManifest[] {
     const projectRoot = this.findProjectRoot(process.cwd());
-    const sprintsDir = path.join(projectRoot, 'sprints');
+    const sprintsDir = path.join(projectRoot, '.clifford/sprints');
 
     if (!fs.existsSync(sprintsDir)) {
       return [];
@@ -42,7 +42,7 @@ export class SprintRunner {
           try {
             const content = fs.readFileSync(manifestPath, 'utf8');
             const manifest = JSON.parse(content) as SprintManifest;
-            manifest.path = path.join('sprints', entry.name);
+            manifest.path = path.join('.clifford/sprints', entry.name);
             manifests.push(manifest);
           } catch (e) {
             console.error(`Failed to parse manifest at ${manifestPath}:`, e);
@@ -256,7 +256,7 @@ ${humanGuidance}${promptContent}`;
   }
 
   private findActiveSprintDir(): string {
-    const sprintsDir = path.resolve('sprints');
+    const sprintsDir = path.resolve('.clifford/sprints');
     if (fs.existsSync(sprintsDir)) {
       const sprintDirs = fs.readdirSync(sprintsDir);
       for (const dir of sprintDirs) {
@@ -265,7 +265,7 @@ ${humanGuidance}${promptContent}`;
           try {
             const m = JSON.parse(fs.readFileSync(mPath, 'utf8'));
             if (m.status === 'active') {
-              return path.join('sprints', dir);
+              return path.join('.clifford/sprints', dir);
             }
           } catch {
             // Ignore parse errors
@@ -273,7 +273,7 @@ ${humanGuidance}${promptContent}`;
         }
       }
     }
-    return 'sprints/sprint-01'; // Fallback
+    return '.clifford/sprints/sprint-01'; // Fallback
   }
 
   private hasPendingTasks(manifestPath: string): boolean {

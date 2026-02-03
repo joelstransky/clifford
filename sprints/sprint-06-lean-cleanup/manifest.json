@@ -1,0 +1,17 @@
+{
+  "id": "sprint-06-lean-cleanup",
+  "name": "Lean Cleanup",
+  "status": "active",
+  "tasks": [
+    {
+      "id": "task-01",
+      "file": "tasks/01-lean-scaffolding.md",
+      "status": "pending"
+    },
+    {
+      "id": "task-02",
+      "file": "tasks/02-tui-controls.md",
+      "status": "pending"
+    }
+  ]
+}

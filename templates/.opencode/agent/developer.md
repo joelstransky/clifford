@@ -36,3 +36,7 @@ If you encounter a task that is logically impossible, contradicts previous instr
 - `.opencode/`: Internal configuration and agent personas.
 - `sprints/`: Contains sprint folders, task descriptions, and manifest files.
 - `src/`: Application source code.
+
+## Dry Library Style
+
+When ever you build you must not just keep drawing html elements as needed. You must take on a "library first" mentality. That does not mean lean on npm for everything. It means as soon as you make 2 of something, it needs to be a component instead.

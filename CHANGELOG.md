@@ -66,3 +66,7 @@
 - 02-manifest-overrides
 - 03-resolution-cascade
 - 04-init-command
+
+## [2026-02-03] sprint-05-lean-structure
+- 01-root-command
+- 02-manual-start

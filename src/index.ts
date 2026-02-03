@@ -186,7 +186,7 @@ function findActiveSprintDir(): string {
   } catch {
     // Ignore and fallback
   }
-  return 'sprints/sprint-01';
+  return '.clifford/sprints/sprint-01';
 }
 
 program
@@ -197,7 +197,10 @@ program
       process.exit(1);
     }
 
-    const dir = findActiveSprintDir();
+    let dir = findActiveSprintDir();
+    dir = dir.replace(/\\/g, '/');
+    if (dir.startsWith('./')) dir = dir.substring(2);
+    
     const { CommsBridge } = await import('./utils/bridge.js');
     const bridge = new CommsBridge();
     const runner = new SprintRunner(dir, bridge);

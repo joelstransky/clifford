@@ -1,17 +1,17 @@
 {
   "id": "sprint-05-lean-structure",
   "name": "CLI Simplification & Control Panel",
-  "status": "active",
+  "status": "pushed",
   "tasks": [
     {
       "id": "task-01",
       "file": "tasks/01-root-command.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-02",
       "file": "tasks/02-manual-start.md",
-      "status": "completed"
+      "status": "pushed"
     }
   ]
 }

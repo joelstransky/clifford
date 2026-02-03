@@ -31,43 +31,16 @@ export async function scaffold(targetDir: string, options: {
      throw new Error(`Templates directory not found. Looked in: ${path.join(__dirname, '../../templates')}, ${path.join(__dirname, '../templates')}, ${path.join(process.cwd(), 'templates')}`);
   }
   await fs.ensureDir(path.join(targetDir, '.clifford'));
-  await fs.ensureDir(path.join(targetDir, '.opencode/agent'));
-  await fs.ensureDir(path.join(targetDir, 'sprints'));
+  await fs.ensureDir(path.join(targetDir, '.clifford/sprints'));
 
-  // Copy templates
-  await fs.copy(path.join(templateDir, '.clifford'), path.join(targetDir, '.clifford'));
-  await fs.copy(path.join(templateDir, '.opencode'), path.join(targetDir, '.opencode'));
-
-  // Customize sprint-verify.sh based on extraGates
-  const verifyScriptPath = path.join(targetDir, '.clifford/sprint-verify.sh');
-  if (await fs.pathExists(verifyScriptPath)) {
-    let verifyContent = await fs.readFile(verifyScriptPath, 'utf8');
-    
-    let gatesContent = '';
-    if (options.extraGates.includes('lint')) {
-      gatesContent += '  echo "--- Checking Lint ---"\n  npm run lint || { echo "❌ Linting failed"; exit 1; }\n';
-    }
-    if (options.extraGates.includes('test')) {
-      gatesContent += '  echo "--- Running Tests ---"\n  npm test || { echo "❌ Tests failed"; exit 1; }\n';
-    }
-
-    const startMarker = '# GATES_START';
-    const endMarker = '# GATES_END';
-    const startIndex = verifyContent.indexOf(startMarker);
-    const endIndex = verifyContent.indexOf(endMarker);
-
-    if (startIndex !== -1 && endIndex !== -1) {
-      verifyContent = 
-        verifyContent.substring(0, startIndex + startMarker.length) + 
-        '\n' + gatesContent + 
-        verifyContent.substring(endIndex);
-    }
-    
-    await fs.writeFile(verifyScriptPath, verifyContent);
+  // Copy only prompt.md to .clifford
+  const promptSrc = path.join(templateDir, '.clifford/prompt.md');
+  if (await fs.pathExists(promptSrc)) {
+      await fs.copy(promptSrc, path.join(targetDir, '.clifford/prompt.md'));
   }
 
   // Create initial manifest if it doesn't exist
-  const sprintsDir = path.join(targetDir, 'sprints');
+  const sprintsDir = path.join(targetDir, '.clifford/sprints');
   const entries = await fs.readdir(sprintsDir);
   if (entries.length === 0) {
     const firstSprintDir = path.join(sprintsDir, 'sprint-01');
@@ -86,8 +59,8 @@ export async function scaffold(targetDir: string, options: {
   const gitignorePath = path.join(targetDir, '.gitignore');
   const gitignoreEntries = [
     '\n# Clifford',
-    '.opencode/node_modules',
-    '.clifford/state.json'
+    '.clifford/state.json',
+    '.clifford/asm.json'
   ];
 
   if (await fs.pathExists(gitignorePath)) {
@@ -102,12 +75,6 @@ export async function scaffold(targetDir: string, options: {
     await fs.writeFile(gitignorePath, gitignoreEntries.join('\n') + '\n');
   }
 
-  // Save configuration
-  const config = {
-    workflow: options.workflow,
-    aiTool: options.aiTool,
-    extraGates: options.extraGates,
-    initializedAt: new Date().toISOString()
-  };
-  await fs.writeJson(path.join(targetDir, '.clifford/config.json'), config, { spaces: 2 });
+  // Configuration is now handled by the caller writing to clifford.json in root
+  // We no longer write .clifford/config.json
 }
