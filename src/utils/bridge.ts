@@ -59,6 +59,13 @@ export class CommsBridge extends EventEmitter {
     this.activeChild = child;
   }
 
+  killActiveChild() {
+    if (this.activeChild) {
+      this.activeChild.kill();
+      this.activeChild = null;
+    }
+  }
+
   resolveBlocker(response: string) {
     console.log(`\n✅ BLOCKER RESOLVED: ${response}`);
     

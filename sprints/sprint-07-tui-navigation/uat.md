@@ -35,15 +35,16 @@
 ---
 
 ## Task 3: Sprint Start/Stop Control
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
 - **Verification**:
-  1. Navigate to a sprint's task view.
-  2. Press `S` - sprint starts, UI shows running indicators (`🔄`).
-  3. Header shows `[Running: task-id]`.
-  4. Navigate back to sprint list (if allowed) - running sprint marked.
-  5. Try starting another sprint - should be blocked with warning.
-  6. Press `X` - sprint stops, UI returns to idle.
-  7. Can now start a different sprint.
+  1. Navigate to a sprint's task view (Right arrow).
+  2. Press `S` - sprint starts, the activity log shows "Starting sprint...".
+  3. Header shows `[Running: Sprint Name > task-id]`.
+  4. Press Left arrow to return to sprint list - the running sprint shows a `🔄` icon.
+  5. Other sprints in the list appear dimmed.
+  6. Try pressing `S` on another sprint - a warning "Already running: ..." appears in the log.
+  7. Press `X` - sprint stops, header returns to `[Idle]`, and all sprints return to normal brightness.
+  8. Footer hotkey hints correctly show `[S]tart` when idle and `[X] Stop` when running.
 
 ---
 

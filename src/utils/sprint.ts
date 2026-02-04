@@ -77,6 +77,22 @@ export class SprintRunner {
     return this.isRunning;
   }
 
+  public setSprintDir(dir: string) {
+    if (this.isRunning) return;
+    this.sprintDir = dir.replace(/\\/g, '/');
+  }
+
+  public getSprintDir(): string {
+    return this.sprintDir;
+  }
+
+  public stop() {
+    if (!this.isRunning) return;
+    console.log('🛑 Stopping sprint...');
+    this.isRunning = false;
+    this.bridge.killActiveChild();
+  }
+
   async run() {
     if (this.isRunning) return;
     this.isRunning = true;
@@ -110,7 +126,7 @@ export class SprintRunner {
 
       console.log(`🚀 Starting sprint in ${this.sprintDir}`);
 
-      while (this.hasPendingTasks(manifestPath)) {
+      while (this.hasPendingTasks(manifestPath) && this.isRunning) {
         if (this.bridge.checkPaused()) {
           await new Promise(resolve => setTimeout(resolve, 1000));
           continue;

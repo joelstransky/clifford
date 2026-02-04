@@ -296,20 +296,28 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   const updateSprintList = () => {
     clearLeftPanel();
 
+    const isRunning = runner.getIsRunning();
+    const runningDir = runner.getSprintDir();
+
     allSprints.forEach((s, i) => {
       const isSelected = i === selectedIndex;
+      const isThisRunning = isRunning && path.resolve(runningDir) === path.resolve(s.path);
+      const otherRunning = isRunning && !isThisRunning;
+
       const itemBox = new BoxRenderable(renderer, {
         id: `sprint-item-${i}`,
         width: '100%',
         flexDirection: 'row',
       });
 
-      const labelContent = `${isSelected ? '> ' : '  '}${s.name}`;
+      const labelContent = `${isSelected ? '> ' : '  '}${s.name}${isThisRunning ? ' 🔄' : ''}`;
       const label = new TextRenderable(renderer, {
         id: `sprint-label-${i}`,
         content: isSelected
           ? t`${bold(fg(COLORS.primary)(labelContent))}`
-          : t`${fg(COLORS.text)(labelContent)}`,
+          : otherRunning
+            ? t`${dim(labelContent)}`
+            : t`${fg(COLORS.text)(labelContent)}`,
       });
       itemBox.add(label);
 
@@ -393,14 +401,21 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     // Top-level status
     const completed = manifest ? manifest.tasks.filter(t => t.status === 'completed' || t.status === 'pushed').length : 0;
     const total = manifest ? manifest.tasks.length : 0;
-    const active = manifest ? (manifest.tasks.some(t => t.status === 'active') || runner.getIsRunning()) : runner.getIsRunning();
+    const isRunning = runner.getIsRunning();
     const blocked = manifest ? manifest.tasks.some(t => t.status === 'blocked') : false;
     
     let sLabel = 'Idle', sColor = COLORS.dim;
     if (blocked) { sLabel = 'Blocked'; sColor = COLORS.error; }
-    else if (active) { sLabel = 'Running'; sColor = COLORS.warning; }
+    else if (isRunning) { 
+      const runningDir = runner.getSprintDir();
+      const runningSprint = allSprints.find(s => path.resolve(s.path) === path.resolve(runningDir));
+      const activeTask = manifest?.tasks.find(t => t.status === 'active');
+      const taskSuffix = (activeTask && runningSprint?.id === manifest?.id) ? ` > ${activeTask.id}` : '';
+      sLabel = `Running: ${runningSprint?.name || 'Unknown'}${taskSuffix}`; 
+      sColor = COLORS.warning; 
+    }
     else if (completed === total && total > 0) { sLabel = 'Complete'; sColor = COLORS.success; }
-    sprintStatusText.content = t`${fg(sColor)(`[Sprint: ${sLabel}]`)}`;
+    sprintStatusText.content = t`${fg(sColor)(`[${sLabel}]`)}`;
 
     if (isSprintsView) {
       leftPanelHeader.content = t`${bold(fg(COLORS.primary)('AVAILABLE SPRINTS'))}`;
@@ -443,11 +458,13 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       }
       updateActivityLog();
       
-      const startHint = (isTasksView && !runner.getIsRunning()) ? t`  ${bold(fg(COLORS.success)('[S]tart'))}` : '';
+      const isRunning = runner.getIsRunning();
+      const startHint = (isTasksView && !isRunning) ? t`  ${bold(fg(COLORS.success)('[S]tart'))}` : '';
+      const stopHint = isRunning ? t`  ${bold(fg(COLORS.error)('[X] Stop'))}` : '';
       const backHint = isTasksView ? t`  ${bold(fg(COLORS.primary)('[←] Back'))}` : '';
       const selectHint = isSprintsView ? t`  ${bold(fg(COLORS.primary)('[→] Select'))}` : '';
       
-      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}${selectHint}${backHint}${startHint}`;
+      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}${selectHint}${backHint}${startHint}${stopHint}`;
     }
   };
 
@@ -538,11 +555,22 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         addLog('Manual refresh', 'info');
         loadManifest();
       }
-      if (key.name === 's' && !runner.getIsRunning()) {
-        addLog('Starting sprint manually...', 'warning');
-        runner.run().catch(err => {
-          addLog(`Runner Error: ${err.message}`, 'error');
-        });
+      if (key.name === 's') {
+        if (viewMode === 'tasks' && !runner.getIsRunning()) {
+          runner.setSprintDir(currentSprintDir);
+          addLog(`Starting sprint: ${manifest?.name || currentSprintDir}`, 'warning');
+          runner.run().catch(err => {
+            addLog(`Runner Error: ${err.message}`, 'error');
+          });
+        } else if (runner.getIsRunning()) {
+          const runningDir = runner.getSprintDir();
+          const runningSprint = allSprints.find(s => path.resolve(s.path) === path.resolve(runningDir));
+          addLog(`Already running: ${runningSprint?.name || 'Another sprint'}`, 'warning');
+        }
+      }
+      if (key.name === 'x' && runner.getIsRunning()) {
+        addLog('Stopping sprint...', 'error');
+        runner.stop();
       }
     }
   });
