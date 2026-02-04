@@ -26,7 +26,9 @@ export class SprintRunner {
 
   static discoverSprints(): SprintManifest[] {
     const projectRoot = this.findProjectRoot(process.cwd());
-    const sprintsDir = path.join(projectRoot, '.clifford/sprints');
+    const sprintsDir = fs.existsSync(path.join(projectRoot, 'sprints')) 
+      ? path.join(projectRoot, 'sprints')
+      : path.join(projectRoot, '.clifford/sprints');
 
     if (!fs.existsSync(sprintsDir)) {
       return [];
@@ -42,7 +44,8 @@ export class SprintRunner {
           try {
             const content = fs.readFileSync(manifestPath, 'utf8');
             const manifest = JSON.parse(content) as SprintManifest;
-            manifest.path = path.join('.clifford/sprints', entry.name);
+            const relativeSprintsDir = sprintsDir.includes('.clifford') ? '.clifford/sprints' : 'sprints';
+            manifest.path = path.join(relativeSprintsDir, entry.name);
             manifests.push(manifest);
           } catch (e) {
             console.error(`Failed to parse manifest at ${manifestPath}:`, e);

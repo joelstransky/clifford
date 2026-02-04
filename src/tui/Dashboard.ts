@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { CommsBridge, BlockRequest } from '../utils/bridge.js';
-import { SprintRunner } from '../utils/sprint.js';
+import { SprintRunner, SprintManifest } from '../utils/sprint.js';
 
 // Version constant
 const VERSION = '1.0.0';
@@ -86,6 +86,10 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
 
   // --- State ---
+  let viewMode: 'sprints' | 'tasks' = 'sprints';
+  let allSprints: SprintManifest[] = [];
+  let selectedIndex: number = 0;
+  let currentSprintDir = sprintDir;
   let manifest: Manifest | null = null;
   let previousManifest: Manifest | null = null;
   let logs: LogEntry[] = [];
@@ -98,6 +102,11 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     if (logs.length > 100) logs.shift();
     if (!activeBlocker) updateActivityLog();
   };
+
+  // Discover sprints and set initial selection
+  allSprints = SprintRunner.discoverSprints();
+  const initialIndex = allSprints.findIndex(s => path.resolve(s.path) === path.resolve(sprintDir));
+  if (initialIndex !== -1) selectedIndex = initialIndex;
 
   if (bridge) {
     bridge.on('block', (data: BlockRequest) => {
@@ -150,9 +159,10 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     border: true, borderStyle: 'single', padding: 1, backgroundColor: COLORS.bg,
   });
   
-  leftPanel.add(new TextRenderable(renderer, {
+  const leftPanelHeader = new TextRenderable(renderer, {
     id: 'sprint-plan-header', content: t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`,
-  }));
+  });
+  leftPanel.add(leftPanelHeader);
   
   const sprintNameText = new TextRenderable(renderer, {
     id: 'sprint-name', content: t`${dim('Loading...')}`,
@@ -274,10 +284,42 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   interface Identifiable { id: string; }
   const taskElements: Identifiable[] = [];
   const logElements: Identifiable[] = [];
+  const sprintElements: Identifiable[] = [];
 
-  const updateTaskList = () => {
+  const clearLeftPanel = () => {
     taskElements.forEach(el => { try { taskListContainer.remove(el.id); } catch { /* ignore */ } });
     taskElements.length = 0;
+    sprintElements.forEach(el => { try { taskListContainer.remove(el.id); } catch { /* ignore */ } });
+    sprintElements.length = 0;
+  };
+
+  const updateSprintList = () => {
+    clearLeftPanel();
+
+    allSprints.forEach((s, i) => {
+      const isSelected = i === selectedIndex;
+      const itemBox = new BoxRenderable(renderer, {
+        id: `sprint-item-${i}`,
+        width: '100%',
+        flexDirection: 'row',
+      });
+
+      const labelContent = `${isSelected ? '> ' : '  '}${s.name}`;
+      const label = new TextRenderable(renderer, {
+        id: `sprint-label-${i}`,
+        content: isSelected
+          ? t`${bold(fg(COLORS.primary)(labelContent))}`
+          : t`${fg(COLORS.text)(labelContent)}`,
+      });
+      itemBox.add(label);
+
+      sprintElements.push(itemBox);
+      taskListContainer.add(itemBox);
+    });
+  };
+
+  const updateTaskList = () => {
+    clearLeftPanel();
     if (!manifest) return;
 
     const isRunning = runner.getIsRunning();
@@ -332,24 +374,37 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   };
 
   const updateDisplay = () => {
-    if (!manifest) return;
+    const isSprintsView = viewMode === 'sprints';
+    const isTasksView = viewMode === 'tasks';
+
+    // Top-level status
+    const completed = manifest ? manifest.tasks.filter(t => t.status === 'completed' || t.status === 'pushed').length : 0;
+    const total = manifest ? manifest.tasks.length : 0;
+    const active = manifest ? (manifest.tasks.some(t => t.status === 'active') || runner.getIsRunning()) : runner.getIsRunning();
+    const blocked = manifest ? manifest.tasks.some(t => t.status === 'blocked') : false;
     
-    sprintNameText.content = t`${fg(COLORS.text)(manifest.name)}`;
-    sprintDescText.content = t`${dim(`"${manifest.id}"`)}`;
-    
-    const completed = manifest.tasks.filter(t => t.status === 'completed' || t.status === 'pushed').length;
-    const progress = generateProgressBar(completed, manifest.tasks.length);
-    progressText.content = t`${dim('Progress: ')}${fg(completed === manifest.tasks.length ? COLORS.success : COLORS.primary)(progress)}`;
-    
-    const active = manifest.tasks.some(t => t.status === 'active') || runner.getIsRunning();
-    const blocked = manifest.tasks.some(t => t.status === 'blocked');
     let sLabel = 'Idle', sColor = COLORS.dim;
     if (blocked) { sLabel = 'Blocked'; sColor = COLORS.error; }
     else if (active) { sLabel = 'Running'; sColor = COLORS.warning; }
-    else if (completed === manifest.tasks.length && manifest.tasks.length > 0) { sLabel = 'Complete'; sColor = COLORS.success; }
+    else if (completed === total && total > 0) { sLabel = 'Complete'; sColor = COLORS.success; }
     sprintStatusText.content = t`${fg(sColor)(`[Sprint: ${sLabel}]`)}`;
-    
-    updateTaskList();
+
+    if (isSprintsView) {
+      leftPanelHeader.content = t`${bold(fg(COLORS.primary)('AVAILABLE SPRINTS'))}`;
+      sprintNameText.content = t`${fg(COLORS.text)('Select a sprint to view tasks')}`;
+      sprintDescText.content = t`${dim('Use ↑↓ to navigate, → to drill in')}`;
+      updateSprintList();
+      progressText.content = t`${dim('Progress: ')}${fg(COLORS.dim)(generateProgressBar(0, 0))}`;
+    } else {
+      leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`;
+      if (manifest) {
+        sprintNameText.content = t`${fg(COLORS.text)(manifest.name)}`;
+        sprintDescText.content = t`${dim(`"${manifest.id}"`)}`;
+      }
+      updateTaskList();
+      const progress = generateProgressBar(completed, total);
+      progressText.content = t`${dim('Progress: ')}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)}`;
+    }
     
     // Toggle Right Panel
     if (activeBlocker) {
@@ -374,18 +429,22 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         currentRightView = 'activity';
       }
       updateActivityLog();
-      const startHint = runner.getIsRunning() ? '' : t`  ${bold(fg(COLORS.success)('[S]tart'))}`;
-      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}${startHint}`;
+      
+      const startHint = (isTasksView && !runner.getIsRunning()) ? t`  ${bold(fg(COLORS.success)('[S]tart'))}` : '';
+      const backHint = isTasksView ? t`  ${bold(fg(COLORS.primary)('[←] Back'))}` : '';
+      const selectHint = isSprintsView ? t`  ${bold(fg(COLORS.primary)('[→] Select'))}` : '';
+      
+      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}${selectHint}${backHint}${startHint}`;
     }
   };
 
   // --- Manifest Polling ---
   const loadManifest = () => {
-    const p = path.resolve(sprintDir, 'manifest.json');
+    const p = path.resolve(currentSprintDir, 'manifest.json');
     try {
       if (fs.existsSync(p)) {
         const m: Manifest = JSON.parse(fs.readFileSync(p, 'utf8'));
-        if (previousManifest) {
+        if (previousManifest && previousManifest.id === m.id) {
           m.tasks.forEach((t, i) => {
             const prev = previousManifest?.tasks[i];
             if (prev && prev.status !== t.status) {
@@ -436,6 +495,32 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         updateDisplay();
       }
     } else {
+      if (key.name === 'up') {
+        if (viewMode === 'sprints') {
+          selectedIndex = Math.max(0, selectedIndex - 1);
+          updateDisplay();
+        }
+      } else if (key.name === 'down') {
+        if (viewMode === 'sprints') {
+          selectedIndex = Math.min(allSprints.length - 1, selectedIndex + 1);
+          updateDisplay();
+        }
+      } else if (key.name === 'right') {
+        if (viewMode === 'sprints' && allSprints[selectedIndex]) {
+          const selected = allSprints[selectedIndex];
+          currentSprintDir = selected.path;
+          viewMode = 'tasks';
+          manifest = null; // Clear old manifest while loading
+          loadManifest();
+          addLog(`Drilled into sprint: ${selected.name}`, 'info');
+        }
+      } else if (key.name === 'left') {
+        if (viewMode === 'tasks') {
+          viewMode = 'sprints';
+          updateDisplay();
+        }
+      }
+
       if (key.name === 'r') {
         addLog('Manual refresh', 'info');
         loadManifest();

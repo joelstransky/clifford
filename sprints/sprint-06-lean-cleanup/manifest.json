@@ -1,7 +1,7 @@
 {
   "id": "sprint-06-lean-cleanup",
   "name": "Lean Cleanup",
-  "status": "active",
+  "status": "completed",
   "tasks": [
     {
       "id": "task-01",
@@ -11,7 +11,7 @@
     {
       "id": "task-02",
       "file": "tasks/02-tui-controls.md",
-      "status": "active"
+      "status": "completed"
     }
   ]
 }
