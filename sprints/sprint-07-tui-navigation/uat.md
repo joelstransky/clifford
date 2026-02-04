@@ -49,14 +49,16 @@
 ---
 
 ## Task 4: Chat Input Field
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
 - **Verification**:
-  1. Launch TUI - chat input visible at bottom with placeholder.
-  2. Press `/` - input focuses, prompt brightens, cursor appears.
+  1. Launch TUI - chat input visible at bottom with placeholder "Press / to chat...".
+  2. Press `/` - input focuses (border becomes double, prompt brightens, cursor `█` appears).
   3. Type a message - text appears in input field.
-  4. Press `Enter` - message appears in activity log as `[You] ...`.
-  5. Press `Esc` while typing - input clears and unfocuses.
-  6. Hotkeys work normally when input is unfocused.
+  4. Press `Backspace` - characters are removed.
+  5. Press `Enter` - message appears in activity log as `[You] ...`, input clears and unfocuses.
+  6. Press `Esc` while typing - input clears and unfocuses.
+  7. Footer hints change to `[Enter] Send [Esc] Cancel` when focused.
+  8. Hotkeys (like `Q` or `Up/Down`) work normally when input is unfocused.
 
 ---
 

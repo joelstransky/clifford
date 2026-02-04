@@ -95,6 +95,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   let logs: LogEntry[] = [];
   let activeBlocker: BlockRequest | null = null;
   let blockerInput: string = '';
+  let chatInput: string = '';
+  let chatFocused: boolean = false;
   let currentRightView: 'activity' | 'blocker' = 'activity';
 
   const addLog = (message: string, type: LogEntry['type'] = 'info') => {
@@ -260,6 +262,21 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   rightPanel.add(activityScroll);
   
   main.add(rightPanel);
+  
+  // --- Chat Input ---
+  const chatInputBox = new BoxRenderable(renderer, {
+    id: 'chat-input-box', width: '100%', height: 3, border: true, borderStyle: 'rounded', paddingLeft: 1, paddingRight: 1,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bg,
+  });
+  const chatInputLabel = new TextRenderable(renderer, {
+    id: 'chat-input-label', content: t`${dim('CHAT > ')}`,
+  });
+  const chatInputText = new TextRenderable(renderer, {
+    id: 'chat-input-text', content: '',
+  });
+  chatInputBox.add(chatInputLabel);
+  chatInputBox.add(chatInputText);
+  root.add(chatInputBox);
 
   // --- Footer ---
   const footer = new BoxRenderable(renderer, {
@@ -463,9 +480,19 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       const stopHint = isRunning ? t`  ${bold(fg(COLORS.error)('[X] Stop'))}` : '';
       const backHint = isTasksView ? t`  ${bold(fg(COLORS.primary)('[←] Back'))}` : '';
       const selectHint = isSprintsView ? t`  ${bold(fg(COLORS.primary)('[→] Select'))}` : '';
+      const chatHint = t`  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
       
-      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}${selectHint}${backHint}${startHint}${stopHint}`;
+      if (chatFocused) {
+        hotkeyText.content = t`${bold('[Enter]')} Send  ${bold('[Esc]')} Cancel`;
+      } else {
+        hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}${selectHint}${backHint}${startHint}${stopHint}${chatHint}`;
+      }
     }
+
+    // Update Chat Input UI
+    chatInputLabel.content = chatFocused ? t`${bold(fg(COLORS.primary)('CHAT > '))}` : t`${dim('CHAT > ')}`;
+    chatInputBox.borderStyle = chatFocused ? 'double' : 'rounded';
+    chatInputText.content = chatFocused ? t`${chatInput}${bold(fg(COLORS.primary)('█'))}` : t`${dim(chatInput || 'Press / to chat...')}`;
   };
 
   // --- Manifest Polling ---
@@ -524,7 +551,31 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         blockerInput += key.sequence;
         updateDisplay();
       }
+    } else if (chatFocused) {
+      if (key.name === 'enter') {
+        if (chatInput.trim()) {
+          addLog(`[You] ${chatInput.trim()}`);
+          chatInput = '';
+          chatFocused = false;
+          updateDisplay();
+        }
+      } else if (key.name === 'escape') {
+        chatInput = '';
+        chatFocused = false;
+        updateDisplay();
+      } else if (key.name === 'backspace') {
+        chatInput = chatInput.slice(0, -1);
+        updateDisplay();
+      } else if (key.sequence && key.sequence.length === 1 && key.sequence.charCodeAt(0) >= 32 && key.sequence.charCodeAt(0) <= 126) {
+        chatInput += key.sequence;
+        updateDisplay();
+      }
     } else {
+      if (key.sequence === '/') {
+        chatFocused = true;
+        updateDisplay();
+        return;
+      }
       if (key.name === 'up') {
         if (viewMode === 'sprints') {
           selectedIndex = Math.max(0, selectedIndex - 1);
