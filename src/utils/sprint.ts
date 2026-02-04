@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
+import { EventEmitter } from 'events';
 import { CommsBridge } from './bridge.js';
 import { discoverTools } from './discovery.js';
 import { getMemory, clearMemory } from './asm-storage.js';
@@ -19,10 +20,11 @@ export interface SprintManifest {
   }>;
 }
 
-export class SprintRunner {
+export class SprintRunner extends EventEmitter {
   private bridge: CommsBridge;
   private sprintDir: string;
   private isRunning: boolean = false;
+  private currentTaskId: string | null = null;
 
   static discoverSprints(): SprintManifest[] {
     const projectRoot = this.findProjectRoot(process.cwd());
@@ -69,12 +71,17 @@ export class SprintRunner {
   }
 
   constructor(sprintDir: string, bridge?: CommsBridge) {
+    super();
     this.sprintDir = sprintDir.replace(/\\/g, '/');
     this.bridge = bridge || new CommsBridge();
   }
 
   public getIsRunning(): boolean {
     return this.isRunning;
+  }
+
+  public getCurrentTaskId(): string | null {
+    return this.currentTaskId;
   }
 
   public setSprintDir(dir: string) {
@@ -125,6 +132,7 @@ export class SprintRunner {
       await this.bridge.start();
 
       console.log(`🚀 Starting sprint in ${this.sprintDir}`);
+      this.emit('start', { sprintDir: this.sprintDir });
 
       while (this.hasPendingTasks(manifestPath) && this.isRunning) {
         if (this.bridge.checkPaused()) {
@@ -138,6 +146,8 @@ export class SprintRunner {
 
         if (!nextTask) break;
 
+        this.currentTaskId = nextTask.id;
+        this.emit('task-start', { taskId: nextTask.id, file: nextTask.file });
         console.log(`🔍 Next task: ${nextTask.id} (${nextTask.file})`);
         
         const promptPath = path.join(projectRoot, '.clifford/prompt.md');
@@ -196,12 +206,14 @@ ${humanGuidance}${promptContent}`;
           child.stdout?.on('data', (data) => {
             const output = data.toString();
             process.stdout.write(output);
+            this.emit('output', { data: output, stream: 'stdout' });
             this.checkForPrompts(output, nextTask.id);
           });
 
           child.stderr?.on('data', (data) => {
             const output = data.toString();
             process.stderr.write(output);
+            this.emit('output', { data: output, stream: 'stderr' });
             this.checkForPrompts(output, nextTask.id);
           });
 
@@ -242,7 +254,9 @@ ${humanGuidance}${promptContent}`;
       }
     } finally {
       this.isRunning = false;
+      this.currentTaskId = null;
       console.log('🏁 Sprint loop finished.');
+      this.emit('stop');
       this.bridge.stop();
     }
   }

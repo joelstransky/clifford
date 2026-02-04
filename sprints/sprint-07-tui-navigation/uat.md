@@ -63,15 +63,18 @@
 ---
 
 ## Task 5: Enhanced Execution Status Display
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
 - **Verification**:
-  1. Start a sprint with `S`.
-  2. Right panel transforms to execution status view:
-     - Current task info at top (ID, file)
-     - Elapsed timer ticking every second
-     - Progress bar with task counts
-     - Agent output streaming at bottom
-  3. When sprint completes/stops, view returns to activity log.
+  1. Navigate to a sprint and press `S` to start it.
+  2. Observe the right panel switches to the "SPRINT EXECUTING" view.
+  3. Verify the "Current Task" section shows the correct Task ID and file.
+  4. Verify the "Elapsed" timer ticks up every second.
+  5. Verify the "Progress" bar and task counts (e.g., "1/5") update as tasks progress.
+  6. Verify the "AGENT OUTPUT" section shows real-time output from the running agent.
+  7. Press `X` to stop the sprint or wait for it to finish.
+  8. Verify the right panel returns to the "ACTIVITY LOG" view.
+  9. While a sprint is running, if you switch to activity log (not implemented as toggle yet, but stops do it), starting it again should bring back the execution view.
+  10. If a blocker occurs, the Blocker UI should replace the execution view until resolved.
 
 ---
 
