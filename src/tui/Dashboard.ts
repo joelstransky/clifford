@@ -341,13 +341,26 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       });
       itemBox.add(label);
 
+      const rightBox = new BoxRenderable(renderer, {
+        id: `task-right-${i}`,
+        flexDirection: 'row',
+      });
+
+      const statusLabel = new TextRenderable(renderer, {
+        id: `task-status-${i}`,
+        content: t`${fg(STATUS_COLORS[task.status])(task.status)}`,
+      });
+      rightBox.add(statusLabel);
+
       if (task.status === 'pending') {
         const playBtn = new TextRenderable(renderer, {
           id: `task-play-${i}`,
-          content: isRunning ? t`${dim('[▶]')}` : t`${fg(COLORS.success)('[▶]')}`,
+          content: isRunning ? t` ${dim('[▶]')}` : t` ${fg(COLORS.success)('[▶]')}`,
         });
-        itemBox.add(playBtn);
+        rightBox.add(playBtn);
       }
+
+      itemBox.add(rightBox);
 
       taskElements.push(itemBox);
       taskListContainer.add(itemBox);

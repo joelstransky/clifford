@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /**
  * Scaffolds the Clifford directory structure and files.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function scaffold(targetDir: string, options: {
   workflow: 'yolo' | 'pr';
   aiTool: string;

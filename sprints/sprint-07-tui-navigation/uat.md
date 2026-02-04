@@ -20,7 +20,7 @@
 ---
 
 ## Task 2: Color-Coded Task Status Display
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
 - **Verification**:
   1. Navigate into a sprint's task list (Right arrow from sprint list).
   2. Each task displays: `{icon} {task-id}` on left, `{status}` on right.
@@ -30,7 +30,7 @@
      - `completed` = green
      - `blocked` = red
      - `pushed` = blue
-  4. Pending tasks show the `[▶]` play button.
+  4. Pending tasks show the `[▶]` play button next to the status.
 
 ---
 
