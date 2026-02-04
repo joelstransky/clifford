@@ -94,7 +94,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   let previousManifest: Manifest | null = null;
   let logs: LogEntry[] = [];
   let activeBlocker: BlockRequest | null = null;
-  let blockerInput: string = '';
   let chatInput: string = '';
   let chatFocused: boolean = false;
   let currentRightView: 'activity' | 'blocker' | 'execution' = 'activity';
@@ -118,13 +117,25 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   if (bridge) {
     bridge.on('block', (data: BlockRequest) => {
       activeBlocker = data;
-      blockerInput = '';
+      chatInput = '';
+      chatFocused = true;
+      addLog(`🛑 Blocker: ${data.question || data.reason}`, 'error');
       updateDisplay();
     });
     bridge.on('resolve', (response: string) => {
       activeBlocker = null;
-      addLog(`Blocker resolved: ${response.substring(0, 30)}${response.length > 30 ? '...' : ''}`, 'success');
+      chatInput = '';
+      chatFocused = false;
+      addLog(`✅ Blocker resolved: ${response.substring(0, 30)}${response.length > 30 ? '...' : ''}`, 'success');
       updateDisplay();
+      
+      // Auto-restart if runner is not running (it might have exited due to the blocker)
+      setTimeout(() => {
+        if (!runner.getIsRunning()) {
+          addLog('🧠 Restarting sprint with guidance...', 'warning');
+          runner.run().catch(err => addLog(`Restart Error: ${err.message}`, 'error'));
+        }
+      }, 500);
     });
   }
 
@@ -556,7 +567,11 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       blockerTask.content = t`${dim('Task: ')}${fg(COLORS.text)(activeBlocker.task || 'Unknown')}`;
       blockerReason.content = t`${dim('Reason: ')}${fg(COLORS.text)(activeBlocker.reason || 'Unknown')}`;
       blockerQuestion.content = t`${fg(COLORS.warning)(`"${activeBlocker.question || 'No question provided'}"`)}`;
-      blockerInputText.content = t`${blockerInput}${bold(fg(COLORS.primary)('█'))}`;
+      
+      // Hide the old blocker input box by giving it 0 height
+      blockerInputBox.height = 0;
+      blockerInputBox.border = false;
+      blockerInputText.content = '';
       
       hotkeyText.content = t`${bold('[Enter]')} Submit  ${bold('[Esc]')} Cancel`;
     } else if (isRunning && currentRightView === 'execution') {
@@ -609,9 +624,15 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     }
 
     // Update Chat Input UI
-    chatInputLabel.content = chatFocused ? t`${bold(fg(COLORS.primary)('CHAT > '))}` : t`${dim('CHAT > ')}`;
-    chatInputBox.borderStyle = chatFocused ? 'double' : 'rounded';
-    chatInputText.content = chatFocused ? t`${chatInput}${bold(fg(COLORS.primary)('█'))}` : t`${dim(chatInput || 'Press / to chat...')}`;
+    const chatPrompt = activeBlocker 
+      ? t`${bold(fg(COLORS.error)('🛑 > '))}` 
+      : (chatFocused ? t`${bold(fg(COLORS.primary)('CHAT > '))}` : t`${dim('CHAT > ')}`);
+    
+    chatInputLabel.content = chatPrompt;
+    chatInputBox.borderStyle = (chatFocused || activeBlocker) ? 'double' : 'rounded';
+    chatInputText.content = (chatFocused || activeBlocker) 
+      ? t`${chatInput}${bold(fg(activeBlocker ? COLORS.error : COLORS.primary)('█'))}` 
+      : t`${dim(chatInput || 'Press / to chat...')}`;
   };
 
   // --- Manifest Polling ---
@@ -664,18 +685,22 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
 
     if (activeBlocker) {
       if (key.name === 'enter') {
-        if (blockerInput.trim() && bridge) {
-          bridge.resolveBlocker(blockerInput.trim());
-          // bridge resolve event will clear activeBlocker
+        if (chatInput.trim() && bridge) {
+          bridge.resolveBlocker(chatInput.trim());
+          // bridge resolve event will clear activeBlocker and chatInput
         }
       } else if (key.name === 'escape') {
         activeBlocker = null;
+        chatInput = '';
+        chatFocused = false;
+        runner.stop();
+        addLog('Blocker cancelled, sprint stopped.', 'warning');
         updateDisplay();
       } else if (key.name === 'backspace') {
-        blockerInput = blockerInput.slice(0, -1);
+        chatInput = chatInput.slice(0, -1);
         updateDisplay();
       } else if (key.sequence && key.sequence.length === 1 && key.sequence.charCodeAt(0) >= 32 && key.sequence.charCodeAt(0) <= 126) {
-        blockerInput += key.sequence;
+        chatInput += key.sequence;
         updateDisplay();
       }
     } else if (chatFocused) {

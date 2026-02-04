@@ -79,19 +79,26 @@
 ---
 
 ## Task 6: Interactive Blocker Resolution
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
 - **Verification**:
   1. Start a sprint that triggers a blocker (interactive prompt).
   2. Observe:
      - Runner pauses
-     - Blocker UI appears
-     - Chat input auto-focuses with red prompt (`🛑 >`)
+     - Blocker UI appears (showing Task, Reason, Question)
+     - Chat input at the bottom auto-focuses with red prompt (`🛑 >`)
   3. Type response and press `Enter`.
-  4. Check `.clifford/asm.json` contains the memory entry.
-  5. Sprint automatically restarts with guidance injected.
-  6. Logs show `🧠 Injected human guidance for {task}`.
-  7. On task completion, ASM entry is cleared.
-  8. Test `Esc` - cancels blocker, stops sprint.
+  4. Observe:
+     - Blocker UI disappears, returns to Activity Log or Execution view
+     - Activity Log shows "✅ Blocker resolved: ..."
+     - Check `.clifford/asm.json` contains the memory entry
+     - Sprint automatically restarts after a brief pause
+  5. Check logs for guidance injection: `🧠 Injected human guidance for {task}`.
+  6. On task completion, verify ASM entry is cleared from `.clifford/asm.json`.
+  7. Start another task, trigger blocker, and press `Esc`.
+  8. Observe:
+     - Blocker is cleared
+     - Sprint is stopped
+     - Log shows "Blocker cancelled, sprint stopped."
 
 ---
 
