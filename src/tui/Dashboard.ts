@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { CommsBridge, BlockRequest } from '../utils/bridge.js';
 import { SprintRunner, SprintManifest } from '../utils/sprint.js';
+import { stripEmoji } from '../utils/text.js';
 
 // Version constant
 const VERSION = '1.0.0';
@@ -497,7 +498,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
 
       const prefix = isSelected ? '> ' : '  ';
       const runningIndicator = isThisRunning ? ' 🔄' : '';
-      const labelContent = `${prefix}${s.name}${runningIndicator}`;
+      const displayName = stripEmoji(s.name);
+      const labelContent = `${prefix}${displayName}${runningIndicator}`;
       
       const label = new TextRenderable(renderer, {
         id: `sprint-label-${i}`,

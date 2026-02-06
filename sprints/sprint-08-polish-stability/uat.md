@@ -110,10 +110,20 @@
   7. Verify there is no flicker or duplication in the header text (the `updateHeaderStatus()` helper is the single source of truth)
 
 ## Task 7: Strip Emoji Titles
-- **Status**: Pending
+- **Status**: ✅ Completed
+- **Changes**:
+  - Created `src/utils/text.ts` — New utility module with `stripEmoji()` function that uses Unicode property escapes (`\p{Emoji_Presentation}`, `\p{Emoji}\uFE0F`) to remove emoji characters from strings. Handles emoji sequences, variation selectors, and ZWJ combiners. Collapses resulting extra whitespace and trims.
+  - Created `src/utils/text.test.ts` — 10 test cases covering: leading emoji removal, multiple emojis, plain text passthrough, empty string, emoji-only string, number/special char preservation, whitespace collapsing, mid-string emoji, check mark emoji, and flag emojis.
+  - `src/tui/Dashboard.ts` — Added `import { stripEmoji } from '../utils/text.js'`. In `updateSprintList()`, the sprint name (`s.name`) is now passed through `stripEmoji()` before rendering into `labelContent`. This is display-only — the underlying manifest data is not modified.
 - **Verification**:
-  1. Sprint with emoji name shows clean title in list
-  2. Manifest data unchanged
+  1. Run `bun test src/utils/text.test.ts` — verify all 10 tests pass
+  2. Run `npm test` — verify all 49 tests pass (including the new text tests)
+  3. Create or edit a sprint manifest to include emojis in the name, e.g., `"name": "🚀 My Sprint"`
+  4. Launch TUI (`npm run dev`) — in the sprint list view, verify the sprint displays as "My Sprint" (no rocket emoji)
+  5. Navigate into the sprint with → — the detail view header can still show the original name
+  6. Verify the manifest file on disk still contains the original emoji name `"🚀 My Sprint"` — the stripping is display-only
+  7. Test with multiple emojis in a name (e.g., `"🔥 Hot Sprint 🎉"`) — verify both emojis are stripped: "Hot Sprint"
+  8. Test with a plain name (no emojis) — verify it renders unchanged
 
 ---
 
