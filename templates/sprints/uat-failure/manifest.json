@@ -1,0 +1,17 @@
+{
+  "id": "uat-failure",
+  "name": "UAT Failure Scenarios",
+  "status": "active",
+  "tasks": [
+    {
+      "id": "task-01",
+      "file": "tasks/01-impossible-command.md",
+      "status": "pending"
+    },
+    {
+      "id": "task-02",
+      "file": "tasks/02-ambiguous-request.md",
+      "status": "pending"
+    }
+  ]
+}

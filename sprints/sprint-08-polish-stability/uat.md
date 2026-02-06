@@ -1,9 +1,9 @@
 # Sprint 8 UAT: Polish & Stability
 
 ## Prerequisites
-- All tests in `clifford-sandbox` directory
-- Clean state: `npm run clifford:clean && npm run clifford:init`
+- Clean state: `npm run clifford:clean`
 - Copy test sprints: `npm run copy:sprints`
+- All commands run from the project root
 
 ---
 
@@ -42,11 +42,23 @@
   7. After a blocker resolution where the agent was killed (non-zero exit), verify the sprint does NOT halt a second time — instead it retries automatically with the existing ASM guidance
 
 ## Task 3: UAT Test Fixtures
-- **Status**: Pending
+- **Status**: ✅ Completed
+- **Changes**:
+  - Created `templates/sprints/uat-happy-path/` — A 3-task happy-path sprint with simple file creation, modification, and read-then-write tasks. Tasks: create `uat-output/hello.txt`, append a timestamp, create `uat-output/summary.json` from the file contents.
+  - Created `templates/sprints/uat-failure/` — A 2-task failure sprint. Task 01 instructs the agent to run a nonexistent command (`clifford-phantom-verify`) which should trigger a halt. Task 02 has deliberately contradictory instructions that should cause the agent to use the blocker protocol.
+  - Added `scripts/copy-sprints.mjs` — Copies all sprint directories from `templates/sprints/` into `.clifford/sprints/`. Uses recursive directory copy with no external dependencies.
+  - Added `scripts/clifford-clean.mjs` — Removes `.clifford/sprints/`, `.clifford/asm.json`, `.clifford/state.json`, and `uat-output/` for a clean-slate reset.
+  - Updated `package.json` — Added `copy:sprints` and `clifford:clean` npm scripts.
 - **Verification**:
-  1. `npm run copy:sprints` copies sprints to `.clifford/sprints/`
-  2. Happy-path sprint completes all tasks
-  3. Failure sprint triggers halt & help
+  1. Run `npm run clifford:clean` — confirm it removes `.clifford/sprints/` (and `uat-output/` if present). Running again prints "Already clean".
+  2. Run `npm run copy:sprints` — confirm output shows both `uat-happy-path` and `uat-failure` copied to `.clifford/sprints/`.
+  3. Verify `.clifford/sprints/uat-happy-path/manifest.json` exists with 3 pending tasks and status `active`.
+  4. Verify `.clifford/sprints/uat-failure/manifest.json` exists with 2 pending tasks and status `active`.
+  5. Launch TUI (`npm run dev`) — navigate to sprint list. Both "UAT Happy Path" and "UAT Failure Scenarios" should appear alongside any existing sprints.
+  6. Select "UAT Happy Path" and drill in — 3 tasks visible, all pending.
+  7. Press `S` to start the happy-path sprint — the agent should create `uat-output/hello.txt`, append a timestamp, and create `uat-output/summary.json`. All 3 tasks should complete.
+  8. Navigate back, select "UAT Failure Scenarios" and start it — Task 01 should fail (nonexistent command) and trigger the "NEEDS HELP" panel. If dismissed, Task 02 should similarly trigger a blocker for ambiguous instructions.
+  9. Run `npm run clifford:clean` again to reset everything after testing.
 
 ## Task 4: Drop Non-OpenCode CLIs
 - **Status**: Pending

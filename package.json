@@ -12,6 +12,8 @@
     "dev": "bun run src/index.ts",
     "lint": "eslint .",
     "test": "bun test",
+    "copy:sprints": "node scripts/copy-sprints.mjs",
+    "clifford:clean": "node scripts/clifford-clean.mjs",
     "prepublishOnly": "bun run build"
   },
   "repository": {

@@ -1,0 +1,22 @@
+{
+  "id": "uat-happy-path",
+  "name": "UAT Happy Path",
+  "status": "active",
+  "tasks": [
+    {
+      "id": "task-01",
+      "file": "tasks/01-create-hello.md",
+      "status": "pending"
+    },
+    {
+      "id": "task-02",
+      "file": "tasks/02-append-timestamp.md",
+      "status": "pending"
+    },
+    {
+      "id": "task-03",
+      "file": "tasks/03-create-summary.md",
+      "status": "pending"
+    }
+  ]
+}
