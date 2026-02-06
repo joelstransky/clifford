@@ -25,6 +25,15 @@ export class SprintRunner extends EventEmitter {
   private sprintDir: string;
   private isRunning: boolean = false;
   private currentTaskId: string | null = null;
+  private quietMode: boolean = false;
+
+  private log(message: string, type: 'info' | 'warning' | 'error' = 'info') {
+    this.emit('log', { message, type });
+    if (!this.quietMode) {
+      if (type === 'error') console.error(message);
+      else console.log(message);
+    }
+  }
 
   static discoverSprints(): SprintManifest[] {
     const projectRoot = this.findProjectRoot(process.cwd());
@@ -70,10 +79,15 @@ export class SprintRunner extends EventEmitter {
     return startDir;
   }
 
-  constructor(sprintDir: string, bridge?: CommsBridge) {
+  constructor(sprintDir: string, bridge?: CommsBridge, quietMode: boolean = false) {
     super();
     this.sprintDir = sprintDir.replace(/\\/g, '/');
     this.bridge = bridge || new CommsBridge();
+    this.quietMode = quietMode;
+  }
+
+  public setQuietMode(quiet: boolean) {
+    this.quietMode = quiet;
   }
 
   public getIsRunning(): boolean {
@@ -95,9 +109,10 @@ export class SprintRunner extends EventEmitter {
 
   public stop() {
     if (!this.isRunning) return;
-    console.log('🛑 Stopping sprint...');
+    this.log('🛑 Stopping sprint...', 'warning');
     this.isRunning = false;
     this.bridge.killActiveChild();
+    this.emit('stop');
   }
 
   async run() {
@@ -131,7 +146,7 @@ export class SprintRunner extends EventEmitter {
     try {
       await this.bridge.start();
 
-      console.log(`🚀 Starting sprint in ${this.sprintDir}`);
+      this.log(`🚀 Starting sprint in ${this.sprintDir}`);
       this.emit('start', { sprintDir: this.sprintDir });
 
       while (this.hasPendingTasks(manifestPath) && this.isRunning) {
@@ -148,7 +163,7 @@ export class SprintRunner extends EventEmitter {
 
         this.currentTaskId = nextTask.id;
         this.emit('task-start', { taskId: nextTask.id, file: nextTask.file });
-        console.log(`🔍 Next task: ${nextTask.id} (${nextTask.file})`);
+        this.log(`🔍 Next task: ${nextTask.id} (${nextTask.file})`);
         
         const promptPath = path.join(projectRoot, '.clifford/prompt.md');
         let promptContent = '';
@@ -156,12 +171,12 @@ export class SprintRunner extends EventEmitter {
         try {
           if (fs.existsSync(promptPath)) {
             promptContent = fs.readFileSync(promptPath, 'utf8');
-            console.log(`📝 Loaded instructions from ${promptPath}`);
+            this.log(`📝 Loaded instructions from ${promptPath}`);
           } else {
-            console.warn(`⚠️ Warning: ${promptPath} not found. Running with basic context.`);
+            this.log(`⚠️ Warning: ${promptPath} not found. Running with basic context.`, 'warning');
           }
         } catch (err) {
-          console.error(`❌ Error reading prompt file: ${(err as Error).message}`);
+          this.log(`❌ Error reading prompt file: ${(err as Error).message}`, 'error');
         }
 
         // Inject human guidance from ASM if available
@@ -174,7 +189,7 @@ The human has provided the following guidance: "${memory.answer}"
 Proceed with this information.
 
 `;
-          console.log(`🧠 Injected human guidance for task ${nextTask.id}`);
+          this.log(`🧠 Injected human guidance for task ${nextTask.id}`);
         }
 
         // Ensure we always have the context at the top
@@ -183,79 +198,72 @@ CLIFFORD_BRIDGE_PORT: ${this.bridge.getPort()}
 
 ${humanGuidance}${promptContent}`;
 
-        console.log('🤖 Invoking Agent...');
-        console.log('👀 Monitoring output for interactive prompts...');
+        this.log('🤖 Invoking Agent...');
         
         const args = engine.getInvokeArgs(finalPrompt, model);
+        this.log(`🛠️ Executing: ${engine.command} ${args.slice(0, -1).join(' ')} [prompt...]`);
         
         await new Promise<void>((resolve) => {
-          const isWin = process.platform === 'win32';
-          const fullCommand = isWin 
-            ? `${engine.command} ${args.map(arg => `"${arg.replace(/"/g, '""')}"`).join(' ')}`
-            : `${engine.command} ${args.map(arg => `'${arg.replace(/'/g, "'\\''")}'`).join(' ')}`;
-          
-          console.log(`🛠️ Executing via shell: ${fullCommand}`);
-
-          const child = spawn(fullCommand, {
-            stdio: ['inherit', 'pipe', 'pipe'], // stdin from YOU, others to CLIFFORD
-            shell: true
+          // Spawn with args array directly (no shell) to avoid quoting/escaping issues
+          const child = spawn(engine.command, args, {
+            stdio: ['inherit', 'pipe', 'pipe'],
+            shell: false,
           });
 
           this.bridge.setActiveChild(child);
 
           child.stdout?.on('data', (data) => {
             const output = data.toString();
-            process.stdout.write(output);
+            if (!this.quietMode) process.stdout.write(output);
             this.emit('output', { data: output, stream: 'stdout' });
             this.checkForPrompts(output, nextTask.id);
           });
 
           child.stderr?.on('data', (data) => {
             const output = data.toString();
-            process.stderr.write(output);
+            if (!this.quietMode) process.stderr.write(output);
             this.emit('output', { data: output, stream: 'stderr' });
             this.checkForPrompts(output, nextTask.id);
           });
 
           child.on('close', (code) => {
             this.bridge.setActiveChild(null);
-            if (code !== 0 && code !== null) {
-              console.error(`\n❌ Agent exited with code ${code}`);
-            }
+            this.log(`Agent process exited with code ${code}`, code === 0 ? 'info' : 'error');
             resolve();
           });
 
           child.on('error', (err) => {
-            console.error(`\n❌ Error invoking agent: ${err.message}`);
+            this.log(`❌ Error invoking agent: ${err.message}`, 'error');
             resolve();
           });
         });
 
-        // Check if progress was made (manifest updated)
+        // Check if progress was made (manifest updated by the agent)
         const updatedManifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         const taskInUpdated = updatedManifest.tasks.find(t => t.id === nextTask.id);
         
         if (taskInUpdated?.status === 'completed' || taskInUpdated?.status === 'pushed') {
-          console.log(`🧹 Clearing memory for completed task: ${nextTask.id}`);
+          this.log(`🧹 Clearing memory for completed task: ${nextTask.id}`);
           clearMemory(nextTask.id);
         }
 
         if (this.bridge.checkPaused()) {
-          console.log('\n⏸️ Sprint loop paused due to blocker.');
+          this.log('⏸️ Sprint loop paused due to blocker.', 'warning');
           continue;
         }
 
+        // If task is still pending, agent didn't complete it
         if (taskInUpdated?.status === 'pending') {
-          console.log('⚠️ No progress detected on the current task. Breaking loop to prevent infinite recursion.');
+          this.log('⚠️ No progress detected on the current task. Breaking loop.', 'warning');
           break;
         }
 
-        console.log('✅ Task completed. Moving to next...');
+        this.log('✅ Task completed. Moving to next...', 'info');
       }
     } finally {
       this.isRunning = false;
       this.currentTaskId = null;
-      console.log('🏁 Sprint loop finished.');
+      this.log('🏁 Sprint loop finished.');
       this.emit('stop');
       this.bridge.stop();
     }

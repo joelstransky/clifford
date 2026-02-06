@@ -70,3 +70,19 @@
 ## [2026-02-03] sprint-05-lean-structure
 - 01-root-command
 - 02-manual-start
+
+## [2026-02-05] sprint-07-tui-navigation
+- 01-hierarchical-navigation
+- 02-color-coded-status
+- 03-sprint-start-stop
+- 04-chat-input-field
+- 05-execution-status-display
+- 06-blocker-resolution-flow
+
+## [2026-02-05] sprint-07-tui-navigation
+- 01-hierarchical-navigation
+- 02-color-coded-status
+- 03-sprint-start-stop
+- 04-chat-input-field
+- 05-execution-status-display
+- 06-blocker-resolution-flow

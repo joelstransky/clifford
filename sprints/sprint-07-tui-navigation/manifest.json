@@ -1,37 +1,37 @@
 {
   "id": "sprint-07-tui-navigation",
   "name": "TUI Hierarchical Navigation",
-  "status": "active",
+  "status": "pushed",
   "tasks": [
     {
       "id": "task-01",
       "file": "tasks/01-hierarchical-navigation.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-02",
       "file": "tasks/02-color-coded-status.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-03",
       "file": "tasks/03-sprint-start-stop.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-04",
       "file": "tasks/04-chat-input-field.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-05",
       "file": "tasks/05-execution-status-display.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-06",
       "file": "tasks/06-blocker-resolution-flow.md",
-      "status": "completed"
+      "status": "pushed"
     }
   ]
 }

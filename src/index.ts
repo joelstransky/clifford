@@ -61,7 +61,7 @@ program
     let answers;
     if (options.yolo) {
       answers = {
-        model: 'claude-3-7-sonnet-20250219',
+        model: 'opencode/kimi-k2-5-free',
         workflow: 'yolo',
         aiTool: 'opencode',
         extraGates: []
@@ -83,7 +83,7 @@ program
           type: 'input',
           name: 'model',
           message: 'Preferred Default Model:',
-          default: 'claude-3-7-sonnet-20250219'
+          default: 'opencode/kimi-k2-5-free'
         },
         {
           type: 'list',

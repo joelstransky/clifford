@@ -140,6 +140,9 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   }
 
   if (runner) {
+    // Enable quiet mode so output doesn't bleed through TUI
+    runner.setQuietMode(true);
+    
     runner.on('start', () => {
       sprintStartTime = Date.now();
       elapsedSeconds = 0;
@@ -154,12 +157,15 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       if (currentRightView === 'execution') currentRightView = 'activity';
       updateDisplay();
     });
-    runner.on('task-start', (data) => {
+    runner.on('task-start', (data: { taskId: string; file: string }) => {
       activeTaskId = data.taskId;
       activeTaskFile = data.file;
       updateDisplay();
     });
-    runner.on('output', (data) => {
+    runner.on('log', (data: { message: string; type: 'info' | 'warning' | 'error' }) => {
+      addLog(data.message, data.type);
+    });
+    runner.on('output', (data: { data: string; stream: string }) => {
       const lines = data.data.split('\n').filter((l: string) => l.trim().length > 0);
       executionLogs.push(...lines);
       if (executionLogs.length > 200) executionLogs = executionLogs.slice(-200);
@@ -416,14 +422,20 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       const isSelected = i === selectedIndex;
       const isThisRunning = isRunning && path.resolve(runningDir) === path.resolve(s.path);
       const otherRunning = isRunning && !isThisRunning;
+      const hasPending = s.tasks.some(t => t.status === 'pending');
+      const isComplete = s.tasks.every(t => t.status === 'completed' || t.status === 'pushed');
 
       const itemBox = new BoxRenderable(renderer, {
         id: `sprint-item-${i}`,
         width: '100%',
         flexDirection: 'row',
+        justifyContent: 'space-between',
       });
 
-      const labelContent = `${isSelected ? '> ' : '  '}${s.name}${isThisRunning ? ' 🔄' : ''}`;
+      const prefix = isSelected ? '> ' : '  ';
+      const runningIndicator = isThisRunning ? ' 🔄' : '';
+      const labelContent = `${prefix}${s.name}${runningIndicator}`;
+      
       const label = new TextRenderable(renderer, {
         id: `sprint-label-${i}`,
         content: isSelected
@@ -433,6 +445,30 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
             : t`${fg(COLORS.text)(labelContent)}`,
       });
       itemBox.add(label);
+
+      // Right side: status indicator
+      let statusIndicator = '';
+      if (isThisRunning) {
+        statusIndicator = 'running';
+      } else if (isComplete) {
+        statusIndicator = '✅';
+      } else if (hasPending && !otherRunning) {
+        statusIndicator = '[▶]';
+      }
+      
+      if (statusIndicator) {
+        const statusLabel = new TextRenderable(renderer, {
+          id: `sprint-status-${i}`,
+          content: isThisRunning
+            ? t`${fg(COLORS.warning)(statusIndicator)}`
+            : isComplete
+              ? t`${fg(COLORS.success)(statusIndicator)}`
+              : hasPending && !otherRunning
+                ? t`${fg(COLORS.success)(statusIndicator)}`
+                : t`${dim(statusIndicator)}`,
+        });
+        itemBox.add(statusLabel);
+      }
 
       sprintElements.push(itemBox);
       taskListContainer.add(itemBox);
@@ -453,12 +489,18 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         justifyContent: 'space-between',
       });
 
-      const labelContent = `${STATUS_ICONS[task.status]} ${task.id}`;
+      // Check if this task is currently being executed by the runner
+      const isActiveTask = isRunning && activeTaskId === task.id;
+      const displayStatus = isActiveTask ? 'active' : task.status;
+      const displayIcon = isActiveTask ? STATUS_ICONS['active'] : STATUS_ICONS[task.status];
+      const displayColor = isActiveTask ? STATUS_COLORS['active'] : STATUS_COLORS[task.status];
+
+      const labelContent = `${displayIcon} ${task.id}`;
       const label = new TextRenderable(renderer, {
         id: `task-label-${i}`,
-        content: task.status === 'active'
-          ? t`${bold(fg(STATUS_COLORS[task.status])(labelContent))}`
-          : t`${fg(STATUS_COLORS[task.status])(labelContent)}`,
+        content: isActiveTask
+          ? t`${bold(fg(displayColor)(labelContent))}`
+          : t`${fg(displayColor)(labelContent)}`,
       });
       itemBox.add(label);
 
@@ -467,19 +509,17 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         flexDirection: 'row',
       });
 
+      const playIndicator = (task.status === 'pending' && !isActiveTask)
+        ? (isRunning ? dim('[▶]') : fg(COLORS.success)('[▶]'))
+        : '';
+
       const statusLabel = new TextRenderable(renderer, {
         id: `task-status-${i}`,
-        content: t`${fg(STATUS_COLORS[task.status])(task.status)}`,
+        content: playIndicator
+          ? t`${fg(displayColor)(displayStatus)} ${playIndicator}`
+          : t`${fg(displayColor)(displayStatus)}`,
       });
       rightBox.add(statusLabel);
-
-      if (task.status === 'pending') {
-        const playBtn = new TextRenderable(renderer, {
-          id: `task-play-${i}`,
-          content: isRunning ? t` ${dim('[▶]')}` : t` ${fg(COLORS.success)('[▶]')}`,
-        });
-        rightBox.add(playBtn);
-      }
 
       itemBox.add(rightBox);
 
@@ -517,12 +557,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     const isRunning = runner.getIsRunning();
     const blocked = manifest ? manifest.tasks.some(t => t.status === 'blocked') : false;
     
-    const startHint = (isTasksView && !isRunning) ? t`  ${bold(fg(COLORS.success)('[S]tart'))}` : '';
-    const stopHint = isRunning ? t`  ${bold(fg(COLORS.error)('[X] Stop'))}` : '';
-    const backHint = isTasksView ? t`  ${bold(fg(COLORS.primary)('[←] Back'))}` : '';
-    const selectHint = isSprintsView ? t`  ${bold(fg(COLORS.primary)('[→] Select'))}` : '';
-    const chatHint = t`  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
-    const viewHint = isRunning ? t`  ${bold(fg(COLORS.warning)('[V]iew Status'))}` : '';
+
 
     let sLabel = 'Idle', sColor = COLORS.dim;
     if (blocked) { sLabel = 'Blocked'; sColor = COLORS.error; }
@@ -544,10 +579,20 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       updateSprintList();
       progressText.content = t`${dim('Progress: ')}${fg(COLORS.dim)(generateProgressBar(0, 0))}`;
     } else {
-      leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`;
+      const hasPendingTasks = manifest && manifest.tasks.some(t => t.status === 'pending');
+      const canStart = hasPendingTasks && !isRunning;
+      
+      if (canStart) {
+        leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.success)('[S] Start')}`;
+      } else if (isRunning) {
+        leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.warning)('[Running]')}`;
+      } else {
+        leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`;
+      }
+      
       if (manifest) {
         sprintNameText.content = t`${fg(COLORS.text)(manifest.name)}`;
-        sprintDescText.content = t`${dim(`"${manifest.id}"`)}`;
+        sprintDescText.content = t`${dim(manifest.id)} ${dim('[←] Back')}`;
       }
       updateTaskList();
       const progress = generateProgressBar(completed, total);
@@ -605,7 +650,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         agentOutputContainer.add(el);
       });
 
-      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}${stopHint}${chatHint}`;
+      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
     } else {
       if (currentRightView !== 'activity') {
         try { rightPanel.remove('blocker-container'); } catch { /* ignore */ }
@@ -618,8 +663,14 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       
       if (chatFocused) {
         hotkeyText.content = t`${bold('[Enter]')} Send  ${bold('[Esc]')} Cancel`;
+      } else if (isSprintsView) {
+        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.primary)('[→] Select'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+      } else if (isTasksView && !isRunning) {
+        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+      } else if (isRunning) {
+        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.warning)('[V]iew'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
       } else {
-        hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}${selectHint}${backHint}${startHint}${stopHint}${viewHint}${chatHint}`;
+        hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
       }
     }
 
@@ -743,11 +794,10 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
           const selected = allSprints[selectedIndex];
           currentSprintDir = selected.path;
           viewMode = 'tasks';
-          manifest = null; // Clear old manifest while loading
+          manifest = null;
           loadManifest();
-          addLog(`Drilled into sprint: ${selected.name}`, 'info');
         }
-      } else if (key.name === 'left') {
+      } else if (key.name === 'left' || key.sequence === '\u001b[D') {
         if (viewMode === 'tasks') {
           viewMode = 'sprints';
           updateDisplay();
