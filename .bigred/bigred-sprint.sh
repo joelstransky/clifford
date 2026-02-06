@@ -87,7 +87,7 @@ while has_pending_tasks; do
     # echo "------------------"
 
     # Inject the specific sprint directory into the prompt to isolate the agent
-    opencode run --agent developer --model google/gemini-3-flash-preview "CURRENT_SPRINT_DIR: $SPRINT_DIR\n\n$PROMPT_CONTENT"
+    opencode run --agent developer --model anthropic/claude-opus-4-6 "CURRENT_SPRINT_DIR: $SPRINT_DIR\n\n$PROMPT_CONTENT"
 
     # opencode run --attach http://127.0.0.1:4096 --agent developer --context "$SPRINT_DIR" ["Do nothing. What are the parameters you ran with?"]
 

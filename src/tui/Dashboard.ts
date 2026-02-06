@@ -687,23 +687,50 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   };
 
   // --- Manifest Polling ---
+  /** Build a snapshot map of task ID → status for efficient comparison */
+  const buildStatusSnapshot = (m: Manifest): Map<string, Task['status']> => {
+    const snapshot = new Map<string, Task['status']>();
+    m.tasks.forEach(task => snapshot.set(task.id, task.status));
+    return snapshot;
+  };
+
+  /** Track the previous status snapshot separately from the manifest object */
+  let previousStatusSnapshot: Map<string, Task['status']> | null = null;
+
   const loadManifest = () => {
+    // Skip polling when not viewing tasks and no sprint is running
+    if (viewMode === 'sprints' && !runner.getIsRunning()) return;
+
     const p = path.resolve(currentSprintDir, 'manifest.json');
     try {
       if (fs.existsSync(p)) {
         const m: Manifest = JSON.parse(fs.readFileSync(p, 'utf8'));
-        if (previousManifest && previousManifest.id === m.id) {
-          m.tasks.forEach((t, i) => {
-            const prev = previousManifest?.tasks[i];
-            if (prev && prev.status !== t.status) {
-              addLog(`${STATUS_ICONS[t.status]} ${t.id}: ${prev.status} → ${t.status}`, 
-                t.status === 'completed' ? 'success' : t.status === 'blocked' ? 'error' : t.status === 'active' ? 'warning' : 'info');
+        const newSnapshot = buildStatusSnapshot(m);
+
+        // Only compare and log when we have a previous snapshot for the same sprint
+        let hasChanges = false;
+
+        if (previousManifest && previousManifest.id === m.id && previousStatusSnapshot) {
+          // Compare by task ID, not array index
+          for (const [taskId, newStatus] of newSnapshot) {
+            const prevStatus = previousStatusSnapshot.get(taskId);
+            if (prevStatus !== undefined && prevStatus !== newStatus) {
+              hasChanges = true;
+              addLog(`${STATUS_ICONS[newStatus]} ${taskId}: ${prevStatus} → ${newStatus}`,
+                newStatus === 'completed' ? 'success' : newStatus === 'blocked' ? 'error' : newStatus === 'active' ? 'warning' : 'info');
             }
-          });
+          }
+        } else if (!previousManifest || previousManifest.id !== m.id) {
+          // First load or sprint switch — treat as a change to trigger initial render
+          hasChanges = true;
         }
+
         manifest = m;
         previousManifest = m;
-        updateDisplay();
+        previousStatusSnapshot = newSnapshot;
+
+        // Only re-render when there are actual changes
+        if (hasChanges) updateDisplay();
       }
     } catch { /* ignore parse errors */ }
   };
@@ -795,11 +822,16 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
           currentSprintDir = selected.path;
           viewMode = 'tasks';
           manifest = null;
+          previousManifest = null;
+          previousStatusSnapshot = null;
           loadManifest();
         }
       } else if (key.name === 'left' || key.sequence === '\u001b[D') {
         if (viewMode === 'tasks') {
           viewMode = 'sprints';
+          manifest = null;
+          previousManifest = null;
+          previousStatusSnapshot = null;
           updateDisplay();
         }
       }
