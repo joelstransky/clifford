@@ -203,7 +203,7 @@ ${humanGuidance}${promptContent}`;
         const args = engine.getInvokeArgs(finalPrompt, model);
         this.log(`🛠️ Executing: ${engine.command} ${args.slice(0, -1).join(' ')} [prompt...]`);
         
-        await new Promise<void>((resolve) => {
+        const exitCode = await new Promise<number>((resolve) => {
           // Spawn with args array directly (no shell) to avoid quoting/escaping issues
           const child = spawn(engine.command, args, {
             stdio: ['inherit', 'pipe', 'pipe'],
@@ -229,12 +229,12 @@ ${humanGuidance}${promptContent}`;
           child.on('close', (code) => {
             this.bridge.setActiveChild(null);
             this.log(`Agent process exited with code ${code}`, code === 0 ? 'info' : 'error');
-            resolve();
+            resolve(code ?? 1);
           });
 
           child.on('error', (err) => {
             this.log(`❌ Error invoking agent: ${err.message}`, 'error');
-            resolve();
+            resolve(1);
           });
         });
 
@@ -252,9 +252,31 @@ ${humanGuidance}${promptContent}`;
           continue;
         }
 
-        // If task is still pending, agent didn't complete it
+        // If guidance was just provided (blocker resolved), let the loop retry with ASM
+        const hasGuidance = getMemory(nextTask.id) !== null;
+        if (hasGuidance && (taskInUpdated?.status === 'pending' || taskInUpdated?.status === 'active')) {
+          this.log('🧠 Guidance available, retrying task...', 'info');
+          continue;
+        }
+
+        // Detect halt scenarios and trigger "needs help" flow
+        if (exitCode !== 0) {
+          this.log(`🛑 Agent crashed with exit code ${exitCode} on ${nextTask.id}`, 'error');
+          this.emit('halt', {
+            task: nextTask.id,
+            reason: `Agent exited with non-zero code ${exitCode}`,
+            question: `Agent crashed while working on ${nextTask.id}. What guidance should be provided on retry?`,
+          });
+          break;
+        }
+
         if (taskInUpdated?.status === 'pending') {
-          this.log('⚠️ No progress detected on the current task. Breaking loop.', 'warning');
+          this.log(`🛑 Agent exited without completing ${nextTask.id}`, 'error');
+          this.emit('halt', {
+            task: nextTask.id,
+            reason: 'Agent exited without making progress',
+            question: `Agent exited cleanly but ${nextTask.id} is still pending. What guidance should be provided on retry?`,
+          });
           break;
         }
 

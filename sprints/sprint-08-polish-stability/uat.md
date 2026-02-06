@@ -27,12 +27,19 @@
   8. Verify that the 1-second polling interval no longer triggers `updateDisplay()` when the manifest has not changed on disk
 
 ## Task 2: Halt & Call for Help
-- **Status**: Pending
+- **Status**: ✅ Completed
+- **Changes**:
+  - `src/utils/sprint.ts` — Sprint runner now captures agent exit codes and emits a `halt` event when the agent crashes (non-zero exit) or exits without completing a task (exit 0 but task still `pending`). Added logic to detect existing ASM guidance and automatically retry instead of halting when guidance is already available (prevents double-halt after blocker resolution).
+  - `src/utils/bridge.ts` — Added `setBlockerContext(taskId, question)` method so the Dashboard can pre-set the task/question context on the bridge for halt scenarios (where `triggerBlock()` is not called since the agent already exited). `resolveBlocker()` already handles null `activeChild` gracefully.
+  - `src/tui/Dashboard.ts` — Added `runner.on('halt', ...)` handler that unifies halts with the existing blocker UX: sets `activeBlocker`, focuses the chat input, and shows the "NEEDS HELP" panel. Updated the blocker header label from "BLOCKER DETECTED" to "NEEDS HELP" for a unified UX. Updated the Escape handler to guard `runner.stop()` behind `runner.getIsRunning()` check (since the runner may already be stopped in halt scenarios). Updated the dismiss log message to "Help dismissed" instead of "Blocker cancelled".
 - **Verification**:
-  1. Start failure sprint — agent fails on a task
-  2. UI shows halt message, chat input auto-focuses
-  3. Type response, Enter — ASM written, sprint restarts with guidance
-  4. Test Escape — sprint stays stopped
+  1. Launch TUI and start a sprint that contains a task designed to fail (agent exits non-zero or without completing)
+  2. When the agent exits without completing: verify the "🛑 NEEDS HELP" panel appears in the right panel with the task ID, reason, and a question prompting for guidance
+  3. Verify the chat input auto-focuses with the red "🛑 >" prompt and blinking cursor
+  4. Type a guidance response and press **Enter**: verify ASM is written (check `.clifford/asm.json` for the task entry), and the sprint restarts automatically with the guidance injected as `[HUMAN_GUIDANCE]` in the prompt
+  5. Press **Escape** instead of Enter: verify the "needs help" panel disappears, the sprint stays stopped, and no ASM entry is written
+  6. Trigger a traditional blocker (interactive prompt detection): verify the same "NEEDS HELP" panel appears, and resolving it works as before (saves to ASM, kills child, restarts with guidance)
+  7. After a blocker resolution where the agent was killed (non-zero exit), verify the sprint does NOT halt a second time — instead it retries automatically with the existing ASM guidance
 
 ## Task 3: UAT Test Fixtures
 - **Status**: Pending

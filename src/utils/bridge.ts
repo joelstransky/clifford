@@ -103,6 +103,16 @@ export class CommsBridge extends EventEmitter {
     }
   }
 
+  /**
+   * Sets the blocker context for halt scenarios where the agent has already exited.
+   * Unlike triggerBlock(), this does not pause the bridge or emit events — the
+   * Dashboard handles that via the runner's 'halt' event.
+   */
+  setBlockerContext(taskId: string, question: string) {
+    this.currentTaskId = taskId;
+    this.currentQuestion = question;
+  }
+
   async triggerBlock(data: BlockRequest) {
     // Only log to console if NOT in TUI mode (no listeners on 'block' event)
     if (this.listenerCount('block') === 0) {

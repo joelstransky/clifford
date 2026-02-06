@@ -171,6 +171,15 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       if (executionLogs.length > 200) executionLogs = executionLogs.slice(-200);
       if (currentRightView === 'execution') updateDisplay();
     });
+    runner.on('halt', (data: { task: string; reason: string; question: string }) => {
+      // Unify halt with the existing blocker UX: show the same "needs help" UI
+      bridge.setBlockerContext(data.task, data.question);
+      activeBlocker = { task: data.task, reason: data.reason, question: data.question };
+      chatInput = '';
+      chatFocused = true;
+      addLog(`🛑 ${data.reason}: ${data.task}`, 'error');
+      updateDisplay();
+    });
   }
 
   // --- Root ---
@@ -268,7 +277,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
   
   const blockerHeader = new TextRenderable(renderer, {
-    id: 'blocker-header', content: t`${bold(fg(COLORS.error)('🛑 BLOCKER DETECTED'))}`,
+    id: 'blocker-header', content: t`${bold(fg(COLORS.error)('🛑 NEEDS HELP'))}`,
   });
   const blockerDivider = new TextRenderable(renderer, {
     id: 'blocker-divider', content: t`${dim('─'.repeat(40))}`,
@@ -771,8 +780,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         activeBlocker = null;
         chatInput = '';
         chatFocused = false;
-        runner.stop();
-        addLog('Blocker cancelled, sprint stopped.', 'warning');
+        if (runner.getIsRunning()) runner.stop();
+        addLog('Help dismissed, sprint stopped.', 'warning');
         updateDisplay();
       } else if (key.name === 'backspace') {
         chatInput = chatInput.slice(0, -1);
