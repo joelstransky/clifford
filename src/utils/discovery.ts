@@ -18,27 +18,6 @@ interface EngineConfig extends Omit<AIEngine, 'isInstalled' | 'version'> {
 
 const ENGINE_CONFIGS: EngineConfig[] = [
   {
-    id: 'codex',
-    name: 'Codex',
-    command: 'codex',
-    getInvokeArgs: (prompt: string) => [prompt],
-    configPaths: ['.codex'],
-  },
-  {
-    id: 'gemini',
-    name: 'Gemini CLI',
-    command: 'gemini',
-    getInvokeArgs: (prompt: string) => [prompt],
-    configPaths: ['.gemini'],
-  },
-  {
-    id: 'claude',
-    name: 'Claude Code',
-    command: 'claude',
-    getInvokeArgs: (prompt: string) => [prompt],
-    configPaths: ['.claude'],
-  },
-  {
     id: 'opencode',
     name: 'OpenCode',
     command: 'opencode',

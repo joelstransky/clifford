@@ -61,12 +61,18 @@
   9. Run `npm run clifford:clean` again to reset everything after testing.
 
 ## Task 4: Drop Non-OpenCode CLIs
-- **Status**: Pending
+- **Status**: ✅ Completed
+- **Changes**:
+  - `src/utils/discovery.ts` — Removed Codex, Gemini CLI, and Claude Code entries from `ENGINE_CONFIGS`. Only the OpenCode engine config remains. The `AIEngine` interface, `EngineConfig` type, and config-driven discovery pattern are preserved for future extensibility.
+  - `src/index.ts` — Removed the AI tool selection prompt (`Select your preferred AI tool` list and `Enter the command for your custom AI tool` fallback) from the interactive `init` flow. OpenCode is now assumed as the only engine: `answers.aiTool` is hardcoded to `'opencode'`. The `clifford.json` scaffolding now writes `aiTool: "opencode"` by default. Removed the `discoverTools()` call and agent discovery status messages from the init flow (the `discover` CLI command still works for diagnostics).
+  - `src/utils/discovery.test.ts` — Rewrote tests for single-engine setup: "should return only the OpenCode engine" (verifies length=1, id, name, install detection, version, getInvokeArgs), "should report OpenCode as not installed when missing" (verifies graceful handling when opencode binary is absent), and retained the existing "should handle version check failures gracefully" test.
 - **Verification**:
-  1. `clifford init` — no AI tool choice prompt
-  2. `clifford.json` has `aiTool: "opencode"`
-  3. `npm test` passes
-  4. `discoverTools()` returns only OpenCode
+  1. Run `npm run dev -- init` (interactive mode) — confirm there is **no** prompt asking which AI tool to use. The only prompts should be: model, workflow, and extra gates.
+  2. Run `npm run dev -- init -y` — confirm YOLO init succeeds with no AI tool prompt.
+  3. After init, inspect the generated `clifford.json` — verify it contains `"aiTool": "opencode"`.
+  4. Run `npm run dev -- discover` — confirm only **one** engine is listed: `OpenCode (opencode)`.
+  5. Run `npm test` — all 39 tests pass, including the 3 updated discovery tests.
+  6. Inspect `src/utils/discovery.ts` — confirm `ENGINE_CONFIGS` contains only the OpenCode entry, and the `AIEngine` interface is still exported.
 
 ## Task 5: Post-Init Message
 - **Status**: Pending

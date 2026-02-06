@@ -18,46 +18,52 @@ describe('discovery', () => {
     existsSyncSpy.mockRestore();
   });
 
-  it('should discover installed tools and handle missing ones', () => {
+  it('should return only the OpenCode engine', () => {
     execSyncSpy.mockImplementation((cmd: string) => {
       if (typeof cmd === 'string' && (cmd.startsWith('command -v') || cmd.startsWith('where'))) {
         const tool = cmd.split(' ')[2] || cmd.split(' ')[1];
-        if (tool === 'opencode' || tool === 'claude') {
+        if (tool === 'opencode') {
           return 'path/to/tool';
         }
         throw new Error('Command not found');
       }
       if (typeof cmd === 'string' && cmd.endsWith('--version')) {
-        const tool = cmd.split(' ')[0];
-        if (tool === 'opencode') return '1.1.0';
-        if (tool === 'claude') return '2.0.0';
-        return '';
+        return '1.1.0';
       }
       return '';
     });
 
     const tools = discoverTools();
-    
-    const opencode = tools.find((t) => t.id === 'opencode');
-    const claude = tools.find((t) => t.id === 'claude');
-    const gemini = tools.find((t) => t.id === 'gemini');
-    const codex = tools.find((t) => t.id === 'codex');
 
-    expect(opencode?.isInstalled).toBe(true);
-    expect(opencode?.version).toBe('1.1.0');
-    
-    expect(claude?.isInstalled).toBe(true);
-    expect(claude?.version).toBe('2.0.0');
-    
-    expect(gemini?.isInstalled).toBe(false);
-    expect(codex?.isInstalled).toBe(false);
+    // Only OpenCode should be present
+    expect(tools).toHaveLength(1);
+    expect(tools[0].id).toBe('opencode');
+    expect(tools[0].name).toBe('OpenCode');
+    expect(tools[0].isInstalled).toBe(true);
+    expect(tools[0].version).toBe('1.1.0');
 
     // Test getInvokeArgs
-    const opencodeArgs = opencode?.getInvokeArgs('test prompt', 'test-model');
-    expect(opencodeArgs).toEqual(['run', 'test prompt']);
+    const args = tools[0].getInvokeArgs('test prompt', 'test-model');
+    expect(args).toEqual(['run', 'test prompt']);
 
-    const opencodeArgsNoModel = opencode?.getInvokeArgs('test prompt');
-    expect(opencodeArgsNoModel).toEqual(['run', 'test prompt']);
+    const argsNoModel = tools[0].getInvokeArgs('test prompt');
+    expect(argsNoModel).toEqual(['run', 'test prompt']);
+  });
+
+  it('should report OpenCode as not installed when missing', () => {
+    execSyncSpy.mockImplementation((cmd: string) => {
+      if (typeof cmd === 'string' && (cmd.startsWith('command -v') || cmd.startsWith('where'))) {
+        throw new Error('Command not found');
+      }
+      return '';
+    });
+
+    const tools = discoverTools();
+
+    expect(tools).toHaveLength(1);
+    expect(tools[0].id).toBe('opencode');
+    expect(tools[0].isInstalled).toBe(false);
+    expect(tools[0].version).toBeUndefined();
   });
 
   it('should handle version check failures gracefully', () => {

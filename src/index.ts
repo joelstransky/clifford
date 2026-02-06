@@ -68,16 +68,6 @@ program
       };
       console.log('🚀 Initializing with default YOLO settings...');
     } else {
-      console.log('🔍 Discovering compatible AI agents...');
-      const tools = discoverTools();
-      const installedTools = tools.filter(t => t.isInstalled);
-      
-      if (installedTools.length === 0) {
-        console.log('⚠️ No compatible AI agents (OpenCode, Claude Code, etc.) were found on your system.');
-      } else {
-        console.log(`✅ Found ${installedTools.length} compatible agent(s): ${installedTools.map(t => t.name).join(', ')}`);
-      }
-
       answers = await inquirer.prompt([
         {
           type: 'input',
@@ -95,19 +85,6 @@ program
           ]
         },
         {
-          type: 'list',
-          name: 'aiTool',
-          message: 'Select your preferred AI tool:',
-          choices: installedTools.map(t => ({ name: `${t.name} (${t.command})`, value: t.id })),
-          when: installedTools.length > 0
-        },
-        {
-          type: 'input',
-          name: 'customAiTool',
-          message: 'Enter the command for your custom AI tool:',
-          when: () => installedTools.length === 0
-        },
-        {
           type: 'checkbox',
           name: 'extraGates',
           message: 'Select extra verification gates:',
@@ -117,19 +94,22 @@ program
           ]
         }
       ]);
+      // OpenCode is the only supported engine
+      answers.aiTool = 'opencode';
     }
 
     try {
-      // Write clifford.json
+      // Write clifford.json — OpenCode is the only supported engine
       const cliffordConfig = {
-        model: answers.model
+        model: answers.model,
+        aiTool: 'opencode'
       };
       fs.writeFileSync(configPath, JSON.stringify(cliffordConfig, null, 2));
       console.log('✅ Created clifford.json');
 
       await scaffold(process.cwd(), {
         workflow: answers.workflow,
-        aiTool: answers.aiTool || answers.customAiTool,
+        aiTool: answers.aiTool,
         extraGates: answers.extraGates
       });
       console.log('✅ Clifford initialized successfully!');
