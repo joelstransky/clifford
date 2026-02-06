@@ -94,11 +94,20 @@
   5. Run `npm test` — all tests pass
 
 ## Task 6: Loading Spinner
-- **Status**: Pending
+- **Status**: ✅ Completed
+- **Changes**:
+  - `src/tui/Dashboard.ts` — Added a text-based spinner animation (braille dots: `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) that provides immediate visual feedback when a sprint starts. The spinner ticks every 80ms and displays `[⠋ Starting...]` in the header bar where the status text normally shows `[Idle]`, `[Running: ...]`, etc.
+  - Extracted `updateHeaderStatus()` as a shared helper to eliminate duplication between the spinner tick callback and the main `updateDisplay()` function. This helper manages the header status text for all states: spinner active, idle, running, blocked, and complete.
+  - The spinner starts on the runner's `start` event and stops on: (a) `task-start` — transitions to `[Running: Sprint > task-01]`, (b) `stop` — transitions back to `[Idle]`, (c) `halt` — transitions to `[Blocked]` and shows the needs-help panel, (d) `runner.run()` catch — stops spinner if the runner throws before emitting `start`.
+  - Spinner cleanup is also called on quit (`Q` and `Ctrl+C`) to prevent orphaned intervals.
 - **Verification**:
-  1. Press `S` — spinner appears immediately in header
-  2. Transitions to running status when first task starts
-  3. On startup failure, spinner stops and error shown
+  1. Launch TUI (`npm run dev`) and navigate into a sprint with pending tasks
+  2. Press `S` to start the sprint — **immediately** observe a spinning braille animation in the header bar: `[⠋ Starting...]` cycling through frames at ~80ms
+  3. After a few seconds (once the agent spawns and picks up the first task), verify the spinner stops and the header transitions to `[Running: Sprint Name > task-01]`
+  4. If the sprint fails to start (e.g., missing manifest), verify the spinner stops and the activity log shows a `Runner Error:` message
+  5. Start a sprint that triggers a halt (e.g., UAT Failure sprint) — verify the spinner stops when the needs-help panel appears
+  6. Press `X` to stop a running sprint — verify the header transitions back to `[Idle]` with no residual spinner
+  7. Verify there is no flicker or duplication in the header text (the `updateHeaderStatus()` helper is the single source of truth)
 
 ## Task 7: Strip Emoji Titles
 - **Status**: Pending

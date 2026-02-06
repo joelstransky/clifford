@@ -103,6 +103,56 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   let activeTaskId: string | null = null;
   let activeTaskFile: string | null = null;
 
+  // --- Spinner State ---
+  const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let spinnerInterval: ReturnType<typeof setInterval> | null = null;
+  let spinnerFrameIndex: number = 0;
+
+  const startSpinner = () => {
+    if (spinnerInterval) return; // Already running
+    spinnerFrameIndex = 0;
+    spinnerInterval = setInterval(() => {
+      spinnerFrameIndex = (spinnerFrameIndex + 1) % SPINNER_FRAMES.length;
+      updateHeaderStatus();
+    }, 80);
+    updateHeaderStatus();
+  };
+
+  const stopSpinner = () => {
+    if (spinnerInterval) {
+      clearInterval(spinnerInterval);
+      spinnerInterval = null;
+    }
+  };
+
+  /** Update just the header status text (used by spinner tick and full updateDisplay) */
+  const updateHeaderStatus = () => {
+    const completed = manifest ? manifest.tasks.filter(t => t.status === 'completed' || t.status === 'pushed').length : 0;
+    const total = manifest ? manifest.tasks.length : 0;
+    const isRunning = runner.getIsRunning();
+    const blocked = manifest ? manifest.tasks.some(t => t.status === 'blocked') : false;
+
+    if (spinnerInterval) {
+      // Spinner is active — show animated starting indicator
+      const frame = SPINNER_FRAMES[spinnerFrameIndex];
+      sprintStatusText.content = t`${fg(COLORS.warning)(`[${frame} Starting...]`)}`;
+      return;
+    }
+
+    let sLabel = 'Idle', sColor = COLORS.dim;
+    if (blocked) { sLabel = 'Blocked'; sColor = COLORS.error; }
+    else if (isRunning) {
+      const runningDir = runner.getSprintDir();
+      const runningSprint = allSprints.find(s => path.resolve(s.path) === path.resolve(runningDir));
+      const activeTask = manifest?.tasks.find(t => t.status === 'active');
+      const taskSuffix = (activeTask && runningSprint?.id === manifest?.id) ? ` > ${activeTask.id}` : '';
+      sLabel = `Running: ${runningSprint?.name || 'Unknown'}${taskSuffix}`;
+      sColor = COLORS.warning;
+    }
+    else if (completed === total && total > 0) { sLabel = 'Complete'; sColor = COLORS.success; }
+    sprintStatusText.content = t`${fg(sColor)(`[${sLabel}]`)}`;
+  };
+
   const addLog = (message: string, type: LogEntry['type'] = 'info') => {
     logs.push({ timestamp: new Date(), message, type });
     if (logs.length > 100) logs.shift();
@@ -147,10 +197,12 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       sprintStartTime = Date.now();
       elapsedSeconds = 0;
       executionLogs = [];
+      startSpinner();
       if (!activeBlocker) currentRightView = 'execution';
       updateDisplay();
     });
     runner.on('stop', () => {
+      stopSpinner();
       sprintStartTime = null;
       activeTaskId = null;
       activeTaskFile = null;
@@ -158,6 +210,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       updateDisplay();
     });
     runner.on('task-start', (data: { taskId: string; file: string }) => {
+      stopSpinner();
       activeTaskId = data.taskId;
       activeTaskFile = data.file;
       updateDisplay();
@@ -172,6 +225,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       if (currentRightView === 'execution') updateDisplay();
     });
     runner.on('halt', (data: { task: string; reason: string; question: string }) => {
+      stopSpinner();
       // Unify halt with the existing blocker UX: show the same "needs help" UI
       bridge.setBlockerContext(data.task, data.question);
       activeBlocker = { task: data.task, reason: data.reason, question: data.question };
@@ -560,26 +614,12 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     const isSprintsView = viewMode === 'sprints';
     const isTasksView = viewMode === 'tasks';
 
-    // Top-level status
+    // Top-level status (delegated to shared helper that also handles spinner)
     const completed = manifest ? manifest.tasks.filter(t => t.status === 'completed' || t.status === 'pushed').length : 0;
     const total = manifest ? manifest.tasks.length : 0;
     const isRunning = runner.getIsRunning();
-    const blocked = manifest ? manifest.tasks.some(t => t.status === 'blocked') : false;
-    
 
-
-    let sLabel = 'Idle', sColor = COLORS.dim;
-    if (blocked) { sLabel = 'Blocked'; sColor = COLORS.error; }
-    else if (isRunning) { 
-      const runningDir = runner.getSprintDir();
-      const runningSprint = allSprints.find(s => path.resolve(s.path) === path.resolve(runningDir));
-      const activeTask = manifest?.tasks.find(t => t.status === 'active');
-      const taskSuffix = (activeTask && runningSprint?.id === manifest?.id) ? ` > ${activeTask.id}` : '';
-      sLabel = `Running: ${runningSprint?.name || 'Unknown'}${taskSuffix}`; 
-      sColor = COLORS.warning; 
-    }
-    else if (completed === total && total > 0) { sLabel = 'Complete'; sColor = COLORS.success; }
-    sprintStatusText.content = t`${fg(sColor)(`[${sLabel}]`)}`;
+    updateHeaderStatus();
 
     if (isSprintsView) {
       leftPanelHeader.content = t`${bold(fg(COLORS.primary)('AVAILABLE SPRINTS'))}`;
@@ -760,11 +800,13 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   renderer.keyInput.on('keypress', (key: { name: string, ctrl: boolean, sequence: string }) => {
     // Global shortcuts (Quit)
     if (key.name === 'q' && !activeBlocker) {
+      stopSpinner();
       clearInterval(poll);
       renderer.destroy();
       process.exit(0);
     }
     if (key.ctrl && key.name === 'c') {
+      stopSpinner();
       clearInterval(poll);
       renderer.destroy();
       process.exit(0);
@@ -854,6 +896,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
           runner.setSprintDir(currentSprintDir);
           addLog(`Starting sprint: ${manifest?.name || currentSprintDir}`, 'warning');
           runner.run().catch(err => {
+            stopSpinner();
             addLog(`Runner Error: ${err.message}`, 'error');
           });
         } else if (runner.getIsRunning()) {
