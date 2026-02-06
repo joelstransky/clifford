@@ -75,10 +75,23 @@
   6. Inspect `src/utils/discovery.ts` — confirm `ENGINE_CONFIGS` contains only the OpenCode entry, and the `AIEngine` interface is still exported.
 
 ## Task 5: Post-Init Message
-- **Status**: Pending
+- **Status**: ✅ Completed
+- **Changes**:
+  - `src/index.ts` — Replaced the single "Clifford initialized successfully!" message with a structured post-init summary. After scaffolding completes, the code now calls `discoverTools()` to check OpenCode's installation status and displays: (a) a green `🟢 OpenCode: installed (version)` line if found, or a red `🔴 OpenCode: not found` line with install instructions if missing; (b) a next-step message guiding the user to open/restart OpenCode and switch to the Architect agent for sprint planning.
+  - No references to Claude Code, Codex, or Gemini remain anywhere in `src/`.
 - **Verification**:
-  1. `clifford init -y` — shows OpenCode status and Architect restart prompt
-  2. No references to other CLI tools
+  1. Run `npm run dev -- init -y` with OpenCode installed — verify the output shows:
+     - `✅ Clifford initialized successfully!`
+     - `🟢 OpenCode: installed` followed by a version string in parentheses (e.g., `(0.x.x)`)
+     - `👉 Next step: Open (or restart) OpenCode and switch to the Architect agent to begin sprint planning.`
+  2. Temporarily rename the `opencode` binary (e.g., `mv $(which opencode) $(which opencode).bak`), then run `npm run dev -- init -y` — verify the output shows:
+     - `✅ Clifford initialized successfully!`
+     - `🔴 OpenCode: not found`
+     - `   Install it with: npm install -g opencode`
+     - The next-step message still appears
+  3. Restore the binary: `mv $(which opencode).bak $(which opencode)`
+  4. Verify there are **no** references to Claude Code, Codex, or Gemini in `src/index.ts` or any other source file
+  5. Run `npm test` — all tests pass
 
 ## Task 6: Loading Spinner
 - **Status**: Pending

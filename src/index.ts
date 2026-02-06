@@ -112,7 +112,26 @@ program
         aiTool: answers.aiTool,
         extraGates: answers.extraGates
       });
+
+      console.log('');
       console.log('✅ Clifford initialized successfully!');
+      console.log('');
+
+      // Display OpenCode installation status
+      const engines = discoverTools();
+      const opencode = engines.find(e => e.id === 'opencode');
+
+      if (opencode?.isInstalled) {
+        const versionLabel = opencode.version ? ` (${opencode.version})` : '';
+        console.log(`🟢 OpenCode: installed${versionLabel}`);
+      } else {
+        console.log('🔴 OpenCode: not found');
+        console.log('   Install it with: npm install -g opencode');
+      }
+
+      console.log('');
+      console.log('👉 Next step: Open (or restart) OpenCode and switch to the');
+      console.log('   Architect agent to begin sprint planning.');
     } catch (error) {
       console.error(`❌ Error during initialization: ${(error as Error).message}`);
     }
