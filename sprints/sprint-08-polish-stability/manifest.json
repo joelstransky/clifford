@@ -1,42 +1,42 @@
 {
   "id": "sprint-08-polish-stability",
   "name": "Polish & Stability",
-  "status": "completed",
+  "status": "pushed",
   "tasks": [
     {
       "id": "task-01",
       "file": "tasks/01-activity-log-dedup.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-02",
       "file": "tasks/02-halt-and-help.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-03",
       "file": "tasks/03-uat-test-fixtures.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-04",
       "file": "tasks/04-drop-non-opencode.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-05",
       "file": "tasks/05-post-init-message.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-06",
       "file": "tasks/06-loading-spinner.md",
-      "status": "completed"
+      "status": "pushed"
     },
     {
       "id": "task-07",
       "file": "tasks/07-strip-emoji-titles.md",
-      "status": "completed"
+      "status": "pushed"
     }
   ]
 }

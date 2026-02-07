@@ -23,6 +23,9 @@ fi
 MANIFEST="$SPRINT_DIR/manifest.json"
 echo "📋 Validating manifest: $MANIFEST"
 
+# --- Stage everything first so validation runs against what we'll commit ---
+git add -A
+
 # --- Validate manifest structure ---
 node -e "
 const fs = require('fs');
@@ -67,9 +70,6 @@ if (errors.length > 0) {
 "
 
 # --- Commit and push ---
-echo "📦 Staging all changes..."
-git add -A
-
 if git diff --cached --quiet; then
   echo "ℹ️  Nothing to commit — working tree clean."
 else
