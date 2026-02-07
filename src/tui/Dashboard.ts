@@ -109,8 +109,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   let logs: LogEntry[] = [];
   let activeBlocker: BlockRequest | null = null;
   let chatInput: string = '';
-  let currentRightView: 'activity' | 'blocker' | 'execution' = 'activity';
-  let executionLogs: string[] = [];
+  let currentRightView: 'activity' | 'blocker' = 'activity';
   let sprintStartTime: number | null = null;
   let elapsedSeconds: number = 0;
   let activeTaskId: string | null = null;
@@ -247,28 +246,19 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     runner.on('start', () => {
       sprintStartTime = Date.now();
       elapsedSeconds = 0;
-      executionLogs = [];
       startSpinner();
       if (!activeBlocker) {
-        // Swap activity panel sub-view to execution
-        try { activityPanel.remove('activity-header'); } catch { /* ignore */ }
-        try { activityPanel.remove('activity-scroll'); } catch { /* ignore */ }
-        try { activityPanel.remove('blocker-container'); } catch { /* ignore */ }
-        try { activityPanel.remove('execution-container'); } catch { /* ignore */ }
-        activityPanel.add(executionContainer);
-        currentRightView = 'execution';
-
         activeTab = 'activity';
         tabBar.setSelectedIndex(1);
         switchPanel('activity');
       }
+      updateDisplay();
     });
     runner.on('stop', () => {
       stopSpinner();
       sprintStartTime = null;
       activeTaskId = null;
       activeTaskFile = null;
-      if (currentRightView === 'execution') currentRightView = 'activity';
       updateDisplay();
     });
     runner.on('task-start', (data: { taskId: string; file: string }) => {
@@ -282,9 +272,9 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     });
     runner.on('output', (data: { data: string; stream: string }) => {
       const lines = data.data.split('\n').filter((l: string) => l.trim().length > 0);
-      executionLogs.push(...lines);
-      if (executionLogs.length > 200) executionLogs = executionLogs.slice(-200);
-      if (currentRightView === 'execution') updateDisplay();
+      lines.forEach(line => {
+        addLog(`> ${line.substring(0, 120)}`, 'info');
+      });
     });
     runner.on('halt', (data: { task: string; reason: string; question: string }) => {
       stopSpinner();
@@ -399,6 +389,29 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
   
   // Activity Log Components
+  const activityInfoPanel = new BoxRenderable(renderer, {
+    id: 'activity-info-panel', width: '100%', flexDirection: 'column',
+    paddingLeft: 1, paddingRight: 1,
+  });
+
+  const infoSprintText = new TextRenderable(renderer, {
+    id: 'info-sprint', content: '',
+  });
+  const infoTaskText = new TextRenderable(renderer, {
+    id: 'info-task', content: '',
+  });
+  const infoTimerText = new TextRenderable(renderer, {
+    id: 'info-timer', content: '',
+  });
+  const infoProgressText = new TextRenderable(renderer, {
+    id: 'info-progress', content: '',
+  });
+
+  activityInfoPanel.add(infoSprintText);
+  activityInfoPanel.add(infoTaskText);
+  activityInfoPanel.add(infoTimerText);
+  activityInfoPanel.add(infoProgressText);
+
   const activityHeader = new TextRenderable(renderer, {
     id: 'activity-header', content: t`${bold(fg(COLORS.purple)('ACTIVITY LOG'))}`,
   });
@@ -462,59 +475,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   blockerContainer.add(blockerInputBox);
   blockerContainer.add(blockerFooterHint);
 
-  // Execution View Components
-  const executionContainer = new BoxRenderable(renderer, {
-    id: 'execution-container', width: '100%', height: '100%', flexDirection: 'column',
-    padding: 1,
-  });
-  
-  const executionHeader = new TextRenderable(renderer, {
-    id: 'execution-header', content: t`${bold(fg(COLORS.warning)('🔄 SPRINT EXECUTING'))}`,
-  });
-  
-  const executionTaskInfo = new BoxRenderable(renderer, {
-    id: 'execution-task-info', width: '100%', flexDirection: 'column', padding: 1,
-  });
-  const execTaskIdText = new TextRenderable(renderer, {
-    id: 'exec-task-id', content: '',
-  });
-  const execTaskFileText = new TextRenderable(renderer, {
-    id: 'exec-task-file', content: '',
-  });
-  const execTimerText = new TextRenderable(renderer, {
-    id: 'exec-timer', content: '',
-  });
-  executionTaskInfo.add(execTaskIdText);
-  executionTaskInfo.add(execTaskFileText);
-  executionTaskInfo.add(execTimerText);
-  
-  const execProgressBox = new BoxRenderable(renderer, {
-    id: 'exec-progress-box', width: '100%',
-  });
-  const execProgressText = new TextRenderable(renderer, {
-    id: 'exec-progress-text', content: '',
-  });
-  execProgressBox.add(execProgressText);
-  
-  const agentOutputHeader = new TextRenderable(renderer, {
-    id: 'agent-output-header', content: t`\n${bold(fg(COLORS.primary)('AGENT OUTPUT:'))}`,
-  });
-  
-  const agentOutputScroll = new ScrollBoxRenderable(renderer, {
-    id: 'agent-output-scroll', width: '100%', flexGrow: 1,
-  });
-  const agentOutputContainer = new BoxRenderable(renderer, {
-    id: 'agent-output-log', width: '100%', flexDirection: 'column',
-  });
-  agentOutputScroll.add(agentOutputContainer);
-  
-  executionContainer.add(executionHeader);
-  executionContainer.add(executionTaskInfo);
-  executionContainer.add(execProgressBox);
-  executionContainer.add(agentOutputHeader);
-  executionContainer.add(agentOutputScroll);
-
   // Initial Activity Panel setup
+  activityPanel.add(activityInfoPanel);
   activityPanel.add(activityHeader);
   activityPanel.add(activityScroll);
 
@@ -562,7 +524,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   const taskElements: Identifiable[] = [];
   const logElements: Identifiable[] = [];
   const sprintElements: Identifiable[] = [];
-  const agentOutputLogElements: Identifiable[] = [];
 
   const clearLeftPanel = () => {
     taskElements.forEach(el => { try { taskListContainer.remove(el.id); } catch { /* ignore */ } });
@@ -769,14 +730,13 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         progressText.content = t`${dim('Progress: ')}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)}`;
       }
     }
-    
     // Toggle Activity Panel sub-views
     // Exception: blocker activation ALWAYS updates regardless of tab
     if (activeBlocker) {
       if (currentRightView !== 'blocker') {
+        try { activityPanel.remove('activity-info-panel'); } catch { /* ignore */ }
         try { activityPanel.remove('activity-header'); } catch { /* ignore */ }
         try { activityPanel.remove('activity-scroll'); } catch { /* ignore */ }
-        try { activityPanel.remove('execution-container'); } catch { /* ignore */ }
         activityPanel.add(blockerContainer);
         currentRightView = 'blocker';
       }
@@ -789,38 +749,36 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       blockerInputText.content = t`${chatInput}${bold(fg(COLORS.error)('█'))}`;
       
       hotkeyText.content = t`${dim('"Done" = resume')}  ${bold('[Enter]')} Submit  ${bold('[Esc]')} Cancel`;
-    } else if (activeTab === 'activity') {
-      // Only update activity panel content when visible
-      if (isRunning && currentRightView === 'execution') {
-        execTaskIdText.content = t`${bold(fg(COLORS.primary)('Task ID: '))}${fg(COLORS.text)(activeTaskId || 'Initializing...')}`;
-        execTaskFileText.content = t`${bold(fg(COLORS.primary)('File:    '))}${fg(COLORS.text)(activeTaskFile || '...')}`;
-        
+    } else {
+      if (currentRightView !== 'activity') {
+        try { activityPanel.remove('blocker-container'); } catch { /* ignore */ }
+        activityPanel.add(activityInfoPanel);
+        activityPanel.add(activityHeader);
+        activityPanel.add(activityScroll);
+        currentRightView = 'activity';
+      }
+
+      // Populate the header panel
+      if (isRunning || sprintStartTime) {
+        const sprintName = manifest?.name || 'Unknown';
+        infoSprintText.content = t`${bold(fg(COLORS.primary)('Sprint: '))}${fg(COLORS.text)(sprintName)}`;
+        infoTaskText.content = t`${bold(fg(COLORS.primary)('Task:   '))}${fg(COLORS.text)(activeTaskId || 'Initializing...')}`;
+
         const mm = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
         const ss = (elapsedSeconds % 60).toString().padStart(2, '0');
-        execTimerText.content = t`${bold(fg(COLORS.primary)('Elapsed: '))}${fg(COLORS.warning)(`${mm}:${ss}`)}`;
-        
-        const progress = generateProgressBar(completed, total, 30);
-        execProgressText.content = t`${bold(fg(COLORS.primary)('Progress: '))}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)} (${completed}/${total})`;
+        infoTimerText.content = t`${bold(fg(COLORS.primary)('Elapsed: '))}${fg(COLORS.warning)(`${mm}:${ss}`)}`;
 
-        // Update agent output
-        agentOutputLogElements.forEach(el => { try { agentOutputContainer.remove(el.id); } catch { /* ignore */ } });
-        agentOutputLogElements.length = 0;
-        executionLogs.slice(-20).forEach((line, i) => {
-          const el = new TextRenderable(renderer, {
-            id: `exec-log-${i}`,
-            content: t`${dim('> ')}${fg(COLORS.text)(line.substring(0, 100))}`,
-          });
-          agentOutputLogElements.push(el);
-          agentOutputContainer.add(el);
-        });
+        const progress = generateProgressBar(completed, total, 30);
+        infoProgressText.content = t`${bold(fg(COLORS.primary)('Progress: '))}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)} (${completed}/${total})`;
       } else {
-        if (currentRightView !== 'activity') {
-          try { activityPanel.remove('blocker-container'); } catch { /* ignore */ }
-          try { activityPanel.remove('execution-container'); } catch { /* ignore */ }
-          activityPanel.add(activityHeader);
-          activityPanel.add(activityScroll);
-          currentRightView = 'activity';
-        }
+        // Not running — clear or collapse the header panel
+        infoSprintText.content = '';
+        infoTaskText.content = '';
+        infoTimerText.content = '';
+        infoProgressText.content = '';
+      }
+
+      if (activeTab === 'activity') {
         updateActivityLog();
       }
     }
@@ -834,7 +792,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       } else if (isTasksView && !isRunning) {
         hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}`;
       } else if (isRunning) {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.warning)('[V]iew'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.error)('[X] Stop'))}`;
       }
     } else if (activeTab === 'activity') {
       if (isRunning) {
@@ -903,7 +861,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   setInterval(() => {
     if (sprintStartTime) {
       elapsedSeconds = Math.floor((Date.now() - sprintStartTime) / 1000);
-      if (currentRightView === 'execution') updateDisplay();
+      if (activeTab === 'activity') updateDisplay();
     }
   }, 1000);
 
@@ -1069,12 +1027,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       if (key.name === 'x' && runner.getIsRunning()) {
         addLog('Stopping sprint...', 'error');
         runner.stop();
-      }
-      if (key.name === 'v' && runner.getIsRunning()) {
-        currentRightView = 'execution';
-        activeTab = 'activity';
-        tabBar.setSelectedIndex(1);
-        switchPanel('activity');
       }
     }
   });
