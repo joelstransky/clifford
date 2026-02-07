@@ -339,7 +339,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   sprintsPanel.add(taskListBox);
 
   const progressText = new TextRenderable(renderer, {
-    id: 'progress', content: t`${dim('Progress: ')}${fg(COLORS.dim)('░░░░░░░░░░░░░░░░░░░░ 0%')}`,
+    id: 'progress', content: t`${dim('Progress: ')}${fg(COLORS.dim)('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 0%')}`,
   });
   sprintsPanel.add(new BoxRenderable(renderer, { id: 'prog-wrap' }).add(progressText));
 
@@ -365,13 +365,14 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   // Blocker UI Components
   const blockerContainer = new BoxRenderable(renderer, {
     id: 'blocker-container', width: '100%', height: '100%', flexDirection: 'column',
+    padding: 1,
   });
   
   const blockerHeader = new TextRenderable(renderer, {
     id: 'blocker-header', content: t`${bold(fg(COLORS.error)('🛑 NEEDS HELP'))}`,
   });
   const blockerDivider = new TextRenderable(renderer, {
-    id: 'blocker-divider', content: t`${dim('─'.repeat(40))}`,
+    id: 'blocker-divider', content: t`${dim('─'.repeat(50))}`,
   });
   const blockerTask = new TextRenderable(renderer, {
     id: 'blocker-task', content: '',
@@ -410,6 +411,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   // Execution View Components
   const executionContainer = new BoxRenderable(renderer, {
     id: 'execution-container', width: '100%', height: '100%', flexDirection: 'column',
+    padding: 1,
   });
   
   const executionHeader = new TextRenderable(renderer, {
@@ -536,6 +538,16 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     const isRunning = runner.getIsRunning();
     const runningDir = runner.getSprintDir();
 
+    if (allSprints.length === 0) {
+      const emptyEl = new TextRenderable(renderer, {
+        id: 'sprint-empty',
+        content: t`\n${dim('  No sprints discovered.')}\n${dim('  Run "clifford init" then create a sprint.')}`,
+      });
+      sprintElements.push(emptyEl);
+      taskListContainer.add(emptyEl);
+      return;
+    }
+
     allSprints.forEach((s, i) => {
       const isSelected = i === selectedIndex;
       const isThisRunning = isRunning && path.resolve(runningDir) === path.resolve(s.path);
@@ -598,6 +610,16 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     clearLeftPanel();
     if (!manifest) return;
 
+    if (manifest.tasks.length === 0) {
+      const emptyEl = new TextRenderable(renderer, {
+        id: 'task-empty',
+        content: t`\n${dim('  No tasks defined in this sprint.')}`,
+      });
+      taskElements.push(emptyEl);
+      taskListContainer.add(emptyEl);
+      return;
+    }
+
     const isRunning = runner.getIsRunning();
 
     manifest.tasks.forEach((task, i) => {
@@ -651,6 +673,16 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     logElements.forEach(el => { try { activityLogContainer.remove(el.id); } catch { /* ignore */ } });
     logElements.length = 0;
     
+    if (logs.length === 0) {
+      const emptyEl = new TextRenderable(renderer, {
+        id: 'log-empty',
+        content: t`\n${dim('  No activity yet. Start a sprint to see logs here.')}`,
+      });
+      logElements.push(emptyEl);
+      activityLogContainer.add(emptyEl);
+      return;
+    }
+
     logs.slice(-20).forEach((log, i) => {
       let color = COLORS.text;
       if (log.type === 'success') color = COLORS.success;
@@ -684,7 +716,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         sprintNameText.content = t`${fg(COLORS.text)('Select a sprint to view tasks')}`;
         sprintDescText.content = t`${dim('Use ↑↓ to navigate, → to drill in')}`;
         updateSprintList();
-        progressText.content = t`${dim('Progress: ')}${fg(COLORS.dim)(generateProgressBar(0, 0))}`;
+        progressText.content = t`${dim('Progress: ')}${fg(COLORS.dim)(generateProgressBar(0, 0, 30))}`;
       } else {
         const hasPendingTasks = manifest && manifest.tasks.some(t => t.status === 'pending');
         const canStart = hasPendingTasks && !isRunning;
@@ -702,7 +734,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
           sprintDescText.content = t`${dim(manifest.id)} ${dim('[←] Back')}`;
         }
         updateTaskList();
-        const progress = generateProgressBar(completed, total);
+        const progress = generateProgressBar(completed, total, 30);
         progressText.content = t`${dim('Progress: ')}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)}`;
       }
     }
@@ -861,14 +893,16 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
 
   // --- Input ---
   renderer.keyInput.on('keypress', (key: { name: string, ctrl: boolean, sequence: string }) => {
-    // Global shortcuts (Quit)
-    if (key.name === 'q' && !activeBlocker) {
+    // Ctrl+C: instant quit regardless of mode
+    if (key.ctrl && key.name === 'c') {
       stopSpinner();
       clearInterval(poll);
       renderer.destroy();
       process.exit(0);
     }
-    if (key.ctrl && key.name === 'c') {
+
+    // Q to quit — only when not typing in chat or blocker input
+    if (key.name === 'q' && !activeBlocker && !chatFocused) {
       stopSpinner();
       clearInterval(poll);
       renderer.destroy();
