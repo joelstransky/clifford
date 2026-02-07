@@ -49,5 +49,25 @@
    - Switch to the Activity tab and verify that the blocker messages and the previous activity history are STILL PRESENT (not cleared).
 
 3. **Verify Log Clearing on Subsequent Start**:
-   - After the sprint completes or is stopped, press `S` again to start a new run.
-   - Observe that the activity log is cleared once more.
+    - After the sprint completes or is stopped, press `S` again to start a new run.
+    - Observe that the activity log is cleared once more.
+
+## Task 3: Sprint List — Replace Symbols with Status Labels
+
+### Verification Steps
+
+1. **Verify Status Label Presence**:
+   - Run the dashboard: `npm start`.
+   - In the "AVAILABLE SPRINTS" view, observe the right-hand column.
+   - Every sprint should now have a text status label (e.g., **Pending**, **Complete**, **Active**, **Published**, **Blocked**).
+
+2. **Verify Status Derivation**:
+   - **Published**: Locate a sprint where all tasks have `pushed` status. It should show **Published** in blue.
+   - **Complete**: Locate a sprint where all tasks are `completed` (or a mix of `completed` and `pushed`). It should show **Complete** in green.
+   - **Active**: Start a sprint (`S`). Navigate back to the "AVAILABLE SPRINTS" list (`Left Arrow`). The running sprint should show **Active** in yellow.
+   - **Blocked**: Find or create a sprint with at least one `blocked` task. It should show **Blocked** in red.
+   - **Pending**: Locate a sprint with at least one `pending` task (and no blocked tasks/not currently running). It should show **Pending** in gray.
+
+3. **Verify Removal of Old Symbols**:
+   - Confirm that no `✅` emoji, `[▶]` symbols, or the literal word `running` (in default terminal color) appear in the sprint list.
+   - Confirm that the `🔄` emoji still appears next to the sprint name for the currently running sprint.
