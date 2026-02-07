@@ -57,6 +57,14 @@ const STATUS_COLORS: Record<Task['status'], string> = {
   pushed: COLORS.primary,
 };
 
+const STATUS_LABELS: Record<Task['status'], string> = {
+  pending: 'Pending',
+  active: 'Active',
+  blocked: 'Blocked',
+  completed: 'Complete',
+  pushed: 'Published',
+};
+
 function formatTime(date: Date): string {
   return date.toTimeString().split(' ')[0];
 }
@@ -657,15 +665,9 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         flexDirection: 'row',
       });
 
-      const playIndicator = (task.status === 'pending' && !isActiveTask)
-        ? (isRunning ? dim('[▶]') : fg(COLORS.success)('[▶]'))
-        : '';
-
       const statusLabel = new TextRenderable(renderer, {
         id: `task-status-${i}`,
-        content: playIndicator
-          ? t`${fg(displayColor)(displayStatus)} ${playIndicator}`
-          : t`${fg(displayColor)(displayStatus)}`,
+        content: t`${fg(displayColor)(STATUS_LABELS[displayStatus])}`,
       });
       rightBox.add(statusLabel);
 
