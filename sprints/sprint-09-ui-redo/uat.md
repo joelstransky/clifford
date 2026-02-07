@@ -178,3 +178,47 @@
     - **Black** (`#000000`): Status bar at the bottom.
 11. **No Borders**: Confirm no borders are visible anywhere in the interface. All zone separation is via background color contrast only.
 12. **Text Readability**: All text should be readable with proper padding from edges. Timestamps in the activity log should provide visual structure.
+
+## Task 6: Double-Press Q to Quit with Status Bar Confirmation
+
+### What Changed
+- **Quit confirmation state**: Added `quitPending` (boolean) and `quitTimer` (timeout handle) state variables alongside the existing state block in `src/tui/Dashboard.ts`.
+- **`cancelQuit()` helper**: New function that resets `quitPending` to `false` and clears the 3-second timeout timer. Callers are responsible for restoring `statusText.content` since `statusText` is declared later in the file.
+- **Q key handler refactored**: The single-press `process.exit(0)` is replaced with a two-phase flow:
+  - **First Q press**: Sets `quitPending = true`, displays `"Press Q again to quit"` in the warning color (`#e0af68`) in the status bar, and starts a 3-second timeout that auto-cancels.
+  - **Second Q press** (within 3 seconds): Calls `cancelQuit()`, then proceeds with the original cleanup sequence (`stopSpinner`, `clearInterval`, `renderer.destroy`, `process.exit`).
+- **Cancel on any other key**: Immediately after the Q handler, a guard checks `if (quitPending && key.name !== 'q')` and cancels the quit state, restoring the status bar to `"STATUS: Ready"`.
+- **3-second auto-cancel**: The `setTimeout` callback calls `cancelQuit()` and restores `statusText` after 3 seconds of inactivity.
+- **Hotkey hints updated**: All `[Q]uit` hints in the footer have been changed to `[QQ]uit` to indicate the double-press behavior.
+- **Ctrl+C unchanged**: The Ctrl+C handler remains at the top of the keypress listener as an instant emergency exit — no double-press required.
+- **Chat/Blocker guards preserved**: The existing `!activeBlocker && !chatFocused` guards on the Q handler prevent the quit prompt from triggering when typing in chat or responding to a blocker.
+
+### Verification Steps
+1. **Build**: Run `npm run build` — should compile without errors.
+2. **Lint**: Run `npm run lint` — should pass with no warnings or errors.
+3. **Tests**: Run `npm test` — all 49 tests should pass.
+4. **First Q Press**: Launch the dashboard (`npm run dev`):
+   - Press `Q` once.
+   - The status bar (bottom-left) should change to `"Press Q again to quit"` in yellow/warning color.
+   - The application should NOT exit.
+5. **Second Q Press (within 3 seconds)**: Press `Q` again within 3 seconds:
+   - The application should exit cleanly.
+6. **Timeout Cancellation**: Launch the dashboard again:
+   - Press `Q` once — warning appears.
+   - Wait 3+ seconds without pressing anything.
+   - The status bar should return to `"STATUS: Ready"` in green.
+   - The application should NOT exit.
+   - Pressing `Q` again starts a new confirmation cycle (not an immediate quit).
+7. **Cancel on Other Key**: Launch the dashboard:
+   - Press `Q` once — warning appears.
+   - Press any other key (e.g., `R`, arrow keys, `Tab`).
+   - The warning should immediately disappear, status bar returns to normal.
+   - The other key's action should execute normally.
+8. **Ctrl+C Instant Exit**: Press `Ctrl+C` at any time — should immediately exit regardless of quit state.
+9. **Q in Chat Mode**: Press `/` to enter chat mode, then type `q`:
+   - The letter `q` should appear in the chat input.
+   - No quit prompt should appear.
+10. **Q in Blocker Mode**: If a blocker is active, typing `q`:
+    - Should type `q` in the blocker response input.
+    - No quit prompt should appear.
+11. **Footer Hints**: Check that all footer hotkey bars show `[QQ]uit` instead of `[Q]uit`.
