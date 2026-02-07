@@ -1030,6 +1030,10 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       }
       if (key.name === 's') {
         if (viewMode === 'tasks' && !runner.getIsRunning()) {
+          // Clear activity log for fresh user-initiated run
+          logs = [];
+          updateActivityLog();
+
           runner.setSprintDir(currentSprintDir);
           addLog(`Starting sprint: ${manifest?.name || currentSprintDir}`, 'warning');
           runner.run().catch(err => {
