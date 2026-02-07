@@ -85,3 +85,51 @@
    - The blocker UI (NEEDS HELP, question, input) should display at full width.
    - After resolving, the sprint should restart normally.
 8. **Code Sweep**: Search `src/tui/Dashboard.ts` for `leftPanel`, `rightPanel`, `left-panel`, `right-panel` — none should be found.
+
+## Task 4: Update Keyboard/Focus Management and updateDisplay() for New Layout
+
+### What Changed
+- **Tab key switching**: Pressing `Tab` in the global keypress handler (non-blocker, non-chat mode) toggles between `sprints` and `activity` tabs. It programmatically sets the tab bar selection and calls `switchPanel()`.
+- **Navigation keys guarded by active tab**: `Up`, `Down`, `Left`, and `Right` arrow keys now only fire their sprint/task navigation logic when `activeTab === 'sprints'`. This prevents accidental sprint navigation when viewing the activity panel.
+- **`updateDisplay()` is now tab-aware**:
+  - Sprint panel content (sprint list, task list, progress bar) is only rebuilt when `activeTab === 'sprints'`.
+  - Activity panel content (activity log, execution view) is only rebuilt when `activeTab === 'activity'`.
+  - **Exception**: Blocker activation always updates regardless of active tab (it forces a switch to the activity panel).
+- **Footer hotkey hints are now tab-context-aware**:
+  - Blocker mode: `"Done" = resume  [Enter] Submit  [Esc] Cancel` (unchanged)
+  - Chat focused: `[Enter] Send  [Esc] Cancel` (unchanged)
+  - SPRINTS tab, sprints view: `[Q]uit  [Tab] Activity  [→] Select  [/] Chat`
+  - SPRINTS tab, tasks view, not running: `[Q]uit  [Tab] Activity  [←] Back  [S]tart  [/] Chat`
+  - SPRINTS tab, running: `[Q]uit  [Tab] Activity  [X] Stop  [V]iew  [/] Chat`
+  - ACTIVITY tab, not running: `[Q]uit  [Tab] Sprints  [R]efresh  [/] Chat`
+  - ACTIVITY tab, running: `[Q]uit  [Tab] Sprints  [X] Stop  [/] Chat`
+- **Global shortcuts preserved**: `S` (start), `X` (stop), `V` (view execution), `/` (chat focus), `R` (refresh), and `Q` (quit) remain global — they work regardless of active tab.
+
+### Verification Steps
+1. **Build**: Run `npm run build` — should compile without errors.
+2. **Lint**: Run `npm run lint` — should pass with no warnings or errors.
+3. **Tests**: Run `npm test` — all 49 tests should pass.
+4. **Tab Switching**: Launch the dashboard (`npm run dev`):
+   - Press `Tab` to toggle between SPRINTS and ACTIVITY panels.
+   - The tab bar should visually update to reflect the selected tab.
+   - The panel content should swap between sprints and activity.
+   - Pressing `Tab` again should switch back.
+5. **Navigation Guards**: While on the ACTIVITY tab:
+   - Press `Up`/`Down` — should NOT navigate the sprint list.
+   - Press `Left`/`Right` — should NOT drill in/out of sprint tasks.
+   - Switch back to SPRINTS tab with `Tab` — navigation should work again.
+6. **Footer Hints**: Observe the footer hotkey bar:
+   - On SPRINTS tab in sprints view: should show `[Tab] Activity`, `[→] Select`, `[/] Chat`.
+   - On SPRINTS tab in tasks view: should show `[Tab] Activity`, `[←] Back`, `[S]tart`, `[/] Chat`.
+   - On ACTIVITY tab: should show `[Tab] Sprints`, `[R]efresh`, `[/] Chat`.
+   - When running on ACTIVITY tab: should show `[Tab] Sprints`, `[X] Stop`, `[/] Chat`.
+7. **Global Keys**: From ACTIVITY tab:
+   - Press `S` — should start a sprint if one is selected with pending tasks.
+   - Press `R` — should trigger a manual refresh.
+   - Press `/` — should activate chat input.
+   - Press `Q` — should quit the application.
+8. **Blocker Auto-Switch**: If a blocker is triggered while on SPRINTS tab:
+   - The tab should auto-switch to ACTIVITY.
+   - The blocker UI should display.
+   - Footer should show blocker-specific hints.
+9. **Chat Input**: Press `/` from either tab — chat input should activate with cursor. Press `Esc` to cancel.

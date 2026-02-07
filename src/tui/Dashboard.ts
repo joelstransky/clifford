@@ -677,34 +677,38 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
 
     updateHeaderStatus();
 
-    if (isSprintsView) {
-      leftPanelHeader.content = t`${bold(fg(COLORS.primary)('AVAILABLE SPRINTS'))}`;
-      sprintNameText.content = t`${fg(COLORS.text)('Select a sprint to view tasks')}`;
-      sprintDescText.content = t`${dim('Use ↑↓ to navigate, → to drill in')}`;
-      updateSprintList();
-      progressText.content = t`${dim('Progress: ')}${fg(COLORS.dim)(generateProgressBar(0, 0))}`;
-    } else {
-      const hasPendingTasks = manifest && manifest.tasks.some(t => t.status === 'pending');
-      const canStart = hasPendingTasks && !isRunning;
-      
-      if (canStart) {
-        leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.success)('[S] Start')}`;
-      } else if (isRunning) {
-        leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.warning)('[Running]')}`;
+    // Only rebuild sprints panel content when it's visible
+    if (activeTab === 'sprints') {
+      if (isSprintsView) {
+        leftPanelHeader.content = t`${bold(fg(COLORS.primary)('AVAILABLE SPRINTS'))}`;
+        sprintNameText.content = t`${fg(COLORS.text)('Select a sprint to view tasks')}`;
+        sprintDescText.content = t`${dim('Use ↑↓ to navigate, → to drill in')}`;
+        updateSprintList();
+        progressText.content = t`${dim('Progress: ')}${fg(COLORS.dim)(generateProgressBar(0, 0))}`;
       } else {
-        leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`;
+        const hasPendingTasks = manifest && manifest.tasks.some(t => t.status === 'pending');
+        const canStart = hasPendingTasks && !isRunning;
+        
+        if (canStart) {
+          leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.success)('[S] Start')}`;
+        } else if (isRunning) {
+          leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.warning)('[Running]')}`;
+        } else {
+          leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`;
+        }
+        
+        if (manifest) {
+          sprintNameText.content = t`${fg(COLORS.text)(manifest.name)}`;
+          sprintDescText.content = t`${dim(manifest.id)} ${dim('[←] Back')}`;
+        }
+        updateTaskList();
+        const progress = generateProgressBar(completed, total);
+        progressText.content = t`${dim('Progress: ')}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)}`;
       }
-      
-      if (manifest) {
-        sprintNameText.content = t`${fg(COLORS.text)(manifest.name)}`;
-        sprintDescText.content = t`${dim(manifest.id)} ${dim('[←] Back')}`;
-      }
-      updateTaskList();
-      const progress = generateProgressBar(completed, total);
-      progressText.content = t`${dim('Progress: ')}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)}`;
     }
     
     // Toggle Activity Panel sub-views
+    // Exception: blocker activation ALWAYS updates regardless of tab
     if (activeBlocker) {
       if (currentRightView !== 'blocker') {
         try { activityPanel.remove('activity-header'); } catch { /* ignore */ }
@@ -723,58 +727,60 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       blockerInputText.content = '';
       
       hotkeyText.content = t`${dim('"Done" = resume')}  ${bold('[Enter]')} Submit  ${bold('[Esc]')} Cancel`;
-    } else if (isRunning && currentRightView === 'execution') {
-      if (currentRightView !== 'execution') {
-        // This part is actually handled by the events now, but just in case
-        try { activityPanel.remove('activity-header'); } catch { /* ignore */ }
-        try { activityPanel.remove('activity-scroll'); } catch { /* ignore */ }
-        try { activityPanel.remove('blocker-container'); } catch { /* ignore */ }
-        activityPanel.add(executionContainer);
-      }
-      
-      execTaskIdText.content = t`${bold(fg(COLORS.primary)('Task ID: '))}${fg(COLORS.text)(activeTaskId || 'Initializing...')}`;
-      execTaskFileText.content = t`${bold(fg(COLORS.primary)('File:    '))}${fg(COLORS.text)(activeTaskFile || '...')}`;
-      
-      const mm = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
-      const ss = (elapsedSeconds % 60).toString().padStart(2, '0');
-      execTimerText.content = t`${bold(fg(COLORS.primary)('Elapsed: '))}${fg(COLORS.warning)(`${mm}:${ss}`)}`;
-      
-      const progress = generateProgressBar(completed, total, 30);
-      execProgressText.content = t`${bold(fg(COLORS.primary)('Progress: '))}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)} (${completed}/${total})`;
+    } else if (activeTab === 'activity') {
+      // Only update activity panel content when visible
+      if (isRunning && currentRightView === 'execution') {
+        execTaskIdText.content = t`${bold(fg(COLORS.primary)('Task ID: '))}${fg(COLORS.text)(activeTaskId || 'Initializing...')}`;
+        execTaskFileText.content = t`${bold(fg(COLORS.primary)('File:    '))}${fg(COLORS.text)(activeTaskFile || '...')}`;
+        
+        const mm = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
+        const ss = (elapsedSeconds % 60).toString().padStart(2, '0');
+        execTimerText.content = t`${bold(fg(COLORS.primary)('Elapsed: '))}${fg(COLORS.warning)(`${mm}:${ss}`)}`;
+        
+        const progress = generateProgressBar(completed, total, 30);
+        execProgressText.content = t`${bold(fg(COLORS.primary)('Progress: '))}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)} (${completed}/${total})`;
 
-      // Update agent output
-      agentOutputLogElements.forEach(el => { try { agentOutputContainer.remove(el.id); } catch { /* ignore */ } });
-      agentOutputLogElements.length = 0;
-      executionLogs.slice(-20).forEach((line, i) => {
-        const el = new TextRenderable(renderer, {
-          id: `exec-log-${i}`,
-          content: t`${dim('> ')}${fg(COLORS.text)(line.substring(0, 100))}`,
+        // Update agent output
+        agentOutputLogElements.forEach(el => { try { agentOutputContainer.remove(el.id); } catch { /* ignore */ } });
+        agentOutputLogElements.length = 0;
+        executionLogs.slice(-20).forEach((line, i) => {
+          const el = new TextRenderable(renderer, {
+            id: `exec-log-${i}`,
+            content: t`${dim('> ')}${fg(COLORS.text)(line.substring(0, 100))}`,
+          });
+          agentOutputLogElements.push(el);
+          agentOutputContainer.add(el);
         });
-        agentOutputLogElements.push(el);
-        agentOutputContainer.add(el);
-      });
-
-      hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
-    } else {
-      if (currentRightView !== 'activity') {
-        try { activityPanel.remove('blocker-container'); } catch { /* ignore */ }
-        try { activityPanel.remove('execution-container'); } catch { /* ignore */ }
-        activityPanel.add(activityHeader);
-        activityPanel.add(activityScroll);
-        currentRightView = 'activity';
-      }
-      updateActivityLog();
-      
-      if (chatFocused) {
-        hotkeyText.content = t`${bold('[Enter]')} Send  ${bold('[Esc]')} Cancel`;
-      } else if (isSprintsView) {
-        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.primary)('[→] Select'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
-      } else if (isTasksView && !isRunning) {
-        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
-      } else if (isRunning) {
-        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.warning)('[V]iew'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
       } else {
-        hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        if (currentRightView !== 'activity') {
+          try { activityPanel.remove('blocker-container'); } catch { /* ignore */ }
+          try { activityPanel.remove('execution-container'); } catch { /* ignore */ }
+          activityPanel.add(activityHeader);
+          activityPanel.add(activityScroll);
+          currentRightView = 'activity';
+        }
+        updateActivityLog();
+      }
+    }
+
+    // Footer hotkey hints — tab-context-aware
+    if (activeBlocker) {
+      // Already set above in the blocker block
+    } else if (chatFocused) {
+      hotkeyText.content = t`${bold('[Enter]')} Send  ${bold('[Esc]')} Cancel`;
+    } else if (activeTab === 'sprints') {
+      if (isSprintsView) {
+        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[→] Select'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+      } else if (isTasksView && !isRunning) {
+        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+      } else if (isRunning) {
+        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.warning)('[V]iew'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+      }
+    } else if (activeTab === 'activity') {
+      if (isRunning) {
+        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+      } else {
+        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${dim('[R]efresh')}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
       }
     }
 
@@ -949,23 +955,35 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         updateDisplay();
       }
     } else {
+      // Global shortcuts (work regardless of active tab)
       if (key.sequence === '/') {
         chatFocused = true;
         updateDisplay();
         return;
       }
+
+      // Tab switching via Tab key
+      if (key.name === 'tab') {
+        const newTab = activeTab === 'sprints' ? 'activity' : 'sprints';
+        activeTab = newTab;
+        tabBar.setSelectedIndex(newTab === 'sprints' ? 0 : 1);
+        switchPanel(newTab);
+        return;
+      }
+
+      // Navigation keys — only active on SPRINTS tab
       if (key.name === 'up') {
-        if (viewMode === 'sprints') {
+        if (activeTab === 'sprints' && viewMode === 'sprints') {
           selectedIndex = Math.max(0, selectedIndex - 1);
           updateDisplay();
         }
       } else if (key.name === 'down') {
-        if (viewMode === 'sprints') {
+        if (activeTab === 'sprints' && viewMode === 'sprints') {
           selectedIndex = Math.min(allSprints.length - 1, selectedIndex + 1);
           updateDisplay();
         }
       } else if (key.name === 'right') {
-        if (viewMode === 'sprints' && allSprints[selectedIndex]) {
+        if (activeTab === 'sprints' && viewMode === 'sprints' && allSprints[selectedIndex]) {
           const selected = allSprints[selectedIndex];
           currentSprintDir = selected.path;
           viewMode = 'tasks';
@@ -975,7 +993,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
           loadManifest();
         }
       } else if (key.name === 'left' || key.sequence === '\u001b[D') {
-        if (viewMode === 'tasks') {
+        if (activeTab === 'sprints' && viewMode === 'tasks') {
           viewMode = 'sprints';
           manifest = null;
           previousManifest = null;
@@ -984,6 +1002,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         }
       }
 
+      // Global actions (work regardless of active tab)
       if (key.name === 'r') {
         addLog('Manual refresh', 'info');
         loadManifest();
