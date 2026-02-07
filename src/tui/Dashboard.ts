@@ -76,6 +76,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     BoxRenderable, 
     TextRenderable,
     ScrollBoxRenderable,
+    TabSelectRenderable,
+    TabSelectRenderableEvents,
     bold,
     fg,
     dim,
@@ -87,6 +89,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
 
   // --- State ---
+  let activeTab: 'sprints' | 'activity' = 'sprints';
   let viewMode: 'sprints' | 'tasks' = 'sprints';
   let allSprints: SprintManifest[] = [];
   let selectedIndex: number = 0;
@@ -262,6 +265,31 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   header.add(titleText);
   header.add(sprintStatusText);
   root.add(header);
+
+  // --- Tab Bar ---
+  const tabBar = new TabSelectRenderable(renderer, {
+    id: 'tab-bar',
+    width: '100%',
+    options: [
+      { name: 'SPRINTS' },
+      { name: 'ACTIVITY' },
+    ],
+    tabWidth: 20,
+    showDescription: false,
+    showUnderline: false,
+    backgroundColor: COLORS.bg,
+    textColor: COLORS.dim,
+    selectedBackgroundColor: COLORS.primary,
+    selectedTextColor: '#000000',
+    focusedBackgroundColor: COLORS.bg,
+    focusedTextColor: COLORS.dim,
+  });
+  root.add(tabBar);
+
+  tabBar.on(TabSelectRenderableEvents.SELECTION_CHANGED, (index: number) => {
+    activeTab = index === 0 ? 'sprints' : 'activity';
+    updateDisplay();
+  });
 
   // --- Main Content ---
   const main = new BoxRenderable(renderer, {
