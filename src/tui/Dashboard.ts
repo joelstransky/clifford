@@ -176,7 +176,9 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       chatInput = '';
       chatFocused = true;
       addLog(`🛑 Blocker: ${data.question || data.reason}`, 'error');
-      updateDisplay();
+      activeTab = 'activity';
+      tabBar.setSelectedIndex(1);
+      switchPanel('activity');
     });
     bridge.on('resolve', (response: string) => {
       activeBlocker = null;
@@ -204,8 +206,12 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       elapsedSeconds = 0;
       executionLogs = [];
       startSpinner();
-      if (!activeBlocker) currentRightView = 'execution';
-      updateDisplay();
+      if (!activeBlocker) {
+        currentRightView = 'execution';
+        activeTab = 'activity';
+        tabBar.setSelectedIndex(1);
+        switchPanel('activity');
+      }
     });
     runner.on('stop', () => {
       stopSpinner();
@@ -238,7 +244,9 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       chatInput = '';
       chatFocused = true;
       addLog(`🛑 ${data.reason}: ${data.task}`, 'error');
-      updateDisplay();
+      activeTab = 'activity';
+      tabBar.setSelectedIndex(1);
+      switchPanel('activity');
     });
   }
 
@@ -290,25 +298,26 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
 
   tabBar.on(TabSelectRenderableEvents.SELECTION_CHANGED, (index: number) => {
     activeTab = index === 0 ? 'sprints' : 'activity';
-    updateDisplay();
+    switchPanel(activeTab);
   });
 
   // --- Main Content ---
   const main = new BoxRenderable(renderer, {
-    id: 'main', width: '100%', flexGrow: 1, flexDirection: 'row',
+    id: 'main', width: '100%', flexGrow: 1, flexDirection: 'column',
+    overflow: 'hidden',
   });
   root.add(main);
 
-  // --- Left Panel (Sprint Plan) ---
-  const leftPanel = new BoxRenderable(renderer, {
-    id: 'left-panel', width: '40%', height: '100%', flexDirection: 'column',
+  // --- Sprints Panel (replaces old leftPanel — now full-width) ---
+  const sprintsPanel = new BoxRenderable(renderer, {
+    id: 'sprints-panel', width: '100%', height: '100%', flexDirection: 'column',
     padding: 1, backgroundColor: COLORS.panelBg,
   });
   
   const leftPanelHeader = new TextRenderable(renderer, {
     id: 'sprint-plan-header', content: t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`,
   });
-  leftPanel.add(leftPanelHeader);
+  sprintsPanel.add(leftPanelHeader);
   
   const sprintNameText = new TextRenderable(renderer, {
     id: 'sprint-name', content: t`${dim('Loading...')}`,
@@ -317,8 +326,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     id: 'sprint-desc', content: '',
   });
   
-  leftPanel.add(sprintNameText);
-  leftPanel.add(sprintDescText);
+  sprintsPanel.add(sprintNameText);
+  sprintsPanel.add(sprintDescText);
   
   const taskListBox = new BoxRenderable(renderer, {
     id: 'task-list-box', width: '100%', flexGrow: 1, flexDirection: 'column',
@@ -327,18 +336,16 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     id: 'task-list', width: '100%', flexDirection: 'column',
   });
   taskListBox.add(taskListContainer);
-  leftPanel.add(taskListBox);
+  sprintsPanel.add(taskListBox);
 
   const progressText = new TextRenderable(renderer, {
     id: 'progress', content: t`${dim('Progress: ')}${fg(COLORS.dim)('░░░░░░░░░░░░░░░░░░░░ 0%')}`,
   });
-  leftPanel.add(new BoxRenderable(renderer, { id: 'prog-wrap' }).add(progressText));
-  
-  main.add(leftPanel);
+  sprintsPanel.add(new BoxRenderable(renderer, { id: 'prog-wrap' }).add(progressText));
 
-  // --- Right Panel ---
-  const rightPanel = new BoxRenderable(renderer, {
-    id: 'right-panel', flexGrow: 1, height: '100%', flexDirection: 'column',
+  // --- Activity Panel (replaces old rightPanel — now full-width) ---
+  const activityPanel = new BoxRenderable(renderer, {
+    id: 'activity-panel', width: '100%', height: '100%', flexDirection: 'column',
     padding: 1, backgroundColor: COLORS.panelBg,
   });
   
@@ -451,11 +458,29 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   executionContainer.add(agentOutputHeader);
   executionContainer.add(agentOutputScroll);
 
-  // Initial Right Panel setup
-  rightPanel.add(activityHeader);
-  rightPanel.add(activityScroll);
-  
-  main.add(rightPanel);
+  // Initial Activity Panel setup
+  activityPanel.add(activityHeader);
+  activityPanel.add(activityScroll);
+
+  // --- Panel Swap Logic ---
+  let currentPanel: 'sprints' | 'activity' = 'sprints';
+  main.add(sprintsPanel); // SPRINTS tab is active by default
+
+  const switchPanel = (tab: 'sprints' | 'activity') => {
+    if (tab === currentPanel) return;
+    if (currentPanel === 'sprints') {
+      main.remove('sprints-panel');
+    } else {
+      main.remove('activity-panel');
+    }
+    if (tab === 'sprints') {
+      main.add(sprintsPanel);
+    } else {
+      main.add(activityPanel);
+    }
+    currentPanel = tab;
+    updateDisplay();
+  };
   
   // --- Chat Input ---
   const chatInputBox = new BoxRenderable(renderer, {
@@ -679,13 +704,13 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       progressText.content = t`${dim('Progress: ')}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)}`;
     }
     
-    // Toggle Right Panel
+    // Toggle Activity Panel sub-views
     if (activeBlocker) {
       if (currentRightView !== 'blocker') {
-        try { rightPanel.remove('activity-header'); } catch { /* ignore */ }
-        try { rightPanel.remove('activity-scroll'); } catch { /* ignore */ }
-        try { rightPanel.remove('execution-container'); } catch { /* ignore */ }
-        rightPanel.add(blockerContainer);
+        try { activityPanel.remove('activity-header'); } catch { /* ignore */ }
+        try { activityPanel.remove('activity-scroll'); } catch { /* ignore */ }
+        try { activityPanel.remove('execution-container'); } catch { /* ignore */ }
+        activityPanel.add(blockerContainer);
         currentRightView = 'blocker';
       }
       
@@ -701,10 +726,10 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     } else if (isRunning && currentRightView === 'execution') {
       if (currentRightView !== 'execution') {
         // This part is actually handled by the events now, but just in case
-        try { rightPanel.remove('activity-header'); } catch { /* ignore */ }
-        try { rightPanel.remove('activity-scroll'); } catch { /* ignore */ }
-        try { rightPanel.remove('blocker-container'); } catch { /* ignore */ }
-        rightPanel.add(executionContainer);
+        try { activityPanel.remove('activity-header'); } catch { /* ignore */ }
+        try { activityPanel.remove('activity-scroll'); } catch { /* ignore */ }
+        try { activityPanel.remove('blocker-container'); } catch { /* ignore */ }
+        activityPanel.add(executionContainer);
       }
       
       execTaskIdText.content = t`${bold(fg(COLORS.primary)('Task ID: '))}${fg(COLORS.text)(activeTaskId || 'Initializing...')}`;
@@ -732,10 +757,10 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       hotkeyText.content = t`${dim('[Q]uit  [R]efresh')}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
     } else {
       if (currentRightView !== 'activity') {
-        try { rightPanel.remove('blocker-container'); } catch { /* ignore */ }
-        try { rightPanel.remove('execution-container'); } catch { /* ignore */ }
-        rightPanel.add(activityHeader);
-        rightPanel.add(activityScroll);
+        try { activityPanel.remove('blocker-container'); } catch { /* ignore */ }
+        try { activityPanel.remove('execution-container'); } catch { /* ignore */ }
+        activityPanel.add(activityHeader);
+        activityPanel.add(activityScroll);
         currentRightView = 'activity';
       }
       updateActivityLog();
@@ -983,7 +1008,9 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       }
       if (key.name === 'v' && runner.getIsRunning()) {
         currentRightView = 'execution';
-        updateDisplay();
+        activeTab = 'activity';
+        tabBar.setSelectedIndex(1);
+        switchPanel('activity');
       }
     }
   });
