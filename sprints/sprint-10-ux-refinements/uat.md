@@ -94,5 +94,40 @@
 3. **Verify Active Task Override**:
    - Start the sprint (`S`).
    - Observe that the task being executed shows **Active** in yellow bold text, regardless of its status in `manifest.json`.
-   - Once the task completes, it should show **Complete** in green.
+      - Once the task completes, it should show **Complete** in green.
+
+## Task 5: Dynamic Status Bar — Reflect Current Runner Activity
+
+### Verification Steps
+
+1. **Verify Idle State**:
+   - Run the dashboard: `npm start`.
+   - Observe the footer's left side. It should show `Ready` in green.
+   - Confirm that the old `STATUS: ` prefix is removed.
+
+2. **Verify Starting State**:
+   - Navigate to a sprint and press `S` to start.
+   - During the initial delay/spinner animation, observe the status bar.
+   - It should show `Starting...` in yellow.
+
+3. **Verify Running State**:
+   - Once a task begins execution, the status bar should change to `Running: {taskId}` in yellow (e.g., `Running: task-1`).
+   - Verify that this is updated in real-time as the runner moves between tasks.
+
+4. **Verify Blocked State**:
+   - Trigger a blocker/halt.
+   - Observe the status bar. It should show `Blocked: {taskId}` in red.
+
+5. **Verify Sprint Complete State**:
+   - Let the sprint run to completion (all tasks finished).
+   - Once the runner stops, the status bar should show `Sprint Complete` in green.
+
+6. **Verify Quit Confirmation Integrity**:
+   - Press `Q` once.
+   - Observe that the status bar shows `Press Q again to quit` in yellow.
+   - Wait 3 seconds.
+   - Verify that the status bar reverts to its correct current state (e.g., `Ready` or `Sprint Complete`) and NOT a hardcoded `Ready` (if the state was something else).
+   - Press `Q` and then immediately press any other key (e.g., `R`).
+   - Verify that the status bar reverts immediately to the correct current state.
+
 
