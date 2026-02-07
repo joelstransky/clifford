@@ -4,7 +4,7 @@
   "status": "active",
   "tasks": [
     { "id": "task-1", "file": "tasks/01-tab-select-bar.md", "status": "completed" },
-    { "id": "task-2", "file": "tasks/02-remove-borders-color-zones.md", "status": "pending" },
+    { "id": "task-2", "file": "tasks/02-remove-borders-color-zones.md", "status": "completed" },
     { "id": "task-3", "file": "tasks/03-fullwidth-tab-panels.md", "status": "pending" },
     { "id": "task-4", "file": "tasks/04-keyboard-focus-update-display.md", "status": "pending" },
     { "id": "task-5", "file": "tasks/05-visual-polish-verification.md", "status": "pending" },

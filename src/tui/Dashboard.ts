@@ -9,8 +9,10 @@ const VERSION = '1.0.0';
 
 // Colors
 const COLORS = {
+  titleBg: '#13141c',
   bg: '#1a1b26',
   panelBg: '#24283b',
+  statusBg: '#000000',
   primary: '#7aa2f7',
   success: '#9ece6a',
   warning: '#e0af68',
@@ -250,8 +252,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   const header = new BoxRenderable(renderer, {
     id: 'header', width: '100%', height: 3, flexDirection: 'row',
     justifyContent: 'space-between', alignItems: 'center',
-    border: true, borderStyle: 'rounded', paddingLeft: 2, paddingRight: 2,
-    backgroundColor: COLORS.bg,
+    paddingLeft: 2, paddingRight: 2,
+    backgroundColor: COLORS.titleBg,
   });
   
   const titleText = new TextRenderable(renderer, {
@@ -300,7 +302,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   // --- Left Panel (Sprint Plan) ---
   const leftPanel = new BoxRenderable(renderer, {
     id: 'left-panel', width: '40%', height: '100%', flexDirection: 'column',
-    border: true, borderStyle: 'single', padding: 1, backgroundColor: COLORS.bg,
+    padding: 1, backgroundColor: COLORS.panelBg,
   });
   
   const leftPanelHeader = new TextRenderable(renderer, {
@@ -320,7 +322,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   
   const taskListBox = new BoxRenderable(renderer, {
     id: 'task-list-box', width: '100%', flexGrow: 1, flexDirection: 'column',
-    border: true, borderStyle: 'rounded', marginTop: 1, padding: 1,
   });
   const taskListContainer = new BoxRenderable(renderer, {
     id: 'task-list', width: '100%', flexDirection: 'column',
@@ -331,14 +332,14 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   const progressText = new TextRenderable(renderer, {
     id: 'progress', content: t`${dim('Progress: ')}${fg(COLORS.dim)('░░░░░░░░░░░░░░░░░░░░ 0%')}`,
   });
-  leftPanel.add(new BoxRenderable(renderer, { id: 'prog-wrap', marginTop: 1 }).add(progressText));
+  leftPanel.add(new BoxRenderable(renderer, { id: 'prog-wrap' }).add(progressText));
   
   main.add(leftPanel);
 
   // --- Right Panel ---
   const rightPanel = new BoxRenderable(renderer, {
     id: 'right-panel', flexGrow: 1, height: '100%', flexDirection: 'column',
-    border: true, borderStyle: 'single', padding: 1, backgroundColor: COLORS.panelBg,
+    padding: 1, backgroundColor: COLORS.panelBg,
   });
   
   // Activity Log Components
@@ -347,7 +348,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
   
   const activityScroll = new ScrollBoxRenderable(renderer, {
-    id: 'activity-scroll', width: '100%', flexGrow: 1, marginTop: 1,
+    id: 'activity-scroll', width: '100%', flexGrow: 1,
   });
   const activityLogContainer = new BoxRenderable(renderer, {
     id: 'activity-log', width: '100%', flexDirection: 'column',
@@ -379,7 +380,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
   
   const blockerInputBox = new BoxRenderable(renderer, {
-    id: 'blocker-input-box', width: '100%', height: 3, border: true, borderStyle: 'rounded', marginTop: 1, paddingLeft: 1,
+    id: 'blocker-input-box', width: '100%', height: 3, paddingLeft: 1,
   });
   const blockerInputText = new TextRenderable(renderer, {
     id: 'blocker-input-text', content: '',
@@ -409,7 +410,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
   
   const executionTaskInfo = new BoxRenderable(renderer, {
-    id: 'execution-task-info', width: '100%', flexDirection: 'column', marginTop: 1, padding: 1, border: true, borderStyle: 'rounded',
+    id: 'execution-task-info', width: '100%', flexDirection: 'column', padding: 1,
   });
   const execTaskIdText = new TextRenderable(renderer, {
     id: 'exec-task-id', content: '',
@@ -425,7 +426,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   executionTaskInfo.add(execTimerText);
   
   const execProgressBox = new BoxRenderable(renderer, {
-    id: 'exec-progress-box', width: '100%', marginTop: 1,
+    id: 'exec-progress-box', width: '100%',
   });
   const execProgressText = new TextRenderable(renderer, {
     id: 'exec-progress-text', content: '',
@@ -437,7 +438,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
   
   const agentOutputScroll = new ScrollBoxRenderable(renderer, {
-    id: 'agent-output-scroll', width: '100%', flexGrow: 1, border: true, borderStyle: 'single', marginTop: 0,
+    id: 'agent-output-scroll', width: '100%', flexGrow: 1,
   });
   const agentOutputContainer = new BoxRenderable(renderer, {
     id: 'agent-output-log', width: '100%', flexDirection: 'column',
@@ -458,7 +459,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   
   // --- Chat Input ---
   const chatInputBox = new BoxRenderable(renderer, {
-    id: 'chat-input-box', width: '100%', height: 3, border: true, borderStyle: 'rounded', paddingLeft: 1, paddingRight: 1,
+    id: 'chat-input-box', width: '100%', height: 3, paddingLeft: 1, paddingRight: 1,
     flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bg,
   });
   const chatInputLabel = new TextRenderable(renderer, {
@@ -475,8 +476,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   const footer = new BoxRenderable(renderer, {
     id: 'footer', width: '100%', height: 3, flexDirection: 'row',
     justifyContent: 'space-between', alignItems: 'center',
-    border: true, borderStyle: 'rounded', paddingLeft: 2, paddingRight: 2,
-    backgroundColor: COLORS.bg,
+    paddingLeft: 2, paddingRight: 2,
+    backgroundColor: COLORS.statusBg,
   });
   
   const statusText = new TextRenderable(renderer, {
@@ -694,7 +695,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       
       // Hide the old blocker input box by giving it 0 height
       blockerInputBox.height = 0;
-      blockerInputBox.border = false;
       blockerInputText.content = '';
       
       hotkeyText.content = t`${dim('"Done" = resume')}  ${bold('[Enter]')} Submit  ${bold('[Esc]')} Cancel`;
@@ -759,7 +759,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       : (chatFocused ? t`${bold(fg(COLORS.primary)('CHAT > '))}` : t`${dim('CHAT > ')}`);
     
     chatInputLabel.content = chatPrompt;
-    chatInputBox.borderStyle = (chatFocused || activeBlocker) ? 'double' : 'rounded';
     chatInputText.content = (chatFocused || activeBlocker) 
       ? t`${chatInput}${bold(fg(activeBlocker ? COLORS.error : COLORS.primary)('█'))}` 
       : t`${dim(chatInput || 'Press / to chat...')}`;
