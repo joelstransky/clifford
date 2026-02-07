@@ -29,3 +29,25 @@
 5. **Verify Footer Hints**:
    - Observe the footer hotkey hints in different modes (Sprints view, Tasks view, Running, Blocked).
    - Verify that `[/] Chat` is no longer present in any of the hint strings.
+
+## Task 2: Clear Activity Log on User-Initiated Sprint Start Only
+
+### Verification Steps
+
+1. **Verify Log Clearing on Start**:
+   - Run the dashboard: `npm start`.
+   - Ensure there are some entries in the activity log (refreshing with `R` adds an entry).
+   - Navigate to a sprint and enter its task list (`Right Arrow`).
+   - Press `S` to start the sprint.
+   - Observe that the activity log is cleared and now only shows the "Starting sprint: ..." message.
+
+2. **Verify Log Preservation on Halt Recovery**:
+   - Trigger a blocker during a sprint run.
+   - Observe the "NEEDS HELP" screen and the error message in the activity log (if you switch to the Activity tab).
+   - Enter a response and press `Enter`.
+   - Observe that the sprint auto-restarts.
+   - Switch to the Activity tab and verify that the blocker messages and the previous activity history are STILL PRESENT (not cleared).
+
+3. **Verify Log Clearing on Subsequent Start**:
+   - After the sprint completes or is stopped, press `S` again to start a new run.
+   - Observe that the activity log is cleared once more.
