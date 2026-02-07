@@ -52,3 +52,36 @@
    - **Text** should still be readable with appropriate padding from edges.
    - **No gaps or margins** between zones — visual separation is solely through background color contrast.
 5. **Code Sweep**: Search `src/tui/Dashboard.ts` for `border:`, `borderStyle:`, `marginTop:`, `marginBottom:`, `marginLeft:`, `marginRight:` — none should be found.
+
+## Task 3: Refactor Main Content to Full-Width Tab-Switched Panels
+
+### What Changed
+- **`main` container** changed from `flexDirection: 'row'` to `flexDirection: 'column'` with `overflow: 'hidden'`. This removes the old 40%/60% side-by-side split layout.
+- **`leftPanel` replaced by `sprintsPanel`**: The old `leftPanel` (id: `left-panel`, 40% width) is removed. A new `sprintsPanel` (id: `sprints-panel`, 100% width, 100% height) takes its place with all the same children: header, sprint name/desc, task list, and progress bar.
+- **`rightPanel` replaced by `activityPanel`**: The old `rightPanel` (id: `right-panel`, flexGrow: 1) is removed. A new `activityPanel` (id: `activity-panel`, 100% width, 100% height) takes its place. All sub-view swapping (activity log, blocker, execution) now targets `activityPanel` instead of `rightPanel`.
+- **Panel swap logic added**: A `switchPanel()` function manages which panel is visible inside `main`. Only one panel is shown at a time — `sprintsPanel` or `activityPanel`.
+- **Tab bar handler updated**: The `SELECTION_CHANGED` event now calls `switchPanel()` to swap the visible panel when tabs are clicked.
+- **Auto-switch to ACTIVITY on blocker**: Both `bridge.on('block')` and `runner.on('halt')` now auto-switch to the ACTIVITY tab and panel when a blocker is activated, using `tabBar.setSelectedIndex(1)` and `switchPanel('activity')`.
+- **Auto-switch to ACTIVITY on sprint start**: When a sprint starts executing, the view auto-switches to the ACTIVITY tab to show the execution view.
+- **`v` key handler updated**: Pressing `v` to view execution now also switches to the ACTIVITY tab/panel.
+
+### Verification Steps
+1. **Build**: Run `npm run build` — should compile without errors.
+2. **Lint**: Run `npm run lint` — should pass with no warnings or errors.
+3. **Tests**: Run `npm test` — all 49 tests should pass.
+4. **Visual Check — Default View**: Launch the dashboard (`npm run dev`):
+   - The default view should show the **SPRINTS** panel at **full width** (no 40%/60% split).
+   - Sprint list, sprint name, description, and progress bar should all be visible.
+   - No visual remnants of the old side-by-side layout.
+5. **Tab Switching**: Click or navigate to the **ACTIVITY** tab:
+   - The SPRINTS panel should disappear completely.
+   - The ACTIVITY panel should appear at **full width** showing the activity log.
+   - Switching back to SPRINTS should restore the sprints view.
+6. **Execution View**: Start a sprint with `s`:
+   - The view should auto-switch to the ACTIVITY tab.
+   - The execution view (task ID, file, timer, agent output) should display at full width.
+7. **Blocker Auto-Switch**: If a blocker is triggered:
+   - The tab should auto-switch to ACTIVITY.
+   - The blocker UI (NEEDS HELP, question, input) should display at full width.
+   - After resolving, the sprint should restart normally.
+8. **Code Sweep**: Search `src/tui/Dashboard.ts` for `leftPanel`, `rightPanel`, `left-panel`, `right-panel` — none should be found.
