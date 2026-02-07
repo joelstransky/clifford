@@ -561,9 +561,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       const isSelected = i === selectedIndex;
       const isThisRunning = isRunning && path.resolve(runningDir) === path.resolve(s.path);
       const otherRunning = isRunning && !isThisRunning;
-      const hasPending = s.tasks.some(t => t.status === 'pending');
-      const isComplete = s.tasks.every(t => t.status === 'completed' || t.status === 'pushed');
-
       const itemBox = new BoxRenderable(renderer, {
         id: `sprint-item-${i}`,
         width: '100%',
@@ -586,29 +583,30 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       });
       itemBox.add(label);
 
-      // Right side: status indicator
-      let statusIndicator = '';
+      // Derive sprint status label
+      let statusLabel = 'Pending';
+      let statusColor = COLORS.dim;
+
       if (isThisRunning) {
-        statusIndicator = 'running';
-      } else if (isComplete) {
-        statusIndicator = '✅';
-      } else if (hasPending && !otherRunning) {
-        statusIndicator = '[▶]';
+        statusLabel = 'Active';
+        statusColor = COLORS.warning;
+      } else if (s.tasks.some(t => t.status === 'blocked')) {
+        statusLabel = 'Blocked';
+        statusColor = COLORS.error;
+      } else if (s.tasks.length > 0 && s.tasks.every(t => t.status === 'pushed')) {
+        statusLabel = 'Published';
+        statusColor = COLORS.primary;
+      } else if (s.tasks.length > 0 && s.tasks.every(t => t.status === 'completed' || t.status === 'pushed')) {
+        statusLabel = 'Complete';
+        statusColor = COLORS.success;
       }
-      
-      if (statusIndicator) {
-        const statusLabel = new TextRenderable(renderer, {
-          id: `sprint-status-${i}`,
-          content: isThisRunning
-            ? t`${fg(COLORS.warning)(statusIndicator)}`
-            : isComplete
-              ? t`${fg(COLORS.success)(statusIndicator)}`
-              : hasPending && !otherRunning
-                ? t`${fg(COLORS.success)(statusIndicator)}`
-                : t`${dim(statusIndicator)}`,
-        });
-        itemBox.add(statusLabel);
-      }
+      // else: Pending (default)
+
+      const statusEl = new TextRenderable(renderer, {
+        id: `sprint-status-${i}`,
+        content: t`${fg(statusColor)(statusLabel)}`,
+      });
+      itemBox.add(statusEl);
 
       sprintElements.push(itemBox);
       taskListContainer.add(itemBox);
