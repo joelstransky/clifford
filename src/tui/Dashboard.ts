@@ -223,7 +223,14 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       executionLogs = [];
       startSpinner();
       if (!activeBlocker) {
+        // Swap activity panel sub-view to execution
+        try { activityPanel.remove('activity-header'); } catch { /* ignore */ }
+        try { activityPanel.remove('activity-scroll'); } catch { /* ignore */ }
+        try { activityPanel.remove('blocker-container'); } catch { /* ignore */ }
+        try { activityPanel.remove('execution-container'); } catch { /* ignore */ }
+        activityPanel.add(executionContainer);
         currentRightView = 'execution';
+
         activeTab = 'activity';
         tabBar.setSelectedIndex(1);
         switchPanel('activity');
