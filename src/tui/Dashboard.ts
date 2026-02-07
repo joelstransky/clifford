@@ -359,7 +359,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   blockerInputBox.add(blockerInputText);
   
   const blockerFooterHint = new TextRenderable(renderer, {
-    id: 'blocker-footer-hint', content: t`\n${dim('[Enter] Submit  [Esc] Cancel')}`,
+    id: 'blocker-footer-hint', content: t`\n${dim('Type response or "Done" if action taken.  [Enter] Submit  [Esc] Cancel')}`,
   });
 
   blockerContainer.add(blockerHeader);
@@ -669,7 +669,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       blockerInputBox.border = false;
       blockerInputText.content = '';
       
-      hotkeyText.content = t`${bold('[Enter]')} Submit  ${bold('[Esc]')} Cancel`;
+      hotkeyText.content = t`${dim('"Done" = resume')}  ${bold('[Enter]')} Submit  ${bold('[Esc]')} Cancel`;
     } else if (isRunning && currentRightView === 'execution') {
       if (currentRightView !== 'execution') {
         // This part is actually handled by the events now, but just in case
@@ -789,6 +789,9 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   const poll = setInterval(loadManifest, 1000);
   loadManifest();
 
+  // Always render initial display (loadManifest skips when in sprints view)
+  updateDisplay();
+
   setInterval(() => {
     if (sprintStartTime) {
       elapsedSeconds = Math.floor((Date.now() - sprintStartTime) / 1000);
@@ -814,16 +817,56 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       process.exit(0);
     }
 
+    const isEnter = key.name === 'enter' || key.name === 'return';
+
     if (activeBlocker) {
-      if (key.name === 'enter') {
-        if (chatInput.trim() && bridge) {
-          bridge.resolveBlocker(chatInput.trim());
-          // bridge resolve event will clear activeBlocker and chatInput
+      if (isEnter) {
+        if (chatInput.trim()) {
+          const response = chatInput.trim();
+          const taskId = activeBlocker.task || '';
+          const isDone = response.toLowerCase() === 'done' || response.toLowerCase() === 'done.';
+          
+          // Append the user's response to the task file (unless "Done")
+          if (!isDone && manifest && taskId) {
+            const task = manifest.tasks.find(t => t.id === taskId);
+            if (task) {
+              const taskFilePath = path.resolve(currentSprintDir, task.file);
+              try {
+                const existing = fs.readFileSync(taskFilePath, 'utf8');
+                const appendix = `\n\n## Supplemental Info\n${response}\n`;
+                fs.writeFileSync(taskFilePath, existing + appendix, 'utf8');
+                addLog(`📝 Appended guidance to ${task.file}`, 'success');
+              } catch (err) {
+                addLog(`❌ Failed to update task file: ${(err as Error).message}`, 'error');
+              }
+            }
+          }
+          
+          // Clear blocker state and unpause bridge
+          activeBlocker = null;
+          chatInput = '';
+          chatFocused = false;
+          bridge.resume();
+          
+          if (isDone) {
+            addLog(`✅ Action confirmed. Restarting sprint...`, 'success');
+          } else {
+            addLog(`✅ Guidance saved. Restarting sprint...`, 'success');
+          }
+          updateDisplay();
+          
+          // Restart the sprint
+          setTimeout(() => {
+            if (!runner.getIsRunning()) {
+              runner.run().catch(err => addLog(`Restart Error: ${err.message}`, 'error'));
+            }
+          }, 500);
         }
       } else if (key.name === 'escape') {
         activeBlocker = null;
         chatInput = '';
         chatFocused = false;
+        bridge.resume();
         if (runner.getIsRunning()) runner.stop();
         addLog('Help dismissed, sprint stopped.', 'warning');
         updateDisplay();
@@ -835,7 +878,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         updateDisplay();
       }
     } else if (chatFocused) {
-      if (key.name === 'enter') {
+      if (isEnter) {
         if (chatInput.trim()) {
           addLog(`[You] ${chatInput.trim()}`);
           chatInput = '';

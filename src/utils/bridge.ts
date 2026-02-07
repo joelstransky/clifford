@@ -147,7 +147,15 @@ export class CommsBridge extends EventEmitter {
     }
   }
 
+  private isListening: boolean = false;
+
   start(): Promise<void> {
+    // If already listening, just ensure we're unpaused and resolve
+    if (this.isListening) {
+      this.isPaused = false;
+      return Promise.resolve();
+    }
+
     return new Promise((resolve, reject) => {
       const tryListen = (portToTry: number) => {
         const tempServer = http.createServer();
@@ -163,6 +171,7 @@ export class CommsBridge extends EventEmitter {
           tempServer.close(() => {
             this.port = portToTry;
             this.server.listen(this.port, () => {
+              this.isListening = true;
               console.log(`🚀 Comms Bridge listening on port ${this.port}`);
               resolve();
             });
@@ -176,6 +185,8 @@ export class CommsBridge extends EventEmitter {
 
   stop() {
     this.stopAFKPolling();
+    this.isPaused = false;
+    this.isListening = false;
     this.server.close();
   }
 

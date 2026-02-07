@@ -111,6 +111,7 @@ export class SprintRunner extends EventEmitter {
     if (!this.isRunning) return;
     this.log('🛑 Stopping sprint...', 'warning');
     this.isRunning = false;
+    this.bridge.resume();
     this.bridge.killActiveChild();
     this.emit('stop');
   }

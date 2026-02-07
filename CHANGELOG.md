@@ -86,3 +86,12 @@
 - 04-chat-input-field
 - 05-execution-status-display
 - 06-blocker-resolution-flow
+
+## [2026-02-06] sprint-08-polish-stability
+- 01-activity-log-dedup
+- 02-halt-and-help
+- 03-uat-test-fixtures
+- 04-drop-non-opencode
+- 05-post-init-message
+- 06-loading-spinner
+- 07-strip-emoji-titles
