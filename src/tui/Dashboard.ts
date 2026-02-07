@@ -101,7 +101,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   let logs: LogEntry[] = [];
   let activeBlocker: BlockRequest | null = null;
   let chatInput: string = '';
-  let chatFocused: boolean = false;
   let currentRightView: 'activity' | 'blocker' | 'execution' = 'activity';
   let executionLogs: string[] = [];
   let sprintStartTime: number | null = null;
@@ -190,7 +189,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     bridge.on('block', (data: BlockRequest) => {
       activeBlocker = data;
       chatInput = '';
-      chatFocused = true;
       addLog(`🛑 Blocker: ${data.question || data.reason}`, 'error');
       activeTab = 'activity';
       tabBar.setSelectedIndex(1);
@@ -199,7 +197,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     bridge.on('resolve', (response: string) => {
       activeBlocker = null;
       chatInput = '';
-      chatFocused = false;
       addLog(`✅ Blocker resolved: ${response.substring(0, 30)}${response.length > 30 ? '...' : ''}`, 'success');
       updateDisplay();
       
@@ -265,7 +262,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       bridge.setBlockerContext(data.task, data.question);
       activeBlocker = { task: data.task, reason: data.reason, question: data.question };
       chatInput = '';
-      chatFocused = true;
       addLog(`🛑 ${data.reason}: ${data.task}`, 'error');
       activeTab = 'activity';
       tabBar.setSelectedIndex(1);
@@ -412,10 +408,15 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   
   const blockerInputBox = new BoxRenderable(renderer, {
     id: 'blocker-input-box', width: '100%', height: 3, paddingLeft: 1,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bg,
+  });
+  const blockerInputLabel = new TextRenderable(renderer, {
+    id: 'blocker-input-label', content: t`${bold(fg(COLORS.error)('🛑 > '))}`,
   });
   const blockerInputText = new TextRenderable(renderer, {
     id: 'blocker-input-text', content: '',
   });
+  blockerInputBox.add(blockerInputLabel);
   blockerInputBox.add(blockerInputText);
   
   const blockerFooterHint = new TextRenderable(renderer, {
@@ -507,21 +508,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     updateDisplay();
   };
   
-  // --- Chat Input ---
-  const chatInputBox = new BoxRenderable(renderer, {
-    id: 'chat-input-box', width: '100%', height: 3, paddingLeft: 1, paddingRight: 1,
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bg,
-  });
-  const chatInputLabel = new TextRenderable(renderer, {
-    id: 'chat-input-label', content: t`${dim('CHAT > ')}`,
-  });
-  const chatInputText = new TextRenderable(renderer, {
-    id: 'chat-input-text', content: '',
-  });
-  chatInputBox.add(chatInputLabel);
-  chatInputBox.add(chatInputText);
-  root.add(chatInputBox);
-
   // --- Footer ---
   const footer = new BoxRenderable(renderer, {
     id: 'footer', width: '100%', height: 3, flexDirection: 'row',
@@ -778,8 +764,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       blockerQuestion.content = t`${fg(COLORS.warning)(`"${activeBlocker.question || 'No question provided'}"`)}`;
       
       // Hide the old blocker input box by giving it 0 height
-      blockerInputBox.height = 0;
-      blockerInputText.content = '';
+      blockerInputText.content = t`${chatInput}${bold(fg(COLORS.error)('█'))}`;
       
       hotkeyText.content = t`${dim('"Done" = resume')}  ${bold('[Enter]')} Submit  ${bold('[Esc]')} Cancel`;
     } else if (activeTab === 'activity') {
@@ -821,33 +806,21 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     // Footer hotkey hints — tab-context-aware
     if (activeBlocker) {
       // Already set above in the blocker block
-    } else if (chatFocused) {
-      hotkeyText.content = t`${bold('[Enter]')} Send  ${bold('[Esc]')} Cancel`;
     } else if (activeTab === 'sprints') {
       if (isSprintsView) {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[→] Select'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[→] Select'))}`;
       } else if (isTasksView && !isRunning) {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}`;
       } else if (isRunning) {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.warning)('[V]iew'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.warning)('[V]iew'))}`;
       }
     } else if (activeTab === 'activity') {
       if (isRunning) {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${bold(fg(COLORS.error)('[X] Stop'))}`;
       } else {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${dim('[R]efresh')}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${dim('[R]efresh')}`;
       }
     }
-
-    // Update Chat Input UI
-    const chatPrompt = activeBlocker 
-      ? t`${bold(fg(COLORS.error)('🛑 > '))}` 
-      : (chatFocused ? t`${bold(fg(COLORS.primary)('CHAT > '))}` : t`${dim('CHAT > ')}`);
-    
-    chatInputLabel.content = chatPrompt;
-    chatInputText.content = (chatFocused || activeBlocker) 
-      ? t`${chatInput}${bold(fg(activeBlocker ? COLORS.error : COLORS.primary)('█'))}` 
-      : t`${dim(chatInput || 'Press / to chat...')}`;
   };
 
   // --- Manifest Polling ---
@@ -924,8 +897,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       process.exit(0);
     }
 
-    // Q to quit — double-press required, only when not typing in chat or blocker input
-    if (key.name === 'q' && !activeBlocker && !chatFocused) {
+    // Q to quit — double-press required, only when not typing in blocker input
+    if (key.name === 'q' && !activeBlocker) {
       if (quitPending) {
         // Second Q press — actually quit
         cancelQuit();
@@ -979,7 +952,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
           // Clear blocker state and unpause bridge
           activeBlocker = null;
           chatInput = '';
-          chatFocused = false;
           bridge.resume();
           
           if (isDone) {
@@ -999,7 +971,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       } else if (key.name === 'escape') {
         activeBlocker = null;
         chatInput = '';
-        chatFocused = false;
         bridge.resume();
         if (runner.getIsRunning()) runner.stop();
         addLog('Help dismissed, sprint stopped.', 'warning');
@@ -1011,33 +982,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         chatInput += key.sequence;
         updateDisplay();
       }
-    } else if (chatFocused) {
-      if (isEnter) {
-        if (chatInput.trim()) {
-          addLog(`[You] ${chatInput.trim()}`);
-          chatInput = '';
-          chatFocused = false;
-          updateDisplay();
-        }
-      } else if (key.name === 'escape') {
-        chatInput = '';
-        chatFocused = false;
-        updateDisplay();
-      } else if (key.name === 'backspace') {
-        chatInput = chatInput.slice(0, -1);
-        updateDisplay();
-      } else if (key.sequence && key.sequence.length === 1 && key.sequence.charCodeAt(0) >= 32 && key.sequence.charCodeAt(0) <= 126) {
-        chatInput += key.sequence;
-        updateDisplay();
-      }
     } else {
-      // Global shortcuts (work regardless of active tab)
-      if (key.sequence === '/') {
-        chatFocused = true;
-        updateDisplay();
-        return;
-      }
-
       // Tab switching via Tab key
       if (key.name === 'tab') {
         const newTab = activeTab === 'sprints' ? 'activity' : 'sprints';
