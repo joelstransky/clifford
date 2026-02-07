@@ -109,6 +109,10 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   let activeTaskId: string | null = null;
   let activeTaskFile: string | null = null;
 
+  // --- Quit Confirmation State ---
+  let quitPending: boolean = false;
+  let quitTimer: ReturnType<typeof setTimeout> | null = null;
+
   // --- Spinner State ---
   const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   let spinnerInterval: ReturnType<typeof setInterval> | null = null;
@@ -129,6 +133,18 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       clearInterval(spinnerInterval);
       spinnerInterval = null;
     }
+  };
+
+  /** Cancel the pending quit confirmation and restore normal status bar */
+  const cancelQuit = () => {
+    quitPending = false;
+    if (quitTimer) {
+      clearTimeout(quitTimer);
+      quitTimer = null;
+    }
+    // statusText is set below after it's created; this is safe because
+    // cancelQuit is only called from the keypress handler, which runs
+    // after the entire UI tree is built.
   };
 
   /** Update just the header status text (used by spinner tick and full updateDisplay) */
@@ -511,7 +527,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     id: 'status', content: t`${fg(COLORS.success)('STATUS: Ready')}`,
   });
   const hotkeyText = new TextRenderable(renderer, {
-    id: 'hotkeys', content: t`${dim('[Q]uit  [R]efresh')}`,
+    id: 'hotkeys', content: t`${dim('[QQ]uit  [R]efresh')}`,
   });
   
   footer.add(statusText);
@@ -802,17 +818,17 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       hotkeyText.content = t`${bold('[Enter]')} Send  ${bold('[Esc]')} Cancel`;
     } else if (activeTab === 'sprints') {
       if (isSprintsView) {
-        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[→] Select'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[→] Select'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
       } else if (isTasksView && !isRunning) {
-        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
       } else if (isRunning) {
-        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.warning)('[V]iew'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.warning)('[V]iew'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
       }
     } else if (activeTab === 'activity') {
       if (isRunning) {
-        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${bold(fg(COLORS.error)('[X] Stop'))}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
       } else {
-        hotkeyText.content = t`${dim('[Q]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${dim('[R]efresh')}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
+        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${dim('[R]efresh')}  ${bold(fg(COLORS.primary)('[/] Chat'))}`;
       }
     }
 
@@ -901,12 +917,31 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       process.exit(0);
     }
 
-    // Q to quit — only when not typing in chat or blocker input
+    // Q to quit — double-press required, only when not typing in chat or blocker input
     if (key.name === 'q' && !activeBlocker && !chatFocused) {
-      stopSpinner();
-      clearInterval(poll);
-      renderer.destroy();
-      process.exit(0);
+      if (quitPending) {
+        // Second Q press — actually quit
+        cancelQuit();
+        stopSpinner();
+        clearInterval(poll);
+        renderer.destroy();
+        process.exit(0);
+      } else {
+        // First Q press — show confirmation in status bar
+        quitPending = true;
+        statusText.content = t`${fg(COLORS.warning)('Press Q again to quit')}`;
+        quitTimer = setTimeout(() => {
+          cancelQuit();
+          statusText.content = t`${fg(COLORS.success)('STATUS: Ready')}`;
+        }, 3000);
+        return;
+      }
+    }
+
+    // Any non-Q key cancels the quit confirmation
+    if (quitPending && key.name !== 'q') {
+      cancelQuit();
+      statusText.content = t`${fg(COLORS.success)('STATUS: Ready')}`;
     }
 
     const isEnter = key.name === 'enter' || key.name === 'return';

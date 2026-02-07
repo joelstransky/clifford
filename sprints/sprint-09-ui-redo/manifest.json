@@ -8,6 +8,6 @@
     { "id": "task-3", "file": "tasks/03-fullwidth-tab-panels.md", "status": "completed" },
     { "id": "task-4", "file": "tasks/04-keyboard-focus-update-display.md", "status": "completed" },
     { "id": "task-5", "file": "tasks/05-visual-polish-verification.md", "status": "completed" },
-    { "id": "task-6", "file": "tasks/06-double-q-quit.md", "status": "pending" }
+    { "id": "task-6", "file": "tasks/06-double-q-quit.md", "status": "active" }
   ]
 }
