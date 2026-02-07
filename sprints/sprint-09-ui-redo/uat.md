@@ -133,3 +133,48 @@
    - The blocker UI should display.
    - Footer should show blocker-specific hints.
 9. **Chat Input**: Press `/` from either tab — chat input should activate with cursor. Press `Esc` to cancel.
+
+## Task 5: Visual Polish and Verification
+
+### What Changed
+- **Progress bar width increased**: All `generateProgressBar()` calls (sprints panel, execution view) now use width `30` instead of the default `20`. The initial static progress text also matches the 30-character width.
+- **Empty state handling**: Added graceful empty state messages for three scenarios:
+  - **No sprints discovered**: Shows `"No sprints discovered. Run 'clifford init' then create a sprint."` instead of a blank list.
+  - **Sprint with zero tasks**: Shows `"No tasks defined in this sprint."` instead of a blank task list.
+  - **Empty activity log**: Shows `"No activity yet. Start a sprint to see logs here."` instead of a blank log panel.
+- **Blocker UI padding**: Added `padding: 1` to `blockerContainer` for consistent edge spacing when the blocker view is shown without borders.
+- **Blocker divider widened**: Divider increased from 40 to 50 characters for better visual width on full-width panels.
+- **Execution view padding**: Added `padding: 1` to `executionContainer` for consistent spacing with other panel views.
+- **Q-key safety fix**: The `q` quit handler now checks `!chatFocused` in addition to `!activeBlocker`, preventing accidental quit when typing the letter "q" in chat mode.
+- **Ctrl+C reordered**: Ctrl+C instant-quit handler moved to the top of the keypress handler for clarity and immediate processing.
+
+### Verification Steps
+1. **Build**: Run `npm run build` — should compile without errors.
+2. **Lint**: Run `npm run lint` — should pass with no warnings or errors.
+3. **Tests**: Run `npm test` — all 49 tests should pass.
+4. **Progress Bar Width**: Launch the dashboard (`npm run dev`):
+   - Navigate to a sprint's task view (press `→` on a sprint).
+   - The progress bar should be 30 characters wide (wider than before).
+   - Start a sprint and press `v` to see the execution view — the execution progress bar should also be 30 characters wide.
+5. **Empty States**: Test empty state rendering:
+   - If no sprints are available (e.g., no `sprints/` directory), the sprint list should show a helpful message instead of being blank.
+   - If a sprint has zero tasks, the task list area should show "No tasks defined in this sprint."
+   - Switch to the ACTIVITY tab before starting a sprint — should show "No activity yet. Start a sprint to see logs here."
+6. **Blocker UI Spacing**: If a blocker is triggered:
+   - The blocker container should have padding on all sides (not flush against panel edges).
+   - The divider line should be visibly wider (50 characters).
+   - The chat input at the bottom should show the `🛑 >` prompt with red cursor.
+7. **Execution View Spacing**: When viewing sprint execution (press `v` during a run):
+   - Task info (ID, file, timer) should have padding from the panel edges.
+   - Agent output should fill available space with scrolling.
+8. **Q-Key Safety**: Press `/` to enter chat mode, then type the letter `q`:
+   - The application should NOT quit — `q` should appear in the chat input.
+   - Press `Esc` to exit chat, then press `q` — the application should quit.
+9. **Ctrl+C**: Press `Ctrl+C` at any time — the application should immediately quit regardless of mode.
+10. **Visual Hierarchy**: Verify the 4-shade background hierarchy:
+    - **Darkest** (`#13141c`): Title bar at the top.
+    - **Dark** (`#1a1b26`): Tab bar and chat input row.
+    - **Medium** (`#24283b`): Content panels (sprints, activity).
+    - **Black** (`#000000`): Status bar at the bottom.
+11. **No Borders**: Confirm no borders are visible anywhere in the interface. All zone separation is via background color contrast only.
+12. **Text Readability**: All text should be readable with proper padding from edges. Timestamps in the activity log should provide visual structure.
