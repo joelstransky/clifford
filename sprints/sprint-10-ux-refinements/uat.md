@@ -70,4 +70,29 @@
 
 3. **Verify Removal of Old Symbols**:
    - Confirm that no `✅` emoji, `[▶]` symbols, or the literal word `running` (in default terminal color) appear in the sprint list.
-   - Confirm that the `🔄` emoji still appears next to the sprint name for the currently running sprint.
+    - Confirm that the `🔄` emoji still appears next to the sprint name for the currently running sprint.
+
+## Task 4: Task List — Remove Play Indicators, Use Unified Status Names
+
+### Verification Steps
+
+1. **Verify Play Indicator Removal**:
+   - Run the dashboard: `npm start`.
+   - Navigate to a sprint's task list (`Right Arrow`).
+   - Observe that no `[▶]` symbols appear next to any task status.
+
+2. **Verify Unified Status Labels**:
+   - In the task list, observe the status column (right side).
+   - Tasks should now show capitalized labels: **Pending**, **Active**, **Blocked**, **Complete**, **Published**.
+   - Confirm the color coding:
+     - **Pending**: Gray (`COLORS.dim`)
+     - **Active**: Yellow (`COLORS.warning`)
+     - **Blocked**: Red (`COLORS.error`)
+     - **Complete**: Green (`COLORS.success`)
+     - **Published**: Blue (`COLORS.primary`)
+
+3. **Verify Active Task Override**:
+   - Start the sprint (`S`).
+   - Observe that the task being executed shows **Active** in yellow bold text, regardless of its status in `manifest.json`.
+   - Once the task completes, it should show **Complete** in green.
+
