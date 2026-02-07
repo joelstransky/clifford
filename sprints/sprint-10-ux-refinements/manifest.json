@@ -7,7 +7,7 @@
     { "id": "task-2", "file": "tasks/02-clear-activity-log-on-start.md", "status": "completed" },
     { "id": "task-3", "file": "tasks/03-sprint-list-status-labels.md", "status": "completed" },
     { "id": "task-4", "file": "tasks/04-task-list-status-labels.md", "status": "completed" },
-    { "id": "task-5", "file": "tasks/05-dynamic-status-bar.md", "status": "pending" },
+    { "id": "task-5", "file": "tasks/05-dynamic-status-bar.md", "status": "active" },
     { "id": "task-6", "file": "tasks/06-activity-header-panel.md", "status": "pending" }
   ]
 }

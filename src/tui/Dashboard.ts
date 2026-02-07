@@ -130,9 +130,12 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     spinnerFrameIndex = 0;
     spinnerInterval = setInterval(() => {
       spinnerFrameIndex = (spinnerFrameIndex + 1) % SPINNER_FRAMES.length;
-      updateHeaderStatus();
+    updateHeaderStatus();
+    updateStatusBar();
+      updateStatusBar();
     }, 80);
     updateHeaderStatus();
+    updateStatusBar();
   };
 
   const stopSpinner = () => {
@@ -149,9 +152,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       clearTimeout(quitTimer);
       quitTimer = null;
     }
-    // statusText is set below after it's created; this is safe because
-    // cancelQuit is only called from the keypress handler, which runs
-    // after the entire UI tree is built.
+    updateStatusBar();
   };
 
   /** Update just the header status text (used by spinner tick and full updateDisplay) */
@@ -180,6 +181,27 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     }
     else if (completed === total && total > 0) { sLabel = 'Complete'; sColor = COLORS.success; }
     sprintStatusText.content = t`${fg(sColor)(`[${sLabel}]`)}`;
+  };
+
+  /** Update the footer status bar based on current system state */
+  const updateStatusBar = () => {
+    if (quitPending) return; // Don't overwrite quit confirmation
+
+    const isRunning = runner.getIsRunning();
+    const completed = manifest ? manifest.tasks.filter(t => t.status === 'completed' || t.status === 'pushed').length : 0;
+    const total = manifest ? manifest.tasks.length : 0;
+
+    if (activeBlocker) {
+      statusText.content = t`${fg(COLORS.error)(`Blocked: ${activeBlocker.task || 'Unknown'}`)}`;
+    } else if (spinnerInterval) {
+      statusText.content = t`${fg(COLORS.warning)('Starting...')}`;
+    } else if (isRunning && activeTaskId) {
+      statusText.content = t`${fg(COLORS.warning)(`Running: ${activeTaskId}`)}`;
+    } else if (!isRunning && completed === total && total > 0) {
+      statusText.content = t`${fg(COLORS.success)('Sprint Complete')}`;
+    } else {
+      statusText.content = t`${fg(COLORS.success)('Ready')}`;
+    }
   };
 
   const addLog = (message: string, type: LogEntry['type'] = 'info') => {
@@ -525,7 +547,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
   
   const statusText = new TextRenderable(renderer, {
-    id: 'status', content: t`${fg(COLORS.success)('STATUS: Ready')}`,
+    id: 'status', content: t`${fg(COLORS.success)('Ready')}`,
   });
   const hotkeyText = new TextRenderable(renderer, {
     id: 'hotkeys', content: t`${dim('[QQ]uit  [R]efresh')}`,
@@ -912,7 +934,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         statusText.content = t`${fg(COLORS.warning)('Press Q again to quit')}`;
         quitTimer = setTimeout(() => {
           cancelQuit();
-          statusText.content = t`${fg(COLORS.success)('STATUS: Ready')}`;
         }, 3000);
         return;
       }
@@ -921,7 +942,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     // Any non-Q key cancels the quit confirmation
     if (quitPending && key.name !== 'q') {
       cancelQuit();
-      statusText.content = t`${fg(COLORS.success)('STATUS: Ready')}`;
     }
 
     const isEnter = key.name === 'enter' || key.name === 'return';
