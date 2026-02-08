@@ -95,3 +95,11 @@
 - 05-post-init-message
 - 06-loading-spinner
 - 07-strip-emoji-titles
+
+## [2026-02-08] sprint-10-ux-refinements
+- 01-remove-chat-bar
+- 02-clear-activity-log-on-start
+- 03-sprint-list-status-labels
+- 04-task-list-status-labels
+- 05-dynamic-status-bar
+- 06-activity-header-panel

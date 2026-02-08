@@ -26,6 +26,7 @@ export class SprintRunner extends EventEmitter {
   private isRunning: boolean = false;
   private currentTaskId: string | null = null;
   private quietMode: boolean = false;
+  private status: string = 'Ready';
 
   private log(message: string, type: 'info' | 'warning' | 'error' = 'info') {
     this.emit('log', { message, type });
@@ -98,6 +99,10 @@ export class SprintRunner extends EventEmitter {
     return this.currentTaskId;
   }
 
+  public getStatus(): string {
+    return this.status;
+  }
+
   public setSprintDir(dir: string) {
     if (this.isRunning) return;
     this.sprintDir = dir.replace(/\\/g, '/');
@@ -147,11 +152,13 @@ export class SprintRunner extends EventEmitter {
     try {
       await this.bridge.start();
 
+      this.status = 'Starting...';
       this.log(`🚀 Starting sprint in ${this.sprintDir}`);
       this.emit('start', { sprintDir: this.sprintDir });
 
       while (this.hasPendingTasks(manifestPath) && this.isRunning) {
         if (this.bridge.checkPaused()) {
+          this.status = 'Needs Help';
           await new Promise(resolve => setTimeout(resolve, 1000));
           continue;
         }
@@ -163,6 +170,7 @@ export class SprintRunner extends EventEmitter {
         if (!nextTask) break;
 
         this.currentTaskId = nextTask.id;
+        this.status = `Running: ${nextTask.id}`;
         this.emit('task-start', { taskId: nextTask.id, file: nextTask.file });
         this.log(`🔍 Next task: ${nextTask.id} (${nextTask.file})`);
         
@@ -200,10 +208,10 @@ CLIFFORD_BRIDGE_PORT: ${this.bridge.getPort()}
 ${humanGuidance}${promptContent}`;
 
         this.log('🤖 Invoking Agent...');
+        this.status = 'Building Task';
         
         const args = engine.getInvokeArgs(finalPrompt, model);
-        const logArgs = args.map(arg => arg === finalPrompt ? '[prompt]' : arg);
-        this.log(`🛠️ Executing: ${engine.command} ${logArgs.join(' ')}`);
+        this.log(`🛠️ Executing: ${engine.command} ${args.slice(0, -1).join(' ')} [prompt...]`);
         
         const exitCode = await new Promise<number>((resolve) => {
           // Spawn with args array directly (no shell) to avoid quoting/escaping issues
@@ -270,6 +278,7 @@ ${humanGuidance}${promptContent}`;
     } finally {
       this.isRunning = false;
       this.currentTaskId = null;
+      this.status = 'Ready';
       this.log('🏁 Sprint loop finished.');
       this.emit('stop');
       this.bridge.stop();
@@ -292,6 +301,7 @@ ${humanGuidance}${promptContent}`;
 
     for (const pattern of promptPatterns) {
       if (pattern.test(output)) {
+        this.status = 'Needs Help';
         this.bridge.triggerBlock({
           task: taskId,
           reason: 'Interactive prompt detected',

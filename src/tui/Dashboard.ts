@@ -196,11 +196,9 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     const total = manifest ? manifest.tasks.length : 0;
 
     if (activeBlocker) {
-      statusText.content = t`${fg(COLORS.error)(`Blocked: ${activeBlocker.task || 'Unknown'}`)}`;
-    } else if (spinnerInterval) {
-      statusText.content = t`${fg(COLORS.warning)('Starting...')}`;
-    } else if (isRunning && activeTaskId) {
-      statusText.content = t`${fg(COLORS.warning)(`Running: ${activeTaskId}`)}`;
+      statusText.content = t`${fg(COLORS.error)('Needs Help')}`;
+    } else if (isRunning) {
+      statusText.content = t`${fg(COLORS.warning)(runner.getStatus())}`;
     } else if (!isRunning && completed === total && total > 0) {
       statusText.content = t`${fg(COLORS.success)('Sprint Complete')}`;
     } else {
@@ -863,7 +861,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   setInterval(() => {
     if (sprintStartTime) {
       elapsedSeconds = Math.floor((Date.now() - sprintStartTime) / 1000);
-      if (activeTab === 'activity') updateDisplay();
+      updateDisplay();
     }
   }, 1000);
 
