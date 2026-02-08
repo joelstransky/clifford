@@ -202,7 +202,8 @@ ${humanGuidance}${promptContent}`;
         this.log('🤖 Invoking Agent...');
         
         const args = engine.getInvokeArgs(finalPrompt, model);
-        this.log(`🛠️ Executing: ${engine.command} ${args.slice(0, -1).join(' ')} [prompt...]`);
+        const logArgs = args.map(arg => arg === finalPrompt ? '[prompt]' : arg);
+        this.log(`🛠️ Executing: ${engine.command} ${logArgs.join(' ')}`);
         
         const exitCode = await new Promise<number>((resolve) => {
           // Spawn with args array directly (no shell) to avoid quoting/escaping issues
@@ -253,31 +254,14 @@ ${humanGuidance}${promptContent}`;
           continue;
         }
 
-        // If guidance was just provided (blocker resolved), let the loop retry with ASM
-        const hasGuidance = getMemory(nextTask.id) !== null;
-        if (hasGuidance && (taskInUpdated?.status === 'pending' || taskInUpdated?.status === 'active')) {
-          this.log('🧠 Guidance available, retrying task...', 'info');
-          continue;
-        }
-
-        // Detect halt scenarios and trigger "needs help" flow
+        // Detect if we should stop the loop due to failure or lack of progress
         if (exitCode !== 0) {
-          this.log(`🛑 Agent crashed with exit code ${exitCode} on ${nextTask.id}`, 'error');
-          this.emit('halt', {
-            task: nextTask.id,
-            reason: `Agent exited with non-zero code ${exitCode}`,
-            question: `Agent crashed while working on ${nextTask.id}. What guidance should be provided on retry?`,
-          });
+          this.log(`🛑 Agent failed with exit code ${exitCode} on ${nextTask.id}`, 'error');
           break;
         }
 
         if (taskInUpdated?.status === 'pending') {
-          this.log(`🛑 Agent exited without completing ${nextTask.id}`, 'error');
-          this.emit('halt', {
-            task: nextTask.id,
-            reason: 'Agent exited without making progress',
-            question: `Agent exited cleanly but ${nextTask.id} is still pending. What guidance should be provided on retry?`,
-          });
+          this.log(`⚠️ Agent exited without completing ${nextTask.id}. Stopping runner.`, 'warning');
           break;
         }
 

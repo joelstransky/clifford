@@ -61,7 +61,7 @@ program
     let answers;
     if (options.yolo) {
       answers = {
-        model: 'opencode/kimi-k2-5-free',
+        model: 'opencode/kimi-k2.5-free',
         workflow: 'yolo',
         aiTool: 'opencode',
         extraGates: []
@@ -73,7 +73,7 @@ program
           type: 'input',
           name: 'model',
           message: 'Preferred Default Model:',
-          default: 'opencode/kimi-k2-5-free'
+          default: 'opencode/kimi-k2.5-free'
         },
         {
           type: 'list',

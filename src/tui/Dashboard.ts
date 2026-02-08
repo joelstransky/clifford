@@ -113,7 +113,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   let sprintStartTime: number | null = null;
   let elapsedSeconds: number = 0;
   let activeTaskId: string | null = null;
-  let activeTaskFile: string | null = null;
 
   // --- Quit Confirmation State ---
   let quitPending: boolean = false;
@@ -129,8 +128,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     spinnerFrameIndex = 0;
     spinnerInterval = setInterval(() => {
       spinnerFrameIndex = (spinnerFrameIndex + 1) % SPINNER_FRAMES.length;
-    updateHeaderStatus();
-    updateStatusBar();
+      updateHeaderStatus();
       updateStatusBar();
     }, 80);
     updateHeaderStatus();
@@ -152,6 +150,13 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       quitTimer = null;
     }
     updateStatusBar();
+  };
+
+  const canSprintStart = () => {
+    if (!manifest || runner.getIsRunning()) return false;
+    const validSprintStatus = manifest.status === 'pending' || manifest.status === 'active';
+    const hasWorkableTasks = manifest.tasks.some(t => t.status === 'pending' || t.status === 'active');
+    return validSprintStatus && hasWorkableTasks;
   };
 
   /** Update just the header status text (used by spinner tick and full updateDisplay) */
@@ -258,13 +263,11 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       stopSpinner();
       sprintStartTime = null;
       activeTaskId = null;
-      activeTaskFile = null;
       updateDisplay();
     });
     runner.on('task-start', (data: { taskId: string; file: string }) => {
       stopSpinner();
       activeTaskId = data.taskId;
-      activeTaskFile = data.file;
       updateDisplay();
     });
     runner.on('log', (data: { message: string; type: 'info' | 'warning' | 'error' }) => {
@@ -395,16 +398,16 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
 
   const infoSprintText = new TextRenderable(renderer, {
-    id: 'info-sprint', content: '',
+    id: 'info-sprint', content: '', width: '100%',
   });
   const infoTaskText = new TextRenderable(renderer, {
-    id: 'info-task', content: '',
+    id: 'info-task', content: '', width: '100%',
   });
   const infoTimerText = new TextRenderable(renderer, {
-    id: 'info-timer', content: '',
+    id: 'info-timer', content: '', width: '100%',
   });
   const infoProgressText = new TextRenderable(renderer, {
-    id: 'info-progress', content: '',
+    id: 'info-progress', content: '', width: '100%',
   });
 
   activityInfoPanel.add(infoSprintText);
@@ -710,8 +713,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         updateSprintList();
         progressText.content = t`${dim('Progress: ')}${fg(COLORS.dim)(generateProgressBar(0, 0, 30))}`;
       } else {
-        const hasPendingTasks = manifest && manifest.tasks.some(t => t.status === 'pending');
-        const canStart = hasPendingTasks && !isRunning;
+        const canStart = canSprintStart();
         
         if (canStart) {
           leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.success)('[S] Start')}`;
@@ -1007,7 +1009,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         loadManifest();
       }
       if (key.name === 's') {
-        if (viewMode === 'tasks' && !runner.getIsRunning()) {
+        if (viewMode === 'tasks' && canSprintStart()) {
           // Clear activity log for fresh user-initiated run
           logs = [];
           updateActivityLog();

@@ -21,7 +21,14 @@ const ENGINE_CONFIGS: EngineConfig[] = [
     id: 'opencode',
     name: 'OpenCode',
     command: 'opencode',
-    getInvokeArgs: (prompt: string) => ['run', prompt],
+    getInvokeArgs: (prompt: string, model?: string) => {
+      const args: string[] = ['run'];
+      if (model) {
+        args.push('--model', model);
+      }
+      args.push(prompt);
+      return args;
+    },
     configPaths: ['.config/opencode', '.opencode'],
   },
 ];
