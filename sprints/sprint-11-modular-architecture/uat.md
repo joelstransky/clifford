@@ -24,3 +24,45 @@ Extracted the monolithic state management, manifest polling, timer logic, spinne
 7. **Quit**: Press `Q` twice to quit. Verify the first press shows a "Press Q again to quit" message, and the second press exits.
 8. **Tab Switching**: Press `Tab` to toggle between SPRINTS and ACTIVITY panels. Verify the tab bar highlights correctly.
 9. **Code Inspection**: Open `src/tui/DashboardController.ts` and confirm it contains all state variables, polling logic, timer logic, and sprint runner event handlers. Open `src/tui/Dashboard.ts` and confirm it only contains UI rendering code and controller event subscriptions.
+
+## Task 02: Triple-Row Activity Layout
+
+### Description
+Refactored the Activity tab from a single mixed log view into a triple-row layout that clearly separates sprint status information, Clifford's high-level events, and raw agent process output. The blocker (Help) screen now replaces only the lower two rows while the status row remains visible at the top.
+
+### What Changed
+- **Modified**: `src/tui/DashboardController.ts`
+  - Added `LogChannel` type (`'activity' | 'process'`) and `channel` property to `LogEntry`.
+  - Added separate buffers: `activityLogs` (Clifford events) and `processLogs` (raw stdout/stderr).
+  - Updated `addLog()` to accept a `channel` parameter, routing entries to the appropriate buffer.
+  - Runner `output` events now route to `'process'` channel; all other logs route to `'activity'`.
+  - `startSprint()` clears all three buffers on fresh runs.
+- **Modified**: `src/tui/Dashboard.ts`
+  - Replaced the old activity panel layout with three distinct rows:
+    1. **Status Row** (top, fixed height 5, dark `titleBg` background): Sprint name, active task, elapsed timer, progress bar. Always visible.
+    2. **Activity Row** (middle, scrollable, `flexGrow: 1`): Shows Clifford events (task started, blocker detected, status transitions). Header: "ACTIVITY".
+    3. **Process Row** (bottom, scrollable, `flexGrow: 1`): Shows raw stdout/stderr from the agent. Header: "PROCESS OUTPUT".
+  - Extracted `renderLogEntries()` helper to DRY up log rendering for both activity and process containers.
+  - Blocker UI now removes `activity-row` and `process-row` (keeping `status-row`) and adds `blockerContainer` in their place.
+  - `log-added` event handler now routes updates to the correct panel based on `entry.channel`.
+
+### Verification Steps
+1. **Launch the TUI**: Run `npm run dev tui`.
+2. **Switch to Activity Tab**: Press `Tab` to switch to the ACTIVITY panel.
+3. **Verify Triple-Row Layout**:
+   - **Top**: A dark status bar should be visible with Sprint, Task, Elapsed, and Progress fields. When no sprint is running, it shows "No sprint running".
+   - **Middle**: An "ACTIVITY" section showing Clifford events (e.g., "Dashboard initialized", task transitions).
+   - **Bottom**: A "PROCESS OUTPUT" section — empty until a sprint runs.
+4. **Start a Sprint**: Navigate back to SPRINTS, select a sprint, drill in, press `S`.
+5. **Verify Log Separation**:
+   - The **Activity** section should show high-level events: "Starting sprint: ...", task status changes ("⏳ task-1: pending → active"), completion events.
+   - The **Process Output** section should show raw agent output (lines prefixed with `>`), including agent thinking, bash commands, and tool output.
+   - The **Status Row** should show the running sprint name, active task ID, incrementing elapsed timer, and updating progress bar.
+6. **Verify Blocker Behavior**: If a blocker is triggered:
+   - The Status Row should remain at the top showing sprint info.
+   - The Activity and Process rows should be replaced by the "🛑 NEEDS HELP" blocker UI.
+   - Dismissing or resolving the blocker should restore the Activity and Process rows.
+7. **Verify Stop/Complete**: Press `X` to stop a sprint. The status row should clear to "No sprint running". Logs should be preserved in both sections.
+8. **Code Inspection**:
+   - Open `src/tui/DashboardController.ts`: Confirm `LogEntry` has a `channel` field, `activityLogs` and `processLogs` arrays exist, `addLog()` routes by channel.
+   - Open `src/tui/Dashboard.ts`: Confirm `statusRow`, `activityRow`, `processRow` are separate containers within `activityPanel`. Confirm `renderLogEntries()` is the shared helper.

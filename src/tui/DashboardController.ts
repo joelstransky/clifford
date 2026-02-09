@@ -19,10 +19,13 @@ export interface Manifest {
   tasks: Task[];
 }
 
+export type LogChannel = 'activity' | 'process';
+
 export interface LogEntry {
   timestamp: Date;
   message: string;
   type: 'info' | 'success' | 'warning' | 'error';
+  channel: LogChannel;
 }
 
 // ─── Controller Events ─────────────────────────────────────────────────────────
@@ -75,6 +78,8 @@ export class DashboardController extends EventEmitter {
 
   // --- Logs ---
   public logs: LogEntry[] = [];
+  public activityLogs: LogEntry[] = [];
+  public processLogs: LogEntry[] = [];
 
   // --- Blocker ---
   public activeBlocker: BlockRequest | null = null;
@@ -237,8 +242,9 @@ export class DashboardController extends EventEmitter {
 
     this.runner.on('output', (data: { data: string; stream: string }) => {
       const lines = data.data.split('\n').filter((l: string) => l.trim().length > 0);
+      const streamType: LogEntry['type'] = data.stream === 'stderr' ? 'error' : 'info';
       lines.forEach(line => {
-        this.addLog(`> ${line.substring(0, 120)}`, 'info');
+        this.addLog(`> ${line.substring(0, 120)}`, streamType, 'process');
       });
     });
 
@@ -372,10 +378,20 @@ export class DashboardController extends EventEmitter {
   // Logging
   // ────────────────────────────────────────────────────────────────────────────
 
-  public addLog(message: string, type: LogEntry['type'] = 'info'): void {
-    this.logs.push({ timestamp: new Date(), message, type });
+  public addLog(message: string, type: LogEntry['type'] = 'info', channel: LogChannel = 'activity'): void {
+    const entry: LogEntry = { timestamp: new Date(), message, type, channel };
+    this.logs.push(entry);
     if (this.logs.length > MAX_LOGS) this.logs.shift();
-    this.emit('log-added', this.logs[this.logs.length - 1]);
+
+    if (channel === 'process') {
+      this.processLogs.push(entry);
+      if (this.processLogs.length > MAX_LOGS) this.processLogs.shift();
+    } else {
+      this.activityLogs.push(entry);
+      if (this.activityLogs.length > MAX_LOGS) this.activityLogs.shift();
+    }
+
+    this.emit('log-added', entry);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -488,8 +504,10 @@ export class DashboardController extends EventEmitter {
       return;
     }
 
-    // Clear activity log for fresh user-initiated run
+    // Clear all log buffers for fresh user-initiated run
     this.logs = [];
+    this.activityLogs = [];
+    this.processLogs = [];
     this.emit('log-added', null); // signal full log clear
 
     this.runner.setSprintDir(this.currentSprintDir);
