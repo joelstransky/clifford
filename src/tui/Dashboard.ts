@@ -1,54 +1,31 @@
 import path from 'path';
 import { CommsBridge } from '../utils/bridge.js';
 import { SprintRunner } from '../utils/sprint.js';
-import { stripEmoji } from '../utils/text.js';
-import { DashboardController, Task, LogEntry } from './DashboardController.js';
-
-// Version constant
-const VERSION = '1.0.0';
-
-// Colors
-const COLORS = {
-  titleBg: '#13141c',
-  bg: '#1a1b26',
-  panelBg: '#24283b',
-  statusBg: '#000000',
-  primary: '#7aa2f7',
-  success: '#9ece6a',
-  warning: '#e0af68',
-  error: '#f7768e',
-  text: '#c0caf5',
-  dim: '#565f89',
-  purple: '#bb9af7',
-};
-
-const STATUS_COLORS: Record<Task['status'], string> = {
-  completed: COLORS.success,
-  active: COLORS.warning,
-  pending: COLORS.dim,
-  blocked: COLORS.error,
-  pushed: COLORS.primary,
-};
-
-function formatTime(date: Date): string {
-  return date.toTimeString().split(' ')[0];
-}
-
-function generateProgressBar(completed: number, total: number, width: number = 20): string {
-  const percentage = total > 0 ? completed / total : 0;
-  const filled = Math.round(percentage * width);
-  const empty = width - filled;
-  const bar = '█'.repeat(filled) + '░'.repeat(empty);
-  const percent = Math.round(percentage * 100);
-  return `${bar} ${percent}%`;
-}
+import { DashboardController, LogEntry } from './DashboardController.js';
+import {
+  OpenTuiModule,
+  Renderable,
+  Renderer,
+  COLORS,
+  STATUS_COLORS,
+  Identifiable,
+  generateProgressBar,
+  clearTracked,
+  createHeader,
+  createTabBar,
+  createSprintListView,
+  createTaskListRenderer,
+  createActivityView,
+  createFooter,
+  renderLogEntries,
+} from './components.js';
 
 export async function launchDashboard(sprintDir: string, bridge: CommsBridge, runner: SprintRunner): Promise<void> {
   // Use a variable for the module name to ensure it's truly dynamic and NOT bundled
   const opentuiModule = '@opentui/core';
-  const { 
-    createCliRenderer, 
-    BoxRenderable, 
+  const {
+    createCliRenderer,
+    BoxRenderable,
     TextRenderable,
     ScrollBoxRenderable,
     TabSelectRenderable,
@@ -63,6 +40,13 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     exitOnCtrlC: false, // We'll handle it ourselves
   });
 
+  // ─── Assemble the OpenTUI module for factory consumption ────────────────────
+  const tui: OpenTuiModule = {
+    BoxRenderable, TextRenderable, ScrollBoxRenderable,
+    TabSelectRenderable, TabSelectRenderableEvents,
+    bold, fg, dim, t,
+  };
+
   // ─── Controller ────────────────────────────────────────────────────────────
   const ctrl = new DashboardController(sprintDir, bridge, runner);
 
@@ -72,220 +56,40 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
   renderer.root.add(root);
 
-  // ─── Header ────────────────────────────────────────────────────────────────
-  const header = new BoxRenderable(renderer, {
-    id: 'header', width: '100%', height: 3, flexDirection: 'row',
-    justifyContent: 'space-between', alignItems: 'center',
-    paddingLeft: 2, paddingRight: 2,
-    backgroundColor: COLORS.titleBg,
-  });
-  
-  const titleText = new TextRenderable(renderer, {
-    id: 'title', content: t`${bold(fg(COLORS.primary)(`CLIFFORD v${VERSION}`))}`,
-  });
-  
-  const sprintStatusText = new TextRenderable(renderer, {
-    id: 'sprint-status', content: t`${dim('[Sprint: Loading...]')}`,
-  });
-  
-  header.add(titleText);
-  header.add(sprintStatusText);
+  // ─── Build UI Sections via Component Factories ─────────────────────────────
+
+  const { header, sprintStatusText } = createHeader(renderer as Renderer, tui);
   root.add(header);
 
-  // ─── Tab Bar ───────────────────────────────────────────────────────────────
-  const tabBar = new TabSelectRenderable(renderer, {
-    id: 'tab-bar',
-    width: '100%',
-    options: [
-      { name: 'SPRINTS' },
-      { name: 'ACTIVITY' },
-    ],
-    tabWidth: 20,
-    showDescription: false,
-    showUnderline: false,
-    backgroundColor: COLORS.bg,
-    textColor: COLORS.dim,
-    selectedBackgroundColor: COLORS.primary,
-    selectedTextColor: '#000000',
-    focusedBackgroundColor: COLORS.bg,
-    focusedTextColor: COLORS.dim,
+  const { tabBar } = createTabBar(renderer as Renderer, tui, (tab) => {
+    ctrl.switchTab(tab);
   });
   root.add(tabBar);
 
-  tabBar.on(TabSelectRenderableEvents.SELECTION_CHANGED, (index: number) => {
-    ctrl.switchTab(index === 0 ? 'sprints' : 'activity');
-  });
-
-  // ─── Main Content ──────────────────────────────────────────────────────────
   const main = new BoxRenderable(renderer, {
     id: 'main', width: '100%', flexGrow: 1, flexDirection: 'column',
     overflow: 'hidden',
   });
   root.add(main);
 
-  // ─── Sprints Panel ─────────────────────────────────────────────────────────
-  const sprintsPanel = new BoxRenderable(renderer, {
-    id: 'sprints-panel', width: '100%', height: '100%', flexDirection: 'column',
-    padding: 1, backgroundColor: COLORS.panelBg,
-  });
-  
-  const leftPanelHeader = new TextRenderable(renderer, {
-    id: 'sprint-plan-header', content: t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`,
-  });
-  sprintsPanel.add(leftPanelHeader);
-  
-  const sprintNameText = new TextRenderable(renderer, {
-    id: 'sprint-name', content: t`${dim('Loading...')}`,
-  });
-  const sprintDescText = new TextRenderable(renderer, {
-    id: 'sprint-desc', content: '',
-  });
-  
-  sprintsPanel.add(sprintNameText);
-  sprintsPanel.add(sprintDescText);
-  
-  const taskListBox = new BoxRenderable(renderer, {
-    id: 'task-list-box', width: '100%', flexGrow: 1, flexDirection: 'column',
-  });
-  const taskListContainer = new BoxRenderable(renderer, {
-    id: 'task-list', width: '100%', flexDirection: 'column',
-  });
-  taskListBox.add(taskListContainer);
-  sprintsPanel.add(taskListBox);
+  const {
+    sprintsPanel, leftPanelHeader, sprintNameText, sprintDescText,
+    taskListContainer, progressText,
+  } = createSprintListView(renderer as Renderer, tui);
 
-  const progressText = new TextRenderable(renderer, {
-    id: 'progress', content: t`${dim('Progress: ')}${fg(COLORS.dim)('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 0%')}`,
-  });
-  sprintsPanel.add(new BoxRenderable(renderer, { id: 'prog-wrap' }).add(progressText));
+  const {
+    activityPanel,
+    infoSprintText, infoTaskText, infoTimerText, infoProgressText,
+    activityRow, activityLogContainer,
+    processRow, processLogContainer,
+    blockerContainer,
+    blockerTask, blockerReason, blockerQuestion, blockerInputText,
+  } = createActivityView(renderer as Renderer, tui);
 
-  // ─── Activity Panel (Triple-Row Layout) ────────────────────────────────────
-  const activityPanel = new BoxRenderable(renderer, {
-    id: 'activity-panel', width: '100%', height: '100%', flexDirection: 'column',
-    backgroundColor: COLORS.panelBg,
-  });
+  const { footer, statusText, hotkeyText } = createFooter(renderer as Renderer, tui);
+  root.add(footer);
 
-  // ── Row 1: Status Row (Fixed, dark background) ───────────────────────────
-  const statusRow = new BoxRenderable(renderer, {
-    id: 'status-row', width: '100%', height: 5, flexDirection: 'column',
-    paddingLeft: 2, paddingRight: 2,
-    backgroundColor: COLORS.titleBg,
-  });
-
-  const infoSprintText = new TextRenderable(renderer, {
-    id: 'info-sprint', content: '', width: '100%',
-  });
-  const infoTaskText = new TextRenderable(renderer, {
-    id: 'info-task', content: '', width: '100%',
-  });
-  const infoTimerText = new TextRenderable(renderer, {
-    id: 'info-timer', content: '', width: '100%',
-  });
-  const infoProgressText = new TextRenderable(renderer, {
-    id: 'info-progress', content: '', width: '100%',
-  });
-
-  statusRow.add(infoSprintText);
-  statusRow.add(infoTaskText);
-  statusRow.add(infoTimerText);
-  statusRow.add(infoProgressText);
-
-  // ── Row 2: Activity Row (Scrollable Clifford events) ─────────────────────
-  const activityRow = new BoxRenderable(renderer, {
-    id: 'activity-row', width: '100%', flexGrow: 1, flexDirection: 'column',
-    overflow: 'hidden',
-  });
-
-  const activityHeader = new TextRenderable(renderer, {
-    id: 'activity-header', content: t`${bold(fg(COLORS.purple)(' ACTIVITY'))}`,
-  });
-
-  const activityScroll = new ScrollBoxRenderable(renderer, {
-    id: 'activity-scroll', width: '100%', flexGrow: 1,
-  });
-  const activityLogContainer = new BoxRenderable(renderer, {
-    id: 'activity-log', width: '100%', flexDirection: 'column',
-  });
-  activityScroll.add(activityLogContainer);
-
-  activityRow.add(activityHeader);
-  activityRow.add(activityScroll);
-
-  // ── Row 3: Process Row (Scrollable raw stdout/stderr) ─────────────────────
-  const processRow = new BoxRenderable(renderer, {
-    id: 'process-row', width: '100%', flexGrow: 1, flexDirection: 'column',
-    overflow: 'hidden',
-  });
-
-  const processHeader = new TextRenderable(renderer, {
-    id: 'process-header', content: t`${bold(fg(COLORS.dim)(' PROCESS OUTPUT'))}`,
-  });
-
-  const processScroll = new ScrollBoxRenderable(renderer, {
-    id: 'process-scroll', width: '100%', flexGrow: 1,
-  });
-  const processLogContainer = new BoxRenderable(renderer, {
-    id: 'process-log', width: '100%', flexDirection: 'column',
-  });
-  processScroll.add(processLogContainer);
-
-  processRow.add(processHeader);
-  processRow.add(processScroll);
-
-  // ── Blocker UI Components ─────────────────────────────────────────────────
-  const blockerContainer = new BoxRenderable(renderer, {
-    id: 'blocker-container', width: '100%', flexGrow: 1, flexDirection: 'column',
-    padding: 1,
-  });
-
-  const blockerHeader = new TextRenderable(renderer, {
-    id: 'blocker-header', content: t`${bold(fg(COLORS.error)('🛑 NEEDS HELP'))}`,
-  });
-  const blockerDivider = new TextRenderable(renderer, {
-    id: 'blocker-divider', content: t`${dim('─'.repeat(50))}`,
-  });
-  const blockerTask = new TextRenderable(renderer, {
-    id: 'blocker-task', content: '',
-  });
-  const blockerReason = new TextRenderable(renderer, {
-    id: 'blocker-reason', content: '',
-  });
-  const blockerQuestionLabel = new TextRenderable(renderer, {
-    id: 'blocker-question-label', content: t`\n${bold('Question:')}`,
-  });
-  const blockerQuestion = new TextRenderable(renderer, {
-    id: 'blocker-question', content: '',
-  });
-
-  const blockerInputBox = new BoxRenderable(renderer, {
-    id: 'blocker-input-box', width: '100%', height: 3, paddingLeft: 1,
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bg,
-  });
-  const blockerInputLabel = new TextRenderable(renderer, {
-    id: 'blocker-input-label', content: t`${bold(fg(COLORS.error)('🛑 > '))}`,
-  });
-  const blockerInputText = new TextRenderable(renderer, {
-    id: 'blocker-input-text', content: '',
-  });
-  blockerInputBox.add(blockerInputLabel);
-  blockerInputBox.add(blockerInputText);
-
-  const blockerFooterHint = new TextRenderable(renderer, {
-    id: 'blocker-footer-hint', content: t`\n${dim('Type response or "Done" if action taken.  [Enter] Submit  [Esc] Cancel')}`,
-  });
-
-  blockerContainer.add(blockerHeader);
-  blockerContainer.add(blockerDivider);
-  blockerContainer.add(blockerTask);
-  blockerContainer.add(blockerReason);
-  blockerContainer.add(blockerQuestionLabel);
-  blockerContainer.add(blockerQuestion);
-  blockerContainer.add(blockerInputBox);
-  blockerContainer.add(blockerFooterHint);
-
-  // ── Initial Activity Panel assembly ───────────────────────────────────────
-  activityPanel.add(statusRow);
-  activityPanel.add(activityRow);
-  activityPanel.add(processRow);
+  const listRenderer = createTaskListRenderer(renderer as Renderer, tui);
 
   // ─── Panel Swap Logic ──────────────────────────────────────────────────────
   let currentPanel: 'sprints' | 'activity' = 'sprints';
@@ -306,28 +110,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     currentPanel = tab;
     updateDisplay();
   };
-  
-  // ─── Footer ────────────────────────────────────────────────────────────────
-  const footer = new BoxRenderable(renderer, {
-    id: 'footer', width: '100%', height: 3, flexDirection: 'row',
-    justifyContent: 'space-between', alignItems: 'center',
-    paddingLeft: 2, paddingRight: 2,
-    backgroundColor: COLORS.statusBg,
-  });
-  
-  const statusText = new TextRenderable(renderer, {
-    id: 'status', content: t`${fg(COLORS.success)('Ready')}`,
-  });
-  const hotkeyText = new TextRenderable(renderer, {
-    id: 'hotkeys', content: t`${dim('[QQ]uit  [R]efresh')}`,
-  });
-  
-  footer.add(statusText);
-  footer.add(hotkeyText);
-  root.add(footer);
 
   // ─── UI Element Tracking ───────────────────────────────────────────────────
-  interface Identifiable { id: string; }
   const taskElements: Identifiable[] = [];
   const logElements: Identifiable[] = [];
   const processElements: Identifiable[] = [];
@@ -336,10 +120,8 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   // ─── Render Helpers ────────────────────────────────────────────────────────
 
   const clearLeftPanel = () => {
-    taskElements.forEach(el => { try { taskListContainer.remove(el.id); } catch { /* ignore */ } });
-    taskElements.length = 0;
-    sprintElements.forEach(el => { try { taskListContainer.remove(el.id); } catch { /* ignore */ } });
-    sprintElements.length = 0;
+    clearTracked(taskListContainer, taskElements);
+    clearTracked(taskListContainer, sprintElements);
   };
 
   /** Update the header status badge (spinner or text). */
@@ -358,7 +140,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     } else if (isRunning) {
       const runningDir = ctrl.getRunnerSprintDir();
       const runningSprint = ctrl.allSprints.find(s => path.resolve(s.path) === path.resolve(runningDir));
-      const activeTask = m?.tasks.find(t => t.status === 'active');
+      const activeTask = m?.tasks.find(tk => tk.status === 'active');
       const taskSuffix = (activeTask && runningSprint?.id === m?.id) ? ` > ${activeTask.id}` : '';
       sLabel = `Running: ${runningSprint?.name || 'Unknown'}${taskSuffix}`;
       sColor = COLORS.warning;
@@ -387,172 +169,17 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
 
   const updateSprintList = () => {
     clearLeftPanel();
-
-    const { allSprints, selectedIndex, isRunning } = ctrl;
-    const runningDir = ctrl.getRunnerSprintDir();
-
-    if (allSprints.length === 0) {
-      const emptyEl = new TextRenderable(renderer, {
-        id: 'sprint-empty',
-        content: t`\n${dim('  No sprints discovered.')}\n${dim('  Run "clifford init" then create a sprint.')}`,
-      });
-      sprintElements.push(emptyEl);
-      taskListContainer.add(emptyEl);
-      return;
-    }
-
-    allSprints.forEach((s, i) => {
-      const isSelected = i === selectedIndex;
-      const isThisRunning = isRunning && path.resolve(runningDir) === path.resolve(s.path);
-      const otherRunning = isRunning && !isThisRunning;
-      const itemBox = new BoxRenderable(renderer, {
-        id: `sprint-item-${i}`,
-        width: '100%',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-      });
-
-      const prefix = isSelected ? '> ' : '  ';
-      const runningIndicator = isThisRunning ? ' 🔄' : '';
-      const displayName = stripEmoji(s.name);
-      const labelContent = `${prefix}${displayName}${runningIndicator}`;
-      
-      const label = new TextRenderable(renderer, {
-        id: `sprint-label-${i}`,
-        content: isSelected
-          ? t`${bold(fg(COLORS.primary)(labelContent))}`
-          : otherRunning
-            ? t`${dim(labelContent)}`
-            : t`${fg(COLORS.text)(labelContent)}`,
-      });
-      itemBox.add(label);
-
-      // Derive sprint status label
-      let statusLabel = 'Pending';
-      let statusColor = COLORS.dim;
-
-      if (isThisRunning) {
-        statusLabel = 'Active';
-        statusColor = COLORS.warning;
-      } else if (s.tasks.some(tk => tk.status === 'blocked')) {
-        statusLabel = 'Blocked';
-        statusColor = COLORS.error;
-      } else if (s.tasks.length > 0 && s.tasks.every(tk => tk.status === 'pushed')) {
-        statusLabel = 'Published';
-        statusColor = COLORS.primary;
-      } else if (s.tasks.length > 0 && s.tasks.every(tk => tk.status === 'completed' || tk.status === 'pushed')) {
-        statusLabel = 'Complete';
-        statusColor = COLORS.success;
-      }
-
-      const statusEl = new TextRenderable(renderer, {
-        id: `sprint-status-${i}`,
-        content: t`${fg(statusColor)(statusLabel)}`,
-      });
-      itemBox.add(statusEl);
-
-      sprintElements.push(itemBox);
-      taskListContainer.add(itemBox);
-    });
+    listRenderer.renderSprintItems(ctrl, taskListContainer, sprintElements);
   };
 
   const updateTaskList = () => {
     clearLeftPanel();
-    const { manifest: m, isRunning, activeTaskId } = ctrl;
-    if (!m) return;
-
-    if (m.tasks.length === 0) {
-      const emptyEl = new TextRenderable(renderer, {
-        id: 'task-empty',
-        content: t`\n${dim('  No tasks defined in this sprint.')}`,
-      });
-      taskElements.push(emptyEl);
-      taskListContainer.add(emptyEl);
-      return;
-    }
-
-    const STATUS_ICONS = DashboardController.STATUS_ICONS;
-    const STATUS_LABELS = DashboardController.STATUS_LABELS;
-
-    m.tasks.forEach((task, i) => {
-      const itemBox = new BoxRenderable(renderer, {
-        id: `task-item-${i}`,
-        width: '100%',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-      });
-
-      const isActiveTask = isRunning && activeTaskId === task.id;
-      const displayStatus = isActiveTask ? 'active' : task.status;
-      const displayIcon = isActiveTask ? STATUS_ICONS['active'] : STATUS_ICONS[task.status];
-      const displayColor = isActiveTask ? STATUS_COLORS['active'] : STATUS_COLORS[task.status];
-
-      const labelContent = `${displayIcon} ${task.id}`;
-      const label = new TextRenderable(renderer, {
-        id: `task-label-${i}`,
-        content: isActiveTask
-          ? t`${bold(fg(displayColor)(labelContent))}`
-          : t`${fg(displayColor)(labelContent)}`,
-      });
-      itemBox.add(label);
-
-      const rightBox = new BoxRenderable(renderer, {
-        id: `task-right-${i}`,
-        flexDirection: 'row',
-      });
-
-      const statusLabel = new TextRenderable(renderer, {
-        id: `task-status-${i}`,
-        content: t`${fg(displayColor)(STATUS_LABELS[displayStatus])}`,
-      });
-      rightBox.add(statusLabel);
-
-      itemBox.add(rightBox);
-
-      taskElements.push(itemBox);
-      taskListContainer.add(itemBox);
-    });
-  };
-
-  /** Render a set of log entries into a container, tracking elements for cleanup. */
-  const renderLogEntries = (
-    entries: LogEntry[],
-    container: InstanceType<typeof BoxRenderable>,
-    elements: Identifiable[],
-    prefix: string,
-    emptyMessage: string,
-    maxVisible: number = 30,
-  ) => {
-    elements.forEach(el => { try { container.remove(el.id); } catch { /* ignore */ } });
-    elements.length = 0;
-
-    if (entries.length === 0) {
-      const emptyEl = new TextRenderable(renderer, {
-        id: `${prefix}-empty`,
-        content: t`\n${dim(`  ${emptyMessage}`)}`,
-      });
-      elements.push(emptyEl);
-      container.add(emptyEl);
-      return;
-    }
-
-    entries.slice(-maxVisible).forEach((log: LogEntry, i: number) => {
-      let color = COLORS.text;
-      if (log.type === 'success') color = COLORS.success;
-      if (log.type === 'warning') color = COLORS.warning;
-      if (log.type === 'error') color = COLORS.error;
-
-      const el = new TextRenderable(renderer, {
-        id: `${prefix}-${i}`,
-        content: t`${dim(`[${formatTime(log.timestamp)}]`)} ${fg(color)(log.message)}`,
-      });
-      elements.push(el);
-      container.add(el);
-    });
+    listRenderer.renderTaskItems(ctrl, taskListContainer, taskElements);
   };
 
   const updateActivityLog = () => {
     renderLogEntries(
+      renderer as Renderer, tui,
       ctrl.activityLogs,
       activityLogContainer,
       logElements,
@@ -563,6 +190,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
 
   const updateProcessLog = () => {
     renderLogEntries(
+      renderer as Renderer, tui,
       ctrl.processLogs,
       processLogContainer,
       processElements,
@@ -592,7 +220,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         progressText.content = t`${dim('Progress: ')}${fg(COLORS.dim)(generateProgressBar(0, 0, 30))}`;
       } else {
         const canStart = ctrl.canSprintStart();
-        
+
         if (canStart) {
           leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.success)('[S] Start')}`;
         } else if (isRunning) {
@@ -600,7 +228,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         } else {
           leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`;
         }
-        
+
         if (m) {
           sprintNameText.content = t`${fg(COLORS.text)(m.name)}`;
           sprintDescText.content = t`${dim(m.id)} ${dim('[←] Back')}`;
@@ -701,7 +329,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
 
   ctrl.on('tab-changed', (tab: 'sprints' | 'activity') => {
-    tabBar.setSelectedIndex(tab === 'sprints' ? 0 : 1);
+    tabBar.setSelectedIndex!(tab === 'sprints' ? 0 : 1);
     switchPanel(tab);
   });
 

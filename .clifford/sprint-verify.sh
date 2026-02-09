@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-SPRINT_DIR="sprints/sprint-10-ux-refinements"
+SPRINT_DIR="sprints/sprint-11-modular-architecture"
 MANIFEST="$SPRINT_DIR/manifest.json"
 echo "📋 Validating manifest: $MANIFEST"
 node -e "

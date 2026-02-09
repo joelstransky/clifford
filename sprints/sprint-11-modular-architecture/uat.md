@@ -65,4 +65,48 @@ Refactored the Activity tab from a single mixed log view into a triple-row layou
 7. **Verify Stop/Complete**: Press `X` to stop a sprint. The status row should clear to "No sprint running". Logs should be preserved in both sections.
 8. **Code Inspection**:
    - Open `src/tui/DashboardController.ts`: Confirm `LogEntry` has a `channel` field, `activityLogs` and `processLogs` arrays exist, `addLog()` routes by channel.
-   - Open `src/tui/Dashboard.ts`: Confirm `statusRow`, `activityRow`, `processRow` are separate containers within `activityPanel`. Confirm `renderLogEntries()` is the shared helper.
+    - Open `src/tui/Dashboard.ts`: Confirm `statusRow`, `activityRow`, `processRow` are separate containers within `activityPanel`. Confirm `renderLogEntries()` is the shared helper.
+
+## Task 03: UI Component Factory
+
+### Description
+Extracted all inline UI widget construction from `Dashboard.ts` into a dedicated `src/tui/components.ts` module containing factory functions for each major UI section. `Dashboard.ts` now imports and calls these factories, keeping itself focused solely on wiring controller events to UI updates and handling keyboard input. State-aware constraints are implemented: sprint list items are dimmed and locked when another sprint is running.
+
+### What Changed
+- **New file**: `src/tui/components.ts` — Contains:
+  - **Shared types**: `OpenTuiModule`, `Renderable`, `Renderer` interfaces for type-safe factory signatures.
+  - **Theme constants**: `COLORS` (Tokyo Night palette) and `STATUS_COLORS` (task status → color mapping).
+  - **Utility helpers**: `formatTime()`, `generateProgressBar()`, `clearTracked()` for removing tracked child elements.
+  - **Factory functions**:
+    1. `createHeader()` → Header bar with title and sprint status badge.
+    2. `createTabBar()` → Tab selector with SPRINTS/ACTIVITY tabs and change callback.
+    3. `createSprintListView()` → Left panel with sprint name, description, task list container, and progress bar.
+    4. `createTaskListRenderer()` → Returns `renderSprintItems()` and `renderTaskItems()` helpers that dynamically populate the task list container with tracked elements.
+    5. `createActivityView()` → Activity panel with 3-row split (status row, activity log, process log) and blocker overlay.
+    6. `createFooter()` → Footer bar with status text and hotkey hints.
+  - **Shared helper**: `renderLogEntries()` — Renders log entries into a container with timestamped, color-coded lines.
+- **Modified**: `src/tui/Dashboard.ts` — Replaced all inline `BoxRenderable`/`TextRenderable` construction with imports from `components.ts`. The file now:
+  - Assembles the OpenTUI module object once and passes it to all factories.
+  - Destructures factory return values to get references to dynamic text elements.
+  - Contains only panel swap logic, controller event subscriptions, render update functions, and keyboard input handling.
+- **State-Aware Constraints**: In `renderSprintItems()`, sprint items are dimmed (`dim()` styling) and show a 🔒 indicator when another sprint is actively running, preventing visual confusion about which sprint is actionable.
+
+### Verification Steps
+1. **Launch the TUI**: Run `bun run dev tui` or `npm run dev tui`.
+2. **Verify Visual Parity**: All UI elements should render identically to before — header with version, tab bar, sprint list, task list, footer with hotkeys.
+3. **Sprint Navigation**: Use ↑↓ to navigate sprints, → to drill into tasks, ← to go back. Verify all transitions render correctly.
+4. **Tab Switching**: Press `Tab` to toggle between SPRINTS and ACTIVITY tabs. Verify both panels render correctly.
+5. **Start a Sprint**: Press `S` on a sprint with pending tasks. Verify:
+   - Activity tab displays properly with all three rows.
+   - Logs appear in the correct sections (activity vs process).
+   - Progress bar and timer update in the status row.
+6. **State-Aware Locking**: While a sprint is running, navigate back to SPRINTS tab. Verify:
+   - The running sprint shows a 🔄 indicator.
+   - Other sprints appear dimmed with a 🔒 indicator.
+   - The running sprint is highlighted when selected.
+7. **Stop Sprint**: Press `X` to stop. Verify dimming/locking is removed from sprint items.
+8. **Keyboard Navigation**: Verify all hotkeys work correctly through the componentized structure: `Q` (double-press quit), `R` (refresh), `S` (start), `X` (stop), `Tab` (switch tabs), arrows.
+9. **Code Inspection**:
+   - Open `src/tui/components.ts`: Confirm all 6 factory functions exist with proper TypeScript interfaces.
+   - Open `src/tui/Dashboard.ts`: Confirm it imports all factories from `./components.js` and contains NO inline `new BoxRenderable(...)` or `new TextRenderable(...)` calls (except the root container and main panel which are structural).
+   - Verify `COLORS`, `STATUS_COLORS`, `generateProgressBar`, `clearTracked`, and `renderLogEntries` are all defined in `components.ts`, not `Dashboard.ts`.
