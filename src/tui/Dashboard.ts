@@ -1,8 +1,8 @@
-import fs from 'fs';
 import path from 'path';
-import { CommsBridge, BlockRequest } from '../utils/bridge.js';
-import { SprintRunner, SprintManifest } from '../utils/sprint.js';
+import { CommsBridge } from '../utils/bridge.js';
+import { SprintRunner } from '../utils/sprint.js';
 import { stripEmoji } from '../utils/text.js';
+import { DashboardController, Task, LogEntry } from './DashboardController.js';
 
 // Version constant
 const VERSION = '1.0.0';
@@ -22,47 +22,12 @@ const COLORS = {
   purple: '#bb9af7',
 };
 
-interface Task {
-  id: string;
-  file: string;
-  status: 'pending' | 'active' | 'completed' | 'blocked' | 'pushed';
-}
-
-interface Manifest {
-  id: string;
-  name: string;
-  status: string;
-  tasks: Task[];
-}
-
-interface LogEntry {
-  timestamp: Date;
-  message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-}
-
-const STATUS_ICONS: Record<Task['status'], string> = {
-  completed: '✅',
-  active: '🔄',
-  pending: '⏳',
-  blocked: '🛑',
-  pushed: '📤',
-};
-
 const STATUS_COLORS: Record<Task['status'], string> = {
   completed: COLORS.success,
   active: COLORS.warning,
   pending: COLORS.dim,
   blocked: COLORS.error,
   pushed: COLORS.primary,
-};
-
-const STATUS_LABELS: Record<Task['status'], string> = {
-  pending: 'Pending',
-  active: 'Active',
-  blocked: 'Blocked',
-  completed: 'Complete',
-  pushed: 'Published',
 };
 
 function formatTime(date: Date): string {
@@ -98,205 +63,16 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     exitOnCtrlC: false, // We'll handle it ourselves
   });
 
-  // --- State ---
-  let activeTab: 'sprints' | 'activity' = 'sprints';
-  let viewMode: 'sprints' | 'tasks' = 'sprints';
-  let allSprints: SprintManifest[] = [];
-  let selectedIndex: number = 0;
-  let currentSprintDir = sprintDir;
-  let manifest: Manifest | null = null;
-  let previousManifest: Manifest | null = null;
-  let logs: LogEntry[] = [];
-  let activeBlocker: BlockRequest | null = null;
-  let chatInput: string = '';
-  let currentRightView: 'activity' | 'blocker' = 'activity';
-  let sprintStartTime: number | null = null;
-  let elapsedSeconds: number = 0;
-  let activeTaskId: string | null = null;
+  // ─── Controller ────────────────────────────────────────────────────────────
+  const ctrl = new DashboardController(sprintDir, bridge, runner);
 
-  // --- Quit Confirmation State ---
-  let quitPending: boolean = false;
-  let quitTimer: ReturnType<typeof setTimeout> | null = null;
-
-  // --- Spinner State ---
-  const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-  let spinnerInterval: ReturnType<typeof setInterval> | null = null;
-  let spinnerFrameIndex: number = 0;
-
-  const startSpinner = () => {
-    if (spinnerInterval) return; // Already running
-    spinnerFrameIndex = 0;
-    spinnerInterval = setInterval(() => {
-      spinnerFrameIndex = (spinnerFrameIndex + 1) % SPINNER_FRAMES.length;
-      updateHeaderStatus();
-      updateStatusBar();
-    }, 80);
-    updateHeaderStatus();
-    updateStatusBar();
-  };
-
-  const stopSpinner = () => {
-    if (spinnerInterval) {
-      clearInterval(spinnerInterval);
-      spinnerInterval = null;
-    }
-  };
-
-  /** Cancel the pending quit confirmation and restore normal status bar */
-  const cancelQuit = () => {
-    quitPending = false;
-    if (quitTimer) {
-      clearTimeout(quitTimer);
-      quitTimer = null;
-    }
-    updateStatusBar();
-  };
-
-  const canSprintStart = () => {
-    if (!manifest || runner.getIsRunning()) return false;
-    const validSprintStatus = manifest.status === 'pending' || manifest.status === 'active';
-    const hasWorkableTasks = manifest.tasks.some(t => t.status === 'pending' || t.status === 'active');
-    return validSprintStatus && hasWorkableTasks;
-  };
-
-  /** Update just the header status text (used by spinner tick and full updateDisplay) */
-  const updateHeaderStatus = () => {
-    const completed = manifest ? manifest.tasks.filter(t => t.status === 'completed' || t.status === 'pushed').length : 0;
-    const total = manifest ? manifest.tasks.length : 0;
-    const isRunning = runner.getIsRunning();
-    const blocked = manifest ? manifest.tasks.some(t => t.status === 'blocked') : false;
-
-    if (spinnerInterval) {
-      // Spinner is active — show animated starting indicator
-      const frame = SPINNER_FRAMES[spinnerFrameIndex];
-      sprintStatusText.content = t`${fg(COLORS.warning)(`[${frame} Starting...]`)}`;
-      return;
-    }
-
-    let sLabel = 'Idle', sColor = COLORS.dim;
-    if (blocked) { sLabel = 'Blocked'; sColor = COLORS.error; }
-    else if (isRunning) {
-      const runningDir = runner.getSprintDir();
-      const runningSprint = allSprints.find(s => path.resolve(s.path) === path.resolve(runningDir));
-      const activeTask = manifest?.tasks.find(t => t.status === 'active');
-      const taskSuffix = (activeTask && runningSprint?.id === manifest?.id) ? ` > ${activeTask.id}` : '';
-      sLabel = `Running: ${runningSprint?.name || 'Unknown'}${taskSuffix}`;
-      sColor = COLORS.warning;
-    }
-    else if (completed === total && total > 0) { sLabel = 'Complete'; sColor = COLORS.success; }
-    sprintStatusText.content = t`${fg(sColor)(`[${sLabel}]`)}`;
-  };
-
-  /** Update the footer status bar based on current system state */
-  const updateStatusBar = () => {
-    if (quitPending) return; // Don't overwrite quit confirmation
-
-    const isRunning = runner.getIsRunning();
-    const completed = manifest ? manifest.tasks.filter(t => t.status === 'completed' || t.status === 'pushed').length : 0;
-    const total = manifest ? manifest.tasks.length : 0;
-
-    if (activeBlocker) {
-      statusText.content = t`${fg(COLORS.error)('Needs Help')}`;
-    } else if (isRunning) {
-      statusText.content = t`${fg(COLORS.warning)(runner.getStatus())}`;
-    } else if (!isRunning && completed === total && total > 0) {
-      statusText.content = t`${fg(COLORS.success)('Sprint Complete')}`;
-    } else {
-      statusText.content = t`${fg(COLORS.success)('Ready')}`;
-    }
-  };
-
-  const addLog = (message: string, type: LogEntry['type'] = 'info') => {
-    logs.push({ timestamp: new Date(), message, type });
-    if (logs.length > 100) logs.shift();
-    if (!activeBlocker) updateActivityLog();
-  };
-
-  // Discover sprints and set initial selection
-  allSprints = SprintRunner.discoverSprints();
-  const initialIndex = allSprints.findIndex(s => path.resolve(s.path) === path.resolve(sprintDir));
-  if (initialIndex !== -1) selectedIndex = initialIndex;
-
-  if (bridge) {
-    bridge.on('block', (data: BlockRequest) => {
-      activeBlocker = data;
-      chatInput = '';
-      addLog(`🛑 Blocker: ${data.question || data.reason}`, 'error');
-      activeTab = 'activity';
-      tabBar.setSelectedIndex(1);
-      switchPanel('activity');
-    });
-    bridge.on('resolve', (response: string) => {
-      activeBlocker = null;
-      chatInput = '';
-      addLog(`✅ Blocker resolved: ${response.substring(0, 30)}${response.length > 30 ? '...' : ''}`, 'success');
-      updateDisplay();
-      
-      // Auto-restart if runner is not running (it might have exited due to the blocker)
-      setTimeout(() => {
-        if (!runner.getIsRunning()) {
-          addLog('🧠 Restarting sprint with guidance...', 'warning');
-          runner.run().catch(err => addLog(`Restart Error: ${err.message}`, 'error'));
-        }
-      }, 500);
-    });
-  }
-
-  if (runner) {
-    // Enable quiet mode so output doesn't bleed through TUI
-    runner.setQuietMode(true);
-    
-    runner.on('start', () => {
-      sprintStartTime = Date.now();
-      elapsedSeconds = 0;
-      startSpinner();
-      if (!activeBlocker) {
-        activeTab = 'activity';
-        tabBar.setSelectedIndex(1);
-        switchPanel('activity');
-      }
-      updateDisplay();
-    });
-    runner.on('stop', () => {
-      stopSpinner();
-      sprintStartTime = null;
-      activeTaskId = null;
-      updateDisplay();
-    });
-    runner.on('task-start', (data: { taskId: string; file: string }) => {
-      stopSpinner();
-      activeTaskId = data.taskId;
-      updateDisplay();
-    });
-    runner.on('log', (data: { message: string; type: 'info' | 'warning' | 'error' }) => {
-      addLog(data.message, data.type);
-    });
-    runner.on('output', (data: { data: string; stream: string }) => {
-      const lines = data.data.split('\n').filter((l: string) => l.trim().length > 0);
-      lines.forEach(line => {
-        addLog(`> ${line.substring(0, 120)}`, 'info');
-      });
-    });
-    runner.on('halt', (data: { task: string; reason: string; question: string }) => {
-      stopSpinner();
-      // Unify halt with the existing blocker UX: show the same "needs help" UI
-      bridge.setBlockerContext(data.task, data.question);
-      activeBlocker = { task: data.task, reason: data.reason, question: data.question };
-      chatInput = '';
-      addLog(`🛑 ${data.reason}: ${data.task}`, 'error');
-      activeTab = 'activity';
-      tabBar.setSelectedIndex(1);
-      switchPanel('activity');
-    });
-  }
-
-  // --- Root ---
+  // ─── Root ──────────────────────────────────────────────────────────────────
   const root = new BoxRenderable(renderer, {
     id: 'root', width: '100%', height: '100%', flexDirection: 'column',
   });
   renderer.root.add(root);
 
-  // --- Header ---
+  // ─── Header ────────────────────────────────────────────────────────────────
   const header = new BoxRenderable(renderer, {
     id: 'header', width: '100%', height: 3, flexDirection: 'row',
     justifyContent: 'space-between', alignItems: 'center',
@@ -316,7 +92,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   header.add(sprintStatusText);
   root.add(header);
 
-  // --- Tab Bar ---
+  // ─── Tab Bar ───────────────────────────────────────────────────────────────
   const tabBar = new TabSelectRenderable(renderer, {
     id: 'tab-bar',
     width: '100%',
@@ -337,18 +113,17 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   root.add(tabBar);
 
   tabBar.on(TabSelectRenderableEvents.SELECTION_CHANGED, (index: number) => {
-    activeTab = index === 0 ? 'sprints' : 'activity';
-    switchPanel(activeTab);
+    ctrl.switchTab(index === 0 ? 'sprints' : 'activity');
   });
 
-  // --- Main Content ---
+  // ─── Main Content ──────────────────────────────────────────────────────────
   const main = new BoxRenderable(renderer, {
     id: 'main', width: '100%', flexGrow: 1, flexDirection: 'column',
     overflow: 'hidden',
   });
   root.add(main);
 
-  // --- Sprints Panel (replaces old leftPanel — now full-width) ---
+  // ─── Sprints Panel ─────────────────────────────────────────────────────────
   const sprintsPanel = new BoxRenderable(renderer, {
     id: 'sprints-panel', width: '100%', height: '100%', flexDirection: 'column',
     padding: 1, backgroundColor: COLORS.panelBg,
@@ -383,13 +158,12 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   });
   sprintsPanel.add(new BoxRenderable(renderer, { id: 'prog-wrap' }).add(progressText));
 
-  // --- Activity Panel (replaces old rightPanel — now full-width) ---
+  // ─── Activity Panel ────────────────────────────────────────────────────────
   const activityPanel = new BoxRenderable(renderer, {
     id: 'activity-panel', width: '100%', height: '100%', flexDirection: 'column',
     padding: 1, backgroundColor: COLORS.panelBg,
   });
   
-  // Activity Log Components
   const activityInfoPanel = new BoxRenderable(renderer, {
     id: 'activity-info-panel', width: '100%', flexDirection: 'column',
     paddingLeft: 1, paddingRight: 1,
@@ -481,7 +255,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   activityPanel.add(activityHeader);
   activityPanel.add(activityScroll);
 
-  // --- Panel Swap Logic ---
+  // ─── Panel Swap Logic ──────────────────────────────────────────────────────
   let currentPanel: 'sprints' | 'activity' = 'sprints';
   main.add(sprintsPanel); // SPRINTS tab is active by default
 
@@ -501,7 +275,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     updateDisplay();
   };
   
-  // --- Footer ---
+  // ─── Footer ────────────────────────────────────────────────────────────────
   const footer = new BoxRenderable(renderer, {
     id: 'footer', width: '100%', height: 3, flexDirection: 'row',
     justifyContent: 'space-between', alignItems: 'center',
@@ -520,11 +294,13 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   footer.add(hotkeyText);
   root.add(footer);
 
-  // --- UI Update Helpers ---
+  // ─── UI Element Tracking ───────────────────────────────────────────────────
   interface Identifiable { id: string; }
   const taskElements: Identifiable[] = [];
   const logElements: Identifiable[] = [];
   const sprintElements: Identifiable[] = [];
+
+  // ─── Render Helpers ────────────────────────────────────────────────────────
 
   const clearLeftPanel = () => {
     taskElements.forEach(el => { try { taskListContainer.remove(el.id); } catch { /* ignore */ } });
@@ -533,11 +309,54 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     sprintElements.length = 0;
   };
 
+  /** Update the header status badge (spinner or text). */
+  const updateHeaderStatus = () => {
+    const { completedCount, totalCount, isRunning, isBlocked, manifest: m } = ctrl;
+
+    if (ctrl.isSpinnerActive) {
+      const frame = ctrl.currentSpinnerFrame;
+      sprintStatusText.content = t`${fg(COLORS.warning)(`[${frame} Starting...]`)}`;
+      return;
+    }
+
+    let sLabel = 'Idle', sColor = COLORS.dim;
+    if (isBlocked) {
+      sLabel = 'Blocked'; sColor = COLORS.error;
+    } else if (isRunning) {
+      const runningDir = ctrl.getRunnerSprintDir();
+      const runningSprint = ctrl.allSprints.find(s => path.resolve(s.path) === path.resolve(runningDir));
+      const activeTask = m?.tasks.find(t => t.status === 'active');
+      const taskSuffix = (activeTask && runningSprint?.id === m?.id) ? ` > ${activeTask.id}` : '';
+      sLabel = `Running: ${runningSprint?.name || 'Unknown'}${taskSuffix}`;
+      sColor = COLORS.warning;
+    } else if (completedCount === totalCount && totalCount > 0) {
+      sLabel = 'Complete'; sColor = COLORS.success;
+    }
+    sprintStatusText.content = t`${fg(sColor)(`[${sLabel}]`)}`;
+  };
+
+  /** Update the footer status bar. */
+  const updateStatusBar = () => {
+    if (ctrl.quitPending) return; // Don't overwrite quit confirmation
+
+    const { isRunning, completedCount, totalCount, activeBlocker: blocker } = ctrl;
+
+    if (blocker) {
+      statusText.content = t`${fg(COLORS.error)('Needs Help')}`;
+    } else if (isRunning) {
+      statusText.content = t`${fg(COLORS.warning)(ctrl.getRunnerStatus())}`;
+    } else if (!isRunning && completedCount === totalCount && totalCount > 0) {
+      statusText.content = t`${fg(COLORS.success)('Sprint Complete')}`;
+    } else {
+      statusText.content = t`${fg(COLORS.success)('Ready')}`;
+    }
+  };
+
   const updateSprintList = () => {
     clearLeftPanel();
 
-    const isRunning = runner.getIsRunning();
-    const runningDir = runner.getSprintDir();
+    const { allSprints, selectedIndex, isRunning } = ctrl;
+    const runningDir = ctrl.getRunnerSprintDir();
 
     if (allSprints.length === 0) {
       const emptyEl = new TextRenderable(renderer, {
@@ -582,17 +401,16 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       if (isThisRunning) {
         statusLabel = 'Active';
         statusColor = COLORS.warning;
-      } else if (s.tasks.some(t => t.status === 'blocked')) {
+      } else if (s.tasks.some(tk => tk.status === 'blocked')) {
         statusLabel = 'Blocked';
         statusColor = COLORS.error;
-      } else if (s.tasks.length > 0 && s.tasks.every(t => t.status === 'pushed')) {
+      } else if (s.tasks.length > 0 && s.tasks.every(tk => tk.status === 'pushed')) {
         statusLabel = 'Published';
         statusColor = COLORS.primary;
-      } else if (s.tasks.length > 0 && s.tasks.every(t => t.status === 'completed' || t.status === 'pushed')) {
+      } else if (s.tasks.length > 0 && s.tasks.every(tk => tk.status === 'completed' || tk.status === 'pushed')) {
         statusLabel = 'Complete';
         statusColor = COLORS.success;
       }
-      // else: Pending (default)
 
       const statusEl = new TextRenderable(renderer, {
         id: `sprint-status-${i}`,
@@ -607,9 +425,10 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
 
   const updateTaskList = () => {
     clearLeftPanel();
-    if (!manifest) return;
+    const { manifest: m, isRunning, activeTaskId } = ctrl;
+    if (!m) return;
 
-    if (manifest.tasks.length === 0) {
+    if (m.tasks.length === 0) {
       const emptyEl = new TextRenderable(renderer, {
         id: 'task-empty',
         content: t`\n${dim('  No tasks defined in this sprint.')}`,
@@ -619,9 +438,10 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       return;
     }
 
-    const isRunning = runner.getIsRunning();
+    const STATUS_ICONS = DashboardController.STATUS_ICONS;
+    const STATUS_LABELS = DashboardController.STATUS_LABELS;
 
-    manifest.tasks.forEach((task, i) => {
+    m.tasks.forEach((task, i) => {
       const itemBox = new BoxRenderable(renderer, {
         id: `task-item-${i}`,
         width: '100%',
@@ -629,7 +449,6 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         justifyContent: 'space-between',
       });
 
-      // Check if this task is currently being executed by the runner
       const isActiveTask = isRunning && activeTaskId === task.id;
       const displayStatus = isActiveTask ? 'active' : task.status;
       const displayIcon = isActiveTask ? STATUS_ICONS['active'] : STATUS_ICONS[task.status];
@@ -666,7 +485,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     logElements.forEach(el => { try { activityLogContainer.remove(el.id); } catch { /* ignore */ } });
     logElements.length = 0;
     
-    if (logs.length === 0) {
+    if (ctrl.logs.length === 0) {
       const emptyEl = new TextRenderable(renderer, {
         id: 'log-empty',
         content: t`\n${dim('  No activity yet. Start a sprint to see logs here.')}`,
@@ -676,7 +495,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       return;
     }
 
-    logs.slice(-20).forEach((log, i) => {
+    ctrl.logs.slice(-20).forEach((log: LogEntry, i: number) => {
       let color = COLORS.text;
       if (log.type === 'success') color = COLORS.success;
       if (log.type === 'warning') color = COLORS.warning;
@@ -691,16 +510,16 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     });
   };
 
+  // Track which sub-view is rendered in the activity panel
+  let currentRightView: 'activity' | 'blocker' = 'activity';
+
   const updateDisplay = () => {
+    const { viewMode, activeTab, manifest: m, completedCount, totalCount, isRunning } = ctrl;
     const isSprintsView = viewMode === 'sprints';
     const isTasksView = viewMode === 'tasks';
 
-    // Top-level status (delegated to shared helper that also handles spinner)
-    const completed = manifest ? manifest.tasks.filter(t => t.status === 'completed' || t.status === 'pushed').length : 0;
-    const total = manifest ? manifest.tasks.length : 0;
-    const isRunning = runner.getIsRunning();
-
     updateHeaderStatus();
+    updateStatusBar();
 
     // Only rebuild sprints panel content when it's visible
     if (activeTab === 'sprints') {
@@ -711,7 +530,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         updateSprintList();
         progressText.content = t`${dim('Progress: ')}${fg(COLORS.dim)(generateProgressBar(0, 0, 30))}`;
       } else {
-        const canStart = canSprintStart();
+        const canStart = ctrl.canSprintStart();
         
         if (canStart) {
           leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.success)('[S] Start')}`;
@@ -721,18 +540,18 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
           leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`;
         }
         
-        if (manifest) {
-          sprintNameText.content = t`${fg(COLORS.text)(manifest.name)}`;
-          sprintDescText.content = t`${dim(manifest.id)} ${dim('[←] Back')}`;
+        if (m) {
+          sprintNameText.content = t`${fg(COLORS.text)(m.name)}`;
+          sprintDescText.content = t`${dim(m.id)} ${dim('[←] Back')}`;
         }
         updateTaskList();
-        const progress = generateProgressBar(completed, total, 30);
-        progressText.content = t`${dim('Progress: ')}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)}`;
+        const progress = generateProgressBar(completedCount, totalCount, 30);
+        progressText.content = t`${dim('Progress: ')}${fg(completedCount === totalCount && totalCount > 0 ? COLORS.success : COLORS.primary)(progress)}`;
       }
     }
+
     // Toggle Activity Panel sub-views
-    // Exception: blocker activation ALWAYS updates regardless of tab
-    if (activeBlocker) {
+    if (ctrl.activeBlocker) {
       if (currentRightView !== 'blocker') {
         try { activityPanel.remove('activity-info-panel'); } catch { /* ignore */ }
         try { activityPanel.remove('activity-header'); } catch { /* ignore */ }
@@ -741,12 +560,11 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
         currentRightView = 'blocker';
       }
       
-      blockerTask.content = t`${dim('Task: ')}${fg(COLORS.text)(activeBlocker.task || 'Unknown')}`;
-      blockerReason.content = t`${dim('Reason: ')}${fg(COLORS.text)(activeBlocker.reason || 'Unknown')}`;
-      blockerQuestion.content = t`${fg(COLORS.warning)(`"${activeBlocker.question || 'No question provided'}"`)}`;
+      blockerTask.content = t`${dim('Task: ')}${fg(COLORS.text)(ctrl.activeBlocker.task || 'Unknown')}`;
+      blockerReason.content = t`${dim('Reason: ')}${fg(COLORS.text)(ctrl.activeBlocker.reason || 'Unknown')}`;
+      blockerQuestion.content = t`${fg(COLORS.warning)(`"${ctrl.activeBlocker.question || 'No question provided'}"`)}`;
       
-      // Hide the old blocker input box by giving it 0 height
-      blockerInputText.content = t`${chatInput}${bold(fg(COLORS.error)('█'))}`;
+      blockerInputText.content = t`${ctrl.chatInput}${bold(fg(COLORS.error)('█'))}`;
       
       hotkeyText.content = t`${dim('"Done" = resume')}  ${bold('[Enter]')} Submit  ${bold('[Esc]')} Cancel`;
     } else {
@@ -759,19 +577,18 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
       }
 
       // Populate the header panel
-      if (isRunning || sprintStartTime) {
-        const sprintName = manifest?.name || 'Unknown';
+      if (isRunning || ctrl.sprintStartTime) {
+        const sprintName = m?.name || 'Unknown';
         infoSprintText.content = t`${bold(fg(COLORS.primary)('Sprint: '))}${fg(COLORS.text)(sprintName)}`;
-        infoTaskText.content = t`${bold(fg(COLORS.primary)('Task:   '))}${fg(COLORS.text)(activeTaskId || 'Initializing...')}`;
+        infoTaskText.content = t`${bold(fg(COLORS.primary)('Task:   '))}${fg(COLORS.text)(ctrl.activeTaskId || 'Initializing...')}`;
 
-        const mm = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
-        const ss = (elapsedSeconds % 60).toString().padStart(2, '0');
+        const mm = Math.floor(ctrl.elapsedSeconds / 60).toString().padStart(2, '0');
+        const ss = (ctrl.elapsedSeconds % 60).toString().padStart(2, '0');
         infoTimerText.content = t`${bold(fg(COLORS.primary)('Elapsed: '))}${fg(COLORS.warning)(`${mm}:${ss}`)}`;
 
-        const progress = generateProgressBar(completed, total, 30);
-        infoProgressText.content = t`${bold(fg(COLORS.primary)('Progress: '))}${fg(completed === total && total > 0 ? COLORS.success : COLORS.primary)(progress)} (${completed}/${total})`;
+        const progress = generateProgressBar(completedCount, totalCount, 30);
+        infoProgressText.content = t`${bold(fg(COLORS.primary)('Progress: '))}${fg(completedCount === totalCount && totalCount > 0 ? COLORS.success : COLORS.primary)(progress)} (${completedCount}/${totalCount})`;
       } else {
-        // Not running — clear or collapse the header panel
         infoSprintText.content = '';
         infoTaskText.content = '';
         infoTimerText.content = '';
@@ -784,259 +601,123 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
     }
 
     // Footer hotkey hints — tab-context-aware
-    if (activeBlocker) {
-      // Already set above in the blocker block
-    } else if (activeTab === 'sprints') {
-      if (isSprintsView) {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[→] Select'))}`;
-      } else if (isTasksView && !isRunning) {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}`;
-      } else if (isRunning) {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.error)('[X] Stop'))}`;
-      }
-    } else if (activeTab === 'activity') {
-      if (isRunning) {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${bold(fg(COLORS.error)('[X] Stop'))}`;
-      } else {
-        hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${dim('[R]efresh')}`;
-      }
-    }
-  };
-
-  // --- Manifest Polling ---
-  /** Build a snapshot map of task ID → status for efficient comparison */
-  const buildStatusSnapshot = (m: Manifest): Map<string, Task['status']> => {
-    const snapshot = new Map<string, Task['status']>();
-    m.tasks.forEach(task => snapshot.set(task.id, task.status));
-    return snapshot;
-  };
-
-  /** Track the previous status snapshot separately from the manifest object */
-  let previousStatusSnapshot: Map<string, Task['status']> | null = null;
-
-  const loadManifest = () => {
-    // Skip polling when not viewing tasks and no sprint is running
-    if (viewMode === 'sprints' && !runner.getIsRunning()) return;
-
-    const p = path.resolve(currentSprintDir, 'manifest.json');
-    try {
-      if (fs.existsSync(p)) {
-        const m: Manifest = JSON.parse(fs.readFileSync(p, 'utf8'));
-        const newSnapshot = buildStatusSnapshot(m);
-
-        // Only compare and log when we have a previous snapshot for the same sprint
-        let hasChanges = false;
-
-        if (previousManifest && previousManifest.id === m.id && previousStatusSnapshot) {
-          // Compare by task ID, not array index
-          for (const [taskId, newStatus] of newSnapshot) {
-            const prevStatus = previousStatusSnapshot.get(taskId);
-            if (prevStatus !== undefined && prevStatus !== newStatus) {
-              hasChanges = true;
-              addLog(`${STATUS_ICONS[newStatus]} ${taskId}: ${prevStatus} → ${newStatus}`,
-                newStatus === 'completed' ? 'success' : newStatus === 'blocked' ? 'error' : newStatus === 'active' ? 'warning' : 'info');
-            }
-          }
-        } else if (!previousManifest || previousManifest.id !== m.id) {
-          // First load or sprint switch — treat as a change to trigger initial render
-          hasChanges = true;
+    if (!ctrl.activeBlocker) {
+      if (activeTab === 'sprints') {
+        if (isSprintsView) {
+          hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[→] Select'))}`;
+        } else if (isTasksView && !isRunning) {
+          hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}`;
+        } else if (isRunning) {
+          hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.error)('[X] Stop'))}`;
         }
-
-        manifest = m;
-        previousManifest = m;
-        previousStatusSnapshot = newSnapshot;
-
-        // Only re-render when there are actual changes
-        if (hasChanges) updateDisplay();
+      } else if (activeTab === 'activity') {
+        if (isRunning) {
+          hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${bold(fg(COLORS.error)('[X] Stop'))}`;
+        } else {
+          hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Sprints'))}  ${dim('[R]efresh')}`;
+        }
       }
-    } catch { /* ignore parse errors */ }
+    }
   };
 
-  const poll = setInterval(loadManifest, 1000);
-  loadManifest();
+  // ─── Controller Event Subscriptions ────────────────────────────────────────
 
-  // Always render initial display (loadManifest skips when in sprints view)
-  updateDisplay();
+  ctrl.on('state-changed', () => {
+    updateDisplay();
+  });
 
-  setInterval(() => {
-    if (sprintStartTime) {
-      elapsedSeconds = Math.floor((Date.now() - sprintStartTime) / 1000);
-      updateDisplay();
-    }
-  }, 1000);
+  ctrl.on('log-added', () => {
+    if (!ctrl.activeBlocker) updateActivityLog();
+  });
 
-  addLog('Dashboard initialized', 'info');
+  ctrl.on('tab-changed', (tab: 'sprints' | 'activity') => {
+    tabBar.setSelectedIndex(tab === 'sprints' ? 0 : 1);
+    switchPanel(tab);
+  });
 
-  // --- Input ---
+  ctrl.on('quit-confirmed', () => {
+    ctrl.destroy();
+    renderer.destroy();
+    process.exit(0);
+  });
+
+  // ─── Initialize Controller (wires events, starts polling) ──────────────────
+  ctrl.init();
+  updateDisplay(); // initial render
+
+  // ─── Input ─────────────────────────────────────────────────────────────────
   renderer.keyInput.on('keypress', (key: { name: string, ctrl: boolean, sequence: string }) => {
     // Ctrl+C: instant quit regardless of mode
     if (key.ctrl && key.name === 'c') {
-      stopSpinner();
-      clearInterval(poll);
+      ctrl.destroy();
       renderer.destroy();
       process.exit(0);
     }
 
     // Q to quit — double-press required, only when not typing in blocker input
-    if (key.name === 'q' && !activeBlocker) {
-      if (quitPending) {
-        // Second Q press — actually quit
-        cancelQuit();
-        stopSpinner();
-        clearInterval(poll);
-        renderer.destroy();
-        process.exit(0);
-      } else {
-        // First Q press — show confirmation in status bar
-        quitPending = true;
-        statusText.content = t`${fg(COLORS.warning)('Press Q again to quit')}`;
-        quitTimer = setTimeout(() => {
-          cancelQuit();
-        }, 3000);
-        return;
-      }
+    if (key.name === 'q' && !ctrl.activeBlocker) {
+      if (ctrl.handleQuitPress()) return; // quit-confirmed event handles exit
+
+      // First press — show confirmation in status bar
+      statusText.content = t`${fg(COLORS.warning)('Press Q again to quit')}`;
+      return;
     }
 
     // Any non-Q key cancels the quit confirmation
-    if (quitPending && key.name !== 'q') {
-      cancelQuit();
+    if (ctrl.quitPending && key.name !== 'q') {
+      ctrl.cancelQuit();
     }
 
     const isEnter = key.name === 'enter' || key.name === 'return';
 
-    if (activeBlocker) {
+    if (ctrl.activeBlocker) {
       if (isEnter) {
-        if (chatInput.trim()) {
-          const response = chatInput.trim();
-          const taskId = activeBlocker.task || '';
-          const isDone = response.toLowerCase() === 'done' || response.toLowerCase() === 'done.';
-          
-          // Append the user's response to the task file (unless "Done")
-          if (!isDone && manifest && taskId) {
-            const task = manifest.tasks.find(t => t.id === taskId);
-            if (task) {
-              const taskFilePath = path.resolve(currentSprintDir, task.file);
-              try {
-                const existing = fs.readFileSync(taskFilePath, 'utf8');
-                const appendix = `\n\n## Supplemental Info\n${response}\n`;
-                fs.writeFileSync(taskFilePath, existing + appendix, 'utf8');
-                addLog(`📝 Appended guidance to ${task.file}`, 'success');
-              } catch (err) {
-                addLog(`❌ Failed to update task file: ${(err as Error).message}`, 'error');
-              }
-            }
-          }
-          
-          // Clear blocker state and unpause bridge
-          activeBlocker = null;
-          chatInput = '';
-          bridge.resume();
-          
-          if (isDone) {
-            addLog(`✅ Action confirmed. Restarting sprint...`, 'success');
-          } else {
-            addLog(`✅ Guidance saved. Restarting sprint...`, 'success');
-          }
-          updateDisplay();
-          
-          // Restart the sprint
-          setTimeout(() => {
-            if (!runner.getIsRunning()) {
-              runner.run().catch(err => addLog(`Restart Error: ${err.message}`, 'error'));
-            }
-          }, 500);
-        }
+        ctrl.handleBlockerSubmit();
       } else if (key.name === 'escape') {
-        activeBlocker = null;
-        chatInput = '';
-        bridge.resume();
-        if (runner.getIsRunning()) runner.stop();
-        addLog('Help dismissed, sprint stopped.', 'warning');
-        updateDisplay();
+        ctrl.handleBlockerDismiss();
       } else if (key.name === 'backspace') {
-        chatInput = chatInput.slice(0, -1);
-        updateDisplay();
+        ctrl.handleBlockerBackspace();
       } else if (key.sequence && key.sequence.length === 1 && key.sequence.charCodeAt(0) >= 32 && key.sequence.charCodeAt(0) <= 126) {
-        chatInput += key.sequence;
-        updateDisplay();
+        ctrl.handleBlockerChar(key.sequence);
       }
     } else {
       // Tab switching via Tab key
       if (key.name === 'tab') {
-        const newTab = activeTab === 'sprints' ? 'activity' : 'sprints';
-        activeTab = newTab;
-        tabBar.setSelectedIndex(newTab === 'sprints' ? 0 : 1);
-        switchPanel(newTab);
+        const newTab = ctrl.activeTab === 'sprints' ? 'activity' : 'sprints';
+        ctrl.switchTab(newTab);
         return;
       }
 
-      // Navigation keys — only active on SPRINTS tab
+      // Navigation keys
       if (key.name === 'up') {
-        if (activeTab === 'sprints' && viewMode === 'sprints') {
-          selectedIndex = Math.max(0, selectedIndex - 1);
-          updateDisplay();
-        }
+        ctrl.navigateUp();
       } else if (key.name === 'down') {
-        if (activeTab === 'sprints' && viewMode === 'sprints') {
-          selectedIndex = Math.min(allSprints.length - 1, selectedIndex + 1);
-          updateDisplay();
-        }
+        ctrl.navigateDown();
       } else if (key.name === 'right') {
-        if (activeTab === 'sprints' && viewMode === 'sprints' && allSprints[selectedIndex]) {
-          const selected = allSprints[selectedIndex];
-          currentSprintDir = selected.path;
-          viewMode = 'tasks';
-          manifest = null;
-          previousManifest = null;
-          previousStatusSnapshot = null;
-          loadManifest();
-        }
+        ctrl.drillIntoSprint();
       } else if (key.name === 'left' || key.sequence === '\u001b[D') {
-        if (activeTab === 'sprints' && viewMode === 'tasks') {
-          viewMode = 'sprints';
-          manifest = null;
-          previousManifest = null;
-          previousStatusSnapshot = null;
-          updateDisplay();
-        }
+        ctrl.drillBack();
       }
 
-      // Global actions (work regardless of active tab)
+      // Global actions
       if (key.name === 'r') {
-        addLog('Manual refresh', 'info');
-        loadManifest();
+        ctrl.refresh();
       }
       if (key.name === 's') {
-        if (viewMode === 'tasks' && canSprintStart()) {
-          // Clear activity log for fresh user-initiated run
-          logs = [];
-          updateActivityLog();
-
-          runner.setSprintDir(currentSprintDir);
-          addLog(`Starting sprint: ${manifest?.name || currentSprintDir}`, 'warning');
-          runner.run().catch(err => {
-            stopSpinner();
-            addLog(`Runner Error: ${err.message}`, 'error');
-          });
-        } else if (runner.getIsRunning()) {
-          const runningDir = runner.getSprintDir();
-          const runningSprint = allSprints.find(s => path.resolve(s.path) === path.resolve(runningDir));
-          addLog(`Already running: ${runningSprint?.name || 'Another sprint'}`, 'warning');
-        }
+        ctrl.startSprint();
       }
-      if (key.name === 'x' && runner.getIsRunning()) {
-        addLog('Stopping sprint...', 'error');
-        runner.stop();
+      if (key.name === 'x') {
+        ctrl.stopSprint();
       }
     }
   });
 
-  // --- Start ---
+  // ─── Start ─────────────────────────────────────────────────────────────────
   try {
     await renderer.start();
     await new Promise(() => {});
   } catch (e) {
-    clearInterval(poll);
+    ctrl.destroy();
     console.error(`TUI Error: ${(e as Error).message}`);
   }
 }
