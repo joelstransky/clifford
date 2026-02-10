@@ -45,4 +45,64 @@
    ```bash
    bun test
    ```
-   Expect: 107 pass, 1 fail (pre-existing `discovery.test.ts` issue).
+    Expect: 107 pass, 1 fail (pre-existing `discovery.test.ts` issue).
+
+## Task 2: Template `opencode.json` into Target Projects
+
+### What Changed
+- **Refactored scaffolder path resolution**: Extracted `resolveCliffordRoot()` and `resolveTemplateDir()` helpers from the inline template-finding logic in `scaffold()`. This eliminates duplicated path-resolution code and makes the root discoverable for other functions.
+- **Added `ensureOpenCodeConfig(projectRoot)`**: Resolves the Clifford MCP server entry point (`dist/mcp-entry.js` in production, `src/mcp-entry.ts` in dev) and writes/merges a `mcpServers.clifford` entry into `opencode.json`. Existing keys in `opencode.json` are preserved (deep-merge). Handles both fresh creation and idempotent update.
+- **Added `copyAgentTemplates(projectRoot, templateDir)`**: Copies `.opencode/agent/` persona templates (Developer.md, Architect.md) into the target project. Only copies files that do NOT already exist at the destination, preserving user customizations.
+- **Wired both into `scaffold()`**: After the existing scaffolding steps (`.clifford/`, `.gitignore`), the main function now calls `ensureOpenCodeConfig()` and `copyAgentTemplates()`.
+- **Typed interfaces**: Added `OpenCodeConfig` and `McpServerEntry` interfaces for type-safe JSON manipulation (zero `any`).
+
+### Verification Steps
+
+1. **Review the scaffolder source**:
+   ```bash
+   cat src/utils/scaffolder.ts
+   ```
+   Expect: Functions `resolveCliffordRoot()`, `resolveTemplateDir()`, `resolveMcpEntry()`, `ensureOpenCodeConfig()`, and `copyAgentTemplates()` are present with full TypeScript types.
+
+2. **Run in a temp directory to verify `opencode.json` creation**:
+   ```bash
+   TMPDIR=$(mktemp -d)
+   bun run src/index.ts init "$TMPDIR" 2>&1 || true
+   cat "$TMPDIR/opencode.json"
+   ```
+   Expect: JSON file containing `mcpServers.clifford` with `command` (either `"node"` or `"bun"`) and `args` pointing to an absolute path ending in `mcp-entry.js` or `mcp-entry.ts`.
+
+3. **Verify idempotent update (no clobber)**:
+   ```bash
+   # Add a custom key to opencode.json first
+   echo '{"$schema": "test", "mcpServers": {"other": {"command": "echo", "args": ["hi"]}}}' > "$TMPDIR/opencode.json"
+   bun run src/index.ts init "$TMPDIR" 2>&1 || true
+   cat "$TMPDIR/opencode.json"
+   ```
+   Expect: Both `mcpServers.other` and `mcpServers.clifford` are present. The `$schema` key is preserved.
+
+4. **Verify agent template copy (non-destructive)**:
+   ```bash
+   ls "$TMPDIR/.opencode/agent/"
+   ```
+   Expect: `Developer.md` and `Architect.md` are present.
+
+   ```bash
+   # Modify one, re-run, verify it wasn't overwritten
+   echo "CUSTOM" > "$TMPDIR/.opencode/agent/Developer.md"
+   bun run src/index.ts init "$TMPDIR" 2>&1 || true
+   head -1 "$TMPDIR/.opencode/agent/Developer.md"
+   ```
+   Expect: Output is `CUSTOM` (the file was NOT overwritten).
+
+5. **Entry point file exists**:
+   ```bash
+   ls src/mcp-entry.ts
+   ```
+   Expect: File exists (dev mode target). In production after `bun run build`, `dist/mcp-entry.js` would exist instead.
+
+6. **Tests still pass** (no regressions):
+   ```bash
+   bun test
+   ```
+   Expect: 107 pass, 1 fail (same pre-existing `discovery.test.ts` issue — unchanged).
