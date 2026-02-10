@@ -205,4 +205,76 @@
    ```bash
    grep -A5 "command('resolve" src/index.ts
    ```
-   Expect: Uses `writeResponseFile`/`readBlockFile` from `mcp-ipc.js` instead of HTTP.
+    Expect: Uses `writeResponseFile`/`readBlockFile` from `mcp-ipc.js` instead of HTTP.
+
+## Task 4: Wire MCP Server into DashboardController & TUI
+
+### What Changed
+
+This task was largely implemented as part of Task 3. The remaining work was:
+
+- **Improved log messages in `handleBlockerSubmit()`**: Changed from "Restarting sprint..." to "Response sent to agent." to accurately reflect the MCP-based flow where the agent is typically still alive and continues via the MCP tool response.
+- **Clarified restart comment and log**: The fallback restart (when the agent already exited before the human responded) now logs "Agent exited before response — restarting sprint with guidance..." to make the behavior transparent.
+
+### Verification of Task Requirements
+
+All requirements specified in the task description were verified to already be in place:
+
+1. **Constructor** — `DashboardController(sprintDir, runner)` with no `CommsBridge` parameter ✅
+2. **No `wireBridgeEvents()` method** — Fully removed, `wireRunnerEvents()` handles `'halt'` events directly ✅
+3. **No `bridge.on('resolve')` handling** — Removed; response file unblocks the MCP server ✅
+4. **`handleBlockerSubmit()`** — Writes `mcp-response.json` via `writeResponseFile()`, clears blocker state, emits `'blocker-cleared'` ✅
+5. **`handleBlockerDismiss()`** — Writes dismissal response via `writeResponseFile()`, stops runner, clears state ✅
+6. **No CommsBridge references** in `DashboardController.ts`, `Dashboard.ts`, or `index.ts` ✅
+7. **`launchDashboard(sprintDir, runner)`** — No bridge parameter ✅
+8. **`index.ts`** — No CommsBridge instantiation ✅
+
+### Verification Steps
+
+1. **Build succeeds**:
+   ```bash
+   bun run build
+   ```
+   Expect: Both `dist/index.js` and `dist/mcp-entry.js` produced with no errors.
+
+2. **No CommsBridge/bridge references in TUI code**:
+   ```bash
+   grep -r "CommsBridge\|bridge" src/tui/
+   ```
+   Expect: No output (exit code 1).
+
+3. **No CommsBridge/bridge references in index.ts**:
+   ```bash
+   grep -r "CommsBridge\|bridge" src/index.ts
+   ```
+   Expect: No output (exit code 1).
+
+4. **Halt handler in wireRunnerEvents() has all required behavior**:
+   ```bash
+   grep -A8 "'halt'" src/tui/DashboardController.ts
+   ```
+   Expect: Handler sets `activeBlocker`, clears `chatInput`, adds error log, switches tab, emits `'blocker-active'`.
+
+5. **handleBlockerSubmit writes MCP response file**:
+   ```bash
+   grep -A3 "writeResponseFile" src/tui/DashboardController.ts
+   ```
+   Expect: `writeResponseFile(projectRoot, response)` is called.
+
+6. **handleBlockerDismiss writes dismissal response**:
+   ```bash
+   grep -B2 -A3 "DISMISSED" src/tui/DashboardController.ts
+   ```
+   Expect: `writeResponseFile(projectRoot, '[DISMISSED]...')` is called, then runner is stopped.
+
+7. **DashboardController tests pass**:
+   ```bash
+   bun test src/tui/DashboardController.test.ts
+   ```
+   Expect: 50 tests pass.
+
+8. **Full test suite — no regressions**:
+   ```bash
+   bun test
+   ```
+   Expect: 113 pass, 1 fail (pre-existing `discovery.test.ts` issue).

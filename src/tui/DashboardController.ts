@@ -591,18 +591,18 @@ export class DashboardController extends EventEmitter {
     this.chatInput = '';
 
     if (isDone) {
-      this.addLog('✅ Action confirmed. Restarting sprint...', 'success');
+      this.addLog('✅ Action confirmed. Response sent to agent.', 'success');
     } else {
-      this.addLog('✅ Guidance saved. Restarting sprint...', 'success');
+      this.addLog('✅ Guidance saved. Response sent to agent.', 'success');
     }
 
     this.emit('blocker-cleared');
     this.emitChange();
 
-    // Restart the sprint if the agent already exited
+    // If the agent already exited before the human responded, restart the sprint
     setTimeout(() => {
       if (!this.runner.getIsRunning()) {
-        this.addLog('🧠 Restarting sprint with guidance...', 'warning');
+        this.addLog('🧠 Agent exited before response — restarting sprint with guidance...', 'warning');
         this.runner.run().catch(err => this.addLog(`Restart Error: ${err.message}`, 'error'));
       }
     }, 500);
