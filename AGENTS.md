@@ -73,10 +73,16 @@ Welcome, Clifford Agent. This document defines the standards, workflows, and con
 
 ### Task Lifecycle
 1. **Selection**: Read `manifest.json` in the active sprint directory. Find the first `pending` task.
-2. **Execution**: Mark task `active`. Implement logic precisely.
-3. **Verification**: Run `npm test` and appropriate sandbox verification.
-4. **Documentation**: Update `uat.md` with manual verification steps for the Human.
-5. **Completion**: Mark task `completed` and create a local commit.
+2. **Activation**: Mark task `active` in `manifest.json` before beginning work.
+3. **Execution**: Implement logic precisely.
+4. **Verification**: Run `npm test` and appropriate sandbox verification.
+5. **Documentation**: Update `uat.md` with manual verification steps for the Human.
+6. **Completion**: Mark task `completed` in `manifest.json` and create a local commit.
+
+### Mandatory Exit Protocol
+- **You MUST update the task status to `completed` in `manifest.json` immediately after finishing a task.** The outer loop depends on manifest state.
+- **You MUST document your work and verification in `uat.md`.** If it does not exist, create it.
+- **NEVER exit without updating the manifest if work was performed.** Even on partial failure, update the manifest to reflect actual state.
 
 ### Communication Bridge (The "Phone Home" Protocol)
 If you hit a logical blocker or detect an interactive prompt (e.g., `read -p`):

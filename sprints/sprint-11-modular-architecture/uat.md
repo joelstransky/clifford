@@ -109,4 +109,40 @@ Extracted all inline UI widget construction from `Dashboard.ts` into a dedicated
 9. **Code Inspection**:
    - Open `src/tui/components.ts`: Confirm all 6 factory functions exist with proper TypeScript interfaces.
    - Open `src/tui/Dashboard.ts`: Confirm it imports all factories from `./components.js` and contains NO inline `new BoxRenderable(...)` or `new TextRenderable(...)` calls (except the root container and main panel which are structural).
-   - Verify `COLORS`, `STATUS_COLORS`, `generateProgressBar`, `clearTracked`, and `renderLogEntries` are all defined in `components.ts`, not `Dashboard.ts`.
+    - Verify `COLORS`, `STATUS_COLORS`, `generateProgressBar`, `clearTracked`, and `renderLogEntries` are all defined in `components.ts`, not `Dashboard.ts`.
+
+## Task 04: Instruction Reinforcement
+
+### Description
+Bolstered the developer agent prompt files with explicit, prominent instructions ensuring the agent always updates `manifest.json` and `uat.md` before exiting. Added a dedicated "Mandatory Exit Protocol" section to all three instruction surfaces: the Clifford template prompt (`templates/.clifford/prompt.md`), the BigRed development prompt (`.bigred/prompt.md`), and the project-level agent guidelines (`AGENTS.md`).
+
+### What Changed
+- **Modified**: `templates/.clifford/prompt.md` — Completely restructured. Added:
+  - Step 3 "Mark Active" in the Instructions list.
+  - Steps 6-9 covering verification, commit, UAT documentation, and manifest completion.
+  - A new **"Mandatory Exit Protocol"** section with three bolded, imperative rules about manifest updates, `uat.md` documentation, and never exiting without state updates.
+  - Updated "If You Get Stuck" section to include explicitly setting task status to `blocked`.
+- **Modified**: `.bigred/prompt.md` — Restructured to match the Clifford template. Added:
+  - Step 3 "Mark Active" in the Instructions list.
+  - Steps 7-8 covering UAT documentation and manifest updates.
+  - The same **"Mandatory Exit Protocol"** section with the three imperative rules.
+- **Modified**: `AGENTS.md` — Enhanced the "Task Lifecycle" section:
+  - Added explicit step 2 "Activation" for marking tasks active before beginning.
+  - Added a new **"Mandatory Exit Protocol"** subsection under Agent Workflow Guidelines with the three bolded rules.
+
+### Verification Steps
+1. **Open `templates/.clifford/prompt.md`**: Confirm it contains:
+   - A numbered Instructions list with 9 steps (including Mark Active, Verify, Commit, Document, Update State).
+   - A "Mandatory Exit Protocol" section with three bolded imperatives starting with "You MUST..." / "NEVER...".
+   - The "If You Get Stuck" section includes setting status to `blocked`.
+2. **Open `.bigred/prompt.md`**: Confirm it contains:
+   - An Instructions list with 8 numbered steps including "Mark Active" (step 3) and "Document" (step 7).
+   - The same "Mandatory Exit Protocol" section with identical three imperative rules.
+3. **Open `AGENTS.md`**: Confirm:
+   - The "Task Lifecycle" section has 6 steps (including Activation at step 2).
+   - A new "Mandatory Exit Protocol" subsection exists directly after "Task Lifecycle" with the three bolded rules.
+4. **Consistency Check**: Verify the three critical phrases appear in ALL three files:
+   - "You MUST update the task status to `completed` in `manifest.json` immediately after finishing a task."
+   - "You MUST document your work and verification in `uat.md`."
+   - "NEVER exit without updating the manifest if work was performed."
+5. **Scaffold Test**: Run `npx clifford init` in a test directory and verify the scaffolded `.clifford/prompt.md` contains the Mandatory Exit Protocol section.
