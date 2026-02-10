@@ -146,3 +146,37 @@ Bolstered the developer agent prompt files with explicit, prominent instructions
    - "You MUST document your work and verification in `uat.md`."
    - "NEVER exit without updating the manifest if work was performed."
 5. **Scaffold Test**: Run `npx clifford init` in a test directory and verify the scaffolded `.clifford/prompt.md` contains the Mandatory Exit Protocol section.
+
+## Task 05: Core Loop Verification
+
+### Description
+Created automated tests for `DashboardController` covering state transitions, log buffer separation, manifest polling with change detection, and computed state helpers. The test file `src/tui/DashboardController.test.ts` contains 53 test cases across 10 `describe` blocks using mock objects for `CommsBridge` and `SprintRunner` (dependency-injected EventEmitter mocks, no module-level mocking).
+
+### What Changed
+- **New file**: `src/tui/DashboardController.test.ts` — 53 tests organized into:
+  - **State transitions** (7 tests): Runner `start`/`stop`/`task-start` events correctly update `sprintStartTime`, `activeTaskId`, spinner state, and active tab.
+  - **Buffer separation** (7 tests): Runner `log` events route to `activityLogs`, runner `output` events route to `processLogs`, multi-line splitting, stderr/stdout type mapping, MAX_LOGS cap enforcement.
+  - **Manifest polling** (7 tests): `loadManifest()` loads and parses manifest JSON, skips polling when appropriate, detects task status transitions with correct log severity, handles missing or malformed files gracefully.
+  - **Computed state** (8 tests): `completedCount`, `totalCount`, `isBlocked`, `isRunning`, `canSprintStart()` behavior under various conditions.
+  - **Bridge events** (4 tests): Blocker activation, `blocker-active` emission, resolution with `blocker-cleared` emission, error-type logging.
+  - **Halt event** (1 test): Runner `halt` stops spinner, sets blocker context on bridge, activates blocker UI.
+  - **Navigation** (3 tests): Tab switching with dedup, up/down bounds checking, tab-guard for non-sprints tab.
+  - **Quit confirmation** (4 tests): First/second Q press behavior, blocker-blocks-quit, cancel quit.
+  - **Blocker input** (5 tests): Character accumulation, no-blocker guard, backspace, empty-submit guard, dismiss with stop.
+  - **Spinner & statics** (4 tests): Frame lookup, double-start prevention, STATUS_ICONS, STATUS_LABELS.
+  - **Lifecycle** (2 tests): Init log, destroy cleanup.
+
+### Verification Steps
+1. **Run the new tests**: Execute `bun test src/tui/DashboardController.test.ts` and confirm all 53 tests pass with 0 failures.
+2. **Run the full suite**: Execute `npm test` and confirm no regressions — the only pre-existing failure is in `discovery.test.ts` (unrelated to this task).
+3. **Code Inspection**:
+   - Open `src/tui/DashboardController.test.ts` and verify:
+     - Imports use `bun:test` (matching project convention).
+     - Mock factories create `EventEmitter`-based objects with the same method signatures as `CommsBridge` and `SprintRunner`.
+     - No filesystem access occurs — `fs.existsSync` and `fs.readFileSync` are spied on.
+     - `SprintRunner.discoverSprints` is spied to avoid real filesystem discovery.
+   - Verify test coverage touches all four areas from the task spec:
+     - ✅ State transitions (pending → active via runner events)
+     - ✅ Buffer separation (log vs output channels)
+     - ✅ Polling (mock filesystem for manifest change detection)
+     - ✅ Computed state helpers
