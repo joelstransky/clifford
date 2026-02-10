@@ -1,0 +1,12 @@
+{
+  "id": "sprint-12",
+  "name": "MCP Communication Layer",
+  "status": "active",
+  "tasks": [
+    { "id": "task-1", "file": "tasks/01-mcp-server-skeleton.md", "status": "pending" },
+    { "id": "task-2", "file": "tasks/02-template-opencode-json.md", "status": "pending" },
+    { "id": "task-3", "file": "tasks/03-wire-mcp-into-runner.md", "status": "pending" },
+    { "id": "task-4", "file": "tasks/04-wire-mcp-into-controller-tui.md", "status": "pending" },
+    { "id": "task-5", "file": "tasks/05-templates-cleanup-removal.md", "status": "pending" }
+  ]
+}
