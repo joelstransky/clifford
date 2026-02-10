@@ -4,6 +4,157 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// ---------------------------------------------------------------------------
+// Path resolution helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves the Clifford package root directory.
+ *
+ * In dev mode `__dirname` is `src/utils/`, so root is `../../`.
+ * In dist mode (bundled) `__dirname` is `dist/`, so root is `../`.
+ * Falls back to `process.cwd()` when neither contains `templates/`.
+ */
+async function resolveCliffordRoot(): Promise<string> {
+  // Dev: src/utils -> ../../
+  const devRoot = path.resolve(__dirname, '../..');
+  if (await fs.pathExists(path.join(devRoot, 'templates'))) {
+    return devRoot;
+  }
+
+  // Dist: dist/ -> ../
+  const distRoot = path.resolve(__dirname, '..');
+  if (await fs.pathExists(path.join(distRoot, 'templates'))) {
+    return distRoot;
+  }
+
+  // Last resort: CWD
+  if (await fs.pathExists(path.join(process.cwd(), 'templates'))) {
+    return process.cwd();
+  }
+
+  throw new Error(
+    `Clifford package root not found. Looked in: ${devRoot}, ${distRoot}, ${process.cwd()}`
+  );
+}
+
+/**
+ * Returns the absolute path to the `templates/` directory.
+ */
+async function resolveTemplateDir(): Promise<string> {
+  const root = await resolveCliffordRoot();
+  return path.join(root, 'templates');
+}
+
+// ---------------------------------------------------------------------------
+// OpenCode config (opencode.json) management
+// ---------------------------------------------------------------------------
+
+interface OpenCodeConfig {
+  mcpServers?: Record<string, McpServerEntry>;
+  [key: string]: unknown;
+}
+
+interface McpServerEntry {
+  command: string;
+  args: string[];
+  [key: string]: unknown;
+}
+
+/**
+ * Resolves the MCP entry point path and the command to run it.
+ *
+ * - Production: `<cliffordRoot>/dist/mcp-entry.js` → `node`
+ * - Development: `<cliffordRoot>/src/mcp-entry.ts` → `bun`
+ */
+async function resolveMcpEntry(cliffordRoot: string): Promise<{ command: string; entryPath: string }> {
+  const distEntry = path.join(cliffordRoot, 'dist', 'mcp-entry.js');
+
+  if (await fs.pathExists(distEntry)) {
+    return { command: 'node', entryPath: distEntry };
+  }
+
+  // Dev mode — use the TypeScript source directly via bun
+  const srcEntry = path.join(cliffordRoot, 'src', 'mcp-entry.ts');
+  return { command: 'bun', entryPath: srcEntry };
+}
+
+/**
+ * Ensures `opencode.json` at `projectRoot` contains a `mcpServers.clifford` entry
+ * pointing to the Clifford MCP server entry point.
+ *
+ * - If the file already exists, existing keys are preserved (deep-merge).
+ * - If `mcpServers.clifford` already exists, it is updated in-place.
+ */
+export async function ensureOpenCodeConfig(projectRoot: string): Promise<void> {
+  const cliffordRoot = await resolveCliffordRoot();
+  const { command, entryPath } = await resolveMcpEntry(cliffordRoot);
+
+  const configPath = path.join(projectRoot, 'opencode.json');
+
+  let config: OpenCodeConfig = {};
+
+  if (await fs.pathExists(configPath)) {
+    try {
+      config = (await fs.readJson(configPath)) as OpenCodeConfig;
+    } catch {
+      // If the file is malformed, start fresh but warn
+      console.error('⚠️  Existing opencode.json was not valid JSON — starting fresh.');
+    }
+  }
+
+  // Deep-merge: preserve other mcpServers entries
+  if (!config.mcpServers) {
+    config.mcpServers = {};
+  }
+
+  config.mcpServers['clifford'] = {
+    command,
+    args: [entryPath],
+  };
+
+  await fs.writeJson(configPath, config, { spaces: 2 });
+}
+
+// ---------------------------------------------------------------------------
+// Agent template scaffolding
+// ---------------------------------------------------------------------------
+
+/**
+ * Copies `.opencode/agent/` persona templates into the target project.
+ *
+ * Only copies files that do NOT already exist at the destination — the user
+ * may have customised them.
+ */
+export async function copyAgentTemplates(
+  projectRoot: string,
+  templateDir: string,
+): Promise<void> {
+  const agentTemplateSrc = path.join(templateDir, '.opencode', 'agent');
+
+  if (!(await fs.pathExists(agentTemplateSrc))) {
+    return; // No agent templates shipped — nothing to do
+  }
+
+  const agentDestDir = path.join(projectRoot, '.opencode', 'agent');
+  await fs.ensureDir(agentDestDir);
+
+  const files = await fs.readdir(agentTemplateSrc);
+
+  for (const file of files) {
+    const destPath = path.join(agentDestDir, file);
+
+    // Only copy if the destination file doesn't already exist
+    if (!(await fs.pathExists(destPath))) {
+      await fs.copy(path.join(agentTemplateSrc, file), destPath);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main scaffold function
+// ---------------------------------------------------------------------------
+
 /**
  * Scaffolds the Clifford directory structure and files.
  */
@@ -13,24 +164,8 @@ export async function scaffold(targetDir: string, options: {
   aiTool: string;
   extraGates: string[];
 }): Promise<void> {
-  // When bundled, __dirname is the dist folder. 
-  // In dev, it is src/utils.
-  // We want to find the 'templates' folder in the project root.
-  let templateDir = path.join(__dirname, '../../templates');
-  
-  if (!await fs.pathExists(templateDir)) {
-    // Fallback for bundled version where __dirname is 'dist'
-    templateDir = path.join(__dirname, '../templates');
-  }
-  
-  if (!await fs.pathExists(templateDir)) {
-    // Last resort: check current working directory (might be running from source root)
-    templateDir = path.join(process.cwd(), 'templates');
-  }
+  const templateDir = await resolveTemplateDir();
 
-  if (!await fs.pathExists(templateDir)) {
-     throw new Error(`Templates directory not found. Looked in: ${path.join(__dirname, '../../templates')}, ${path.join(__dirname, '../templates')}, ${path.join(process.cwd(), 'templates')}`);
-  }
   await fs.ensureDir(path.join(targetDir, '.clifford'));
   await fs.ensureDir(path.join(targetDir, '.clifford/sprints'));
 
@@ -75,6 +210,12 @@ export async function scaffold(targetDir: string, options: {
   } else {
     await fs.writeFile(gitignorePath, gitignoreEntries.join('\n') + '\n');
   }
+
+  // Write opencode.json with Clifford MCP server config
+  await ensureOpenCodeConfig(targetDir);
+
+  // Copy .opencode/agent/ persona templates (non-destructive)
+  await copyAgentTemplates(targetDir, templateDir);
 
   // Configuration is now handled by the caller writing to clifford.json in root
   // We no longer write .clifford/config.json
