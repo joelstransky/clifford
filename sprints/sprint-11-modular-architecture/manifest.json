@@ -1,7 +1,7 @@
 {
   "id": "sprint-11",
   "name": "Modular Architecture & UI Layout",
-  "status": "active",
+  "status": "completed",
   "tasks": [
     { "id": "task-1", "file": "tasks/01-dashboard-controller.md", "status": "completed" },
     { "id": "task-2", "file": "tasks/02-triple-row-activity.md", "status": "completed" },
