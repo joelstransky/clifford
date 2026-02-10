@@ -2,10 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
-import { CommsBridge } from './bridge.js';
+import { ChildProcess } from 'child_process';
 import { discoverTools } from './discovery.js';
 import { getMemory, clearMemory } from './asm-storage.js';
 import { loadProjectConfig, loadGlobalConfig, resolveModel } from './config.js';
+import { readBlockFile, cleanupMcpFiles } from './mcp-ipc.js';
 
 export interface SprintManifest {
   id: string;
@@ -21,12 +22,13 @@ export interface SprintManifest {
 }
 
 export class SprintRunner extends EventEmitter {
-  private bridge: CommsBridge;
   private sprintDir: string;
   private isRunning: boolean = false;
   private currentTaskId: string | null = null;
   private quietMode: boolean = false;
   private status: string = 'Ready';
+  private projectRoot: string;
+  private activeChild: ChildProcess | null = null;
 
   private log(message: string, type: 'info' | 'warning' | 'error' = 'info') {
     this.emit('log', { message, type });
@@ -80,11 +82,11 @@ export class SprintRunner extends EventEmitter {
     return startDir;
   }
 
-  constructor(sprintDir: string, bridge?: CommsBridge, quietMode: boolean = false) {
+  constructor(sprintDir: string, quietMode: boolean = false) {
     super();
     this.sprintDir = sprintDir.replace(/\\/g, '/');
-    this.bridge = bridge || new CommsBridge();
     this.quietMode = quietMode;
+    this.projectRoot = SprintRunner.findProjectRoot(process.cwd());
   }
 
   public setQuietMode(quiet: boolean) {
@@ -116,8 +118,10 @@ export class SprintRunner extends EventEmitter {
     if (!this.isRunning) return;
     this.log('🛑 Stopping sprint...', 'warning');
     this.isRunning = false;
-    this.bridge.resume();
-    this.bridge.killActiveChild();
+    if (this.activeChild) {
+      this.activeChild.kill();
+      this.activeChild = null;
+    }
     this.emit('stop');
   }
 
@@ -134,7 +138,7 @@ export class SprintRunner extends EventEmitter {
       throw new Error(`Manifest not found at ${manifestPath}. Current working directory: ${process.cwd()}, sprintDir: ${this.sprintDir}`);
     }
 
-    const projectRoot = SprintRunner.findProjectRoot(path.dirname(manifestPath));
+    this.projectRoot = SprintRunner.findProjectRoot(path.dirname(manifestPath));
 
     this.syncSprintStates(manifestPath);
 
@@ -150,19 +154,14 @@ export class SprintRunner extends EventEmitter {
     }
 
     try {
-      await this.bridge.start();
+      // Clean up any stale MCP IPC files from previous runs
+      cleanupMcpFiles(this.projectRoot);
 
       this.status = 'Starting...';
       this.log(`🚀 Starting sprint in ${this.sprintDir}`);
       this.emit('start', { sprintDir: this.sprintDir });
 
       while (this.hasPendingTasks(manifestPath) && this.isRunning) {
-        if (this.bridge.checkPaused()) {
-          this.status = 'Needs Help';
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          continue;
-        }
-
         const manifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         const model = resolveModel(manifest, projectConfig, globalConfig) || 'opencode/kimi-k2.5-free';
         const nextTask = manifest.tasks.find(t => t.status === 'pending');
@@ -174,7 +173,7 @@ export class SprintRunner extends EventEmitter {
         this.emit('task-start', { taskId: nextTask.id, file: nextTask.file });
         this.log(`🔍 Next task: ${nextTask.id} (${nextTask.file})`);
         
-        const promptPath = path.join(projectRoot, '.clifford/prompt.md');
+        const promptPath = path.join(this.projectRoot, '.clifford/prompt.md');
         let promptContent = '';
         
         try {
@@ -201,9 +200,8 @@ Proceed with this information.
           this.log(`🧠 Injected human guidance for task ${nextTask.id}`);
         }
 
-        // Ensure we always have the context at the top
+        // Build prompt — no more CLIFFORD_BRIDGE_PORT, agent discovers request_help via MCP
         const finalPrompt = `CURRENT_SPRINT_DIR: ${this.sprintDir}
-CLIFFORD_BRIDGE_PORT: ${this.bridge.getPort()}
 
 ${humanGuidance}${promptContent}`;
 
@@ -220,7 +218,20 @@ ${humanGuidance}${promptContent}`;
             shell: false,
           });
 
-          this.bridge.setActiveChild(child);
+          this.activeChild = child;
+
+          // Poll for MCP block files during agent execution
+          const blockPollInterval = setInterval(() => {
+            const blockData = readBlockFile(this.projectRoot);
+            if (blockData) {
+              this.status = 'Needs Help';
+              this.emit('halt', {
+                task: blockData.task,
+                reason: blockData.reason,
+                question: blockData.question,
+              });
+            }
+          }, 1000);
 
           child.stdout?.on('data', (data) => {
             const output = data.toString();
@@ -237,16 +248,21 @@ ${humanGuidance}${promptContent}`;
           });
 
           child.on('close', (code) => {
-            this.bridge.setActiveChild(null);
+            clearInterval(blockPollInterval);
+            this.activeChild = null;
             this.log(`Agent process exited with code ${code}`, code === 0 ? 'info' : 'error');
             resolve(code ?? 1);
           });
 
           child.on('error', (err) => {
+            clearInterval(blockPollInterval);
             this.log(`❌ Error invoking agent: ${err.message}`, 'error');
             resolve(1);
           });
         });
+
+        // Clean up any stale MCP IPC files after agent exits
+        cleanupMcpFiles(this.projectRoot);
 
         // Check if progress was made (manifest updated by the agent)
         const updatedManifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -255,11 +271,6 @@ ${humanGuidance}${promptContent}`;
         if (taskInUpdated?.status === 'completed' || taskInUpdated?.status === 'pushed') {
           this.log(`🧹 Clearing memory for completed task: ${nextTask.id}`);
           clearMemory(nextTask.id);
-        }
-
-        if (this.bridge.checkPaused()) {
-          this.log('⏸️ Sprint loop paused due to blocker.', 'warning');
-          continue;
         }
 
         // Detect if we should stop the loop due to failure or lack of progress
@@ -279,15 +290,15 @@ ${humanGuidance}${promptContent}`;
       this.isRunning = false;
       this.currentTaskId = null;
       this.status = 'Ready';
+      this.activeChild = null;
+      // Final cleanup of MCP IPC files
+      cleanupMcpFiles(this.projectRoot);
       this.log('🏁 Sprint loop finished.');
       this.emit('stop');
-      this.bridge.stop();
     }
   }
 
   private checkForPrompts(output: string, taskId: string) {
-    if (this.bridge.checkPaused()) return;
-
     const promptPatterns = [
       /Permission required:/i,
       /Confirm\? \(y\/n\)/i,
@@ -302,12 +313,11 @@ ${humanGuidance}${promptContent}`;
     for (const pattern of promptPatterns) {
       if (pattern.test(output)) {
         this.status = 'Needs Help';
-        this.bridge.triggerBlock({
+        this.emit('halt', {
           task: taskId,
           reason: 'Interactive prompt detected',
-          question: output.trim()
-        }).catch(err => console.error('Error triggering block:', err));
-        
+          question: output.trim(),
+        });
         break;
       }
     }
@@ -353,7 +363,7 @@ ${humanGuidance}${promptContent}`;
       const mPath = path.join(sprintsBaseDir, dir, 'manifest.json');
       if (fs.existsSync(mPath)) {
         try {
-          let content = fs.readFileSync(mPath, 'utf8');
+          const content = fs.readFileSync(mPath, 'utf8');
           const m = JSON.parse(content);
           if (path.resolve(mPath) === path.resolve(targetManifestPath)) {
             // Force target to active if not already

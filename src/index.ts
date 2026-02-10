@@ -142,33 +142,18 @@ program
   .description('Resolve a blocker by sending a response to the active agent')
   .action(async (response) => {
     try {
-      const http = await import('http');
-      const postData = JSON.stringify({ answer: response });
-      
-      const req = http.request({
-        hostname: 'localhost',
-        port: 4096,
-        path: '/resolve',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData)
-        }
-      }, (res) => {
-        if (res.statusCode === 200) {
-          console.log(`✅ Sent resolution: ${response}`);
-        } else {
-          console.error(`❌ Failed to resolve blocker. Status: ${res.statusCode}`);
-        }
-      });
+      const { writeResponseFile, readBlockFile } = await import('./utils/mcp-ipc.js');
+      const projectRoot = process.cwd();
 
-      req.on('error', (e) => {
-        console.error(`❌ Connection error: ${e.message}`);
-        console.log('Is the sprint loop running?');
-      });
+      const block = readBlockFile(projectRoot);
+      if (!block) {
+        console.log('⚠️ No active blocker found. Is the sprint loop running?');
+        return;
+      }
 
-      req.write(postData);
-      req.end();
+      writeResponseFile(projectRoot, response);
+      console.log(`✅ Sent resolution: ${response}`);
+      console.log(`   (Task: ${block.task})`);
     } catch (error) {
       console.error(`Error: ${(error as Error).message}`);
     }
@@ -200,12 +185,10 @@ program
     dir = dir.replace(/\\/g, '/');
     if (dir.startsWith('./')) dir = dir.substring(2);
     
-    const { CommsBridge } = await import('./utils/bridge.js');
-    const bridge = new CommsBridge();
-    const runner = new SprintRunner(dir, bridge);
+    const runner = new SprintRunner(dir);
 
     const { launchDashboard } = await import('./tui/Dashboard.js');
-    await launchDashboard(dir, bridge, runner);
+    await launchDashboard(dir, runner);
   });
 
 program.parse();

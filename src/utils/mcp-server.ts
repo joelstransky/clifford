@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod/v3';
+import { writeBlockFile, pollForResponse, cleanupMcpFiles } from './mcp-ipc.js';
 
 export interface BlockData {
   task: string;
@@ -21,6 +22,12 @@ interface PendingBlock {
  * via `resolveCurrentBlock()` — keeping the agent process alive through the
  * entire blocker cycle.
  *
+ * **File-based IPC (Sprint 12):** When `request_help` is invoked, the server
+ * writes a block notification to `.clifford/mcp-block.json` and polls
+ * `.clifford/mcp-response.json` for the human's answer. This allows the
+ * SprintRunner/TUI (running in a separate process) to detect blocks and
+ * provide responses without any networking.
+ *
  * Events:
  * - `'block'`          — { task, reason, question } when request_help is invoked
  * - `'block-resolved'` — { task, response } when resolveCurrentBlock() is called
@@ -30,9 +37,12 @@ export class CliffordMcpServer extends EventEmitter {
   private mcpServer: McpServer;
   private transport: StdioServerTransport | null = null;
   private pending: PendingBlock | null = null;
+  private projectRoot: string;
 
-  constructor() {
+  constructor(projectRoot?: string) {
     super();
+
+    this.projectRoot = projectRoot || process.env.CLIFFORD_PROJECT_ROOT || process.cwd();
 
     this.mcpServer = new McpServer(
       { name: 'clifford', version: '1.0.0' },
@@ -69,8 +79,22 @@ export class CliffordMcpServer extends EventEmitter {
 
         this.emit('block', blockData);
 
+        // Write the block file for the SprintRunner/TUI to detect
+        writeBlockFile(this.projectRoot, task, reason, question);
+
+        // Wait for human response — either via file-based IPC or direct API call
         const response = await new Promise<string>((resolve) => {
           this.pending = { data: blockData, resolve };
+
+          // Also poll for file-based response in parallel
+          pollForResponse(this.projectRoot).then((fileResponse) => {
+            // Only resolve if this block is still pending (not already resolved via API)
+            if (this.pending?.data === blockData) {
+              this.pending = null;
+              this.emit('block-resolved', { task: blockData.task, response: fileResponse });
+              resolve(fileResponse);
+            }
+          });
         });
 
         return { content: [{ type: 'text' as const, text: response }] };
@@ -102,6 +126,9 @@ export class CliffordMcpServer extends EventEmitter {
     resolve(response);
     this.emit('block-resolved', { task: data.task, response });
 
+    // Also clean up IPC files in case the file poll is still running
+    cleanupMcpFiles(this.projectRoot);
+
     return true;
   }
 
@@ -118,6 +145,9 @@ export class CliffordMcpServer extends EventEmitter {
 
     resolve('[DISMISSED] The human dismissed this block without providing guidance.');
     this.emit('block-dismissed', { task: data.task });
+
+    // Clean up IPC files
+    cleanupMcpFiles(this.projectRoot);
 
     return true;
   }
@@ -138,6 +168,9 @@ export class CliffordMcpServer extends EventEmitter {
     if (this.pending) {
       this.dismissCurrentBlock();
     }
+
+    // Clean up any stale IPC files
+    cleanupMcpFiles(this.projectRoot);
 
     await this.mcpServer.close();
     console.error('[clifford-mcp] Server stopped');

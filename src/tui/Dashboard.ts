@@ -1,5 +1,4 @@
 import path from 'path';
-import { CommsBridge } from '../utils/bridge.js';
 import { SprintRunner } from '../utils/sprint.js';
 import { DashboardController, LogEntry } from './DashboardController.js';
 import {
@@ -20,7 +19,7 @@ import {
   renderLogEntries,
 } from './components.js';
 
-export async function launchDashboard(sprintDir: string, bridge: CommsBridge, runner: SprintRunner): Promise<void> {
+export async function launchDashboard(sprintDir: string, runner: SprintRunner): Promise<void> {
   // Use a variable for the module name to ensure it's truly dynamic and NOT bundled
   const opentuiModule = '@opentui/core';
   const {
@@ -48,7 +47,7 @@ export async function launchDashboard(sprintDir: string, bridge: CommsBridge, ru
   };
 
   // ─── Controller ────────────────────────────────────────────────────────────
-  const ctrl = new DashboardController(sprintDir, bridge, runner);
+  const ctrl = new DashboardController(sprintDir, runner);
 
   // ─── Root ──────────────────────────────────────────────────────────────────
   const root = new BoxRenderable(renderer, {

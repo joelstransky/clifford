@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import fs from 'fs';
 import { EventEmitter } from 'events';
-import { DashboardController, type Manifest, type LogEntry, type LogChannel } from './DashboardController';
-import type { CommsBridge, BlockRequest } from '../utils/bridge';
+import { DashboardController, type Manifest, type LogEntry, type LogChannel, type BlockRequest } from './DashboardController';
 import type { SprintRunner, SprintManifest } from '../utils/sprint';
 
 // ─── Mock Types ─────────────────────────────────────────────────────────────
@@ -22,23 +21,6 @@ interface MockRunner extends EventEmitter {
 }
 
 // ─── Mock Factories ─────────────────────────────────────────────────────────
-
-/** Minimal mock that satisfies CommsBridge's interface as used by DashboardController. */
-function createMockBridge(): CommsBridge {
-  const emitter = new EventEmitter();
-  return Object.assign(emitter, {
-    resume: () => {},
-    setBlockerContext: (_taskId: string, _question: string) => {},
-    start: () => Promise.resolve(),
-    stop: () => {},
-    checkPaused: () => false,
-    getPort: () => 8686,
-    setActiveChild: () => {},
-    killActiveChild: () => {},
-    triggerBlock: () => Promise.resolve(),
-    resolveBlocker: () => {},
-  }) as unknown as CommsBridge;
-}
 
 /** Minimal mock that satisfies SprintRunner's interface as used by DashboardController. */
 function createMockRunner(): MockRunner {
@@ -74,13 +56,12 @@ const SAMPLE_MANIFEST: Manifest = {
 };
 
 function createController(
-  overrides?: Partial<{ sprintDir: string; bridge: CommsBridge; runner: MockRunner }>,
-): { ctrl: DashboardController; bridge: CommsBridge; runner: MockRunner } {
-  const bridge = overrides?.bridge ?? createMockBridge();
+  overrides?: Partial<{ sprintDir: string; runner: MockRunner }>,
+): { ctrl: DashboardController; runner: MockRunner } {
   const runner = overrides?.runner ?? createMockRunner();
   const sprintDir = overrides?.sprintDir ?? 'sprints/test-sprint';
-  const ctrl = new DashboardController(sprintDir, bridge, runner as unknown as SprintRunner);
-  return { ctrl, bridge, runner };
+  const ctrl = new DashboardController(sprintDir, runner as unknown as SprintRunner);
+  return { ctrl, runner };
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -338,7 +319,7 @@ describe('DashboardController', () => {
 
   describe('manifest polling and change detection', () => {
     it('should load manifest from filesystem on loadManifest()', () => {
-      const { ctrl, runner } = createController();
+      const { ctrl } = createController();
       ctrl.init();
       // Must be in tasks viewMode or runner running for loadManifest to proceed
       ctrl.viewMode = 'tasks';
@@ -356,7 +337,7 @@ describe('DashboardController', () => {
     });
 
     it('should skip polling when viewMode is "sprints" and runner is not running', () => {
-      const { ctrl, runner } = createController();
+      const { ctrl } = createController();
       ctrl.init();
       ctrl.viewMode = 'sprints';
       // runner is not running by default
@@ -588,87 +569,17 @@ describe('DashboardController', () => {
   });
 
   // ────────────────────────────────────────────────────────────────────────
-  // Bridge Events
-  // ────────────────────────────────────────────────────────────────────────
-
-  describe('bridge events', () => {
-    it('should set activeBlocker on bridge "block" event', () => {
-      const { ctrl, bridge } = createController();
-      ctrl.init();
-
-      const blockData: BlockRequest = { task: 'task-1', reason: 'stuck', question: 'What to do?' };
-      bridge.emit('block', blockData);
-
-      expect(ctrl.activeBlocker).toEqual(blockData);
-      expect(ctrl.chatInput).toBe('');
-      expect(ctrl.activeTab as string).toBe('activity');
-
-      ctrl.destroy();
-    });
-
-    it('should emit "blocker-active" on bridge block', () => {
-      const { ctrl, bridge } = createController();
-      ctrl.init();
-
-      const events: BlockRequest[] = [];
-      ctrl.on('blocker-active', (data: BlockRequest) => events.push(data));
-
-      const blockData: BlockRequest = { task: 'task-1', reason: 'stuck', question: 'help?' };
-      bridge.emit('block', blockData);
-
-      expect(events.length).toBe(1);
-      expect(events[0]).toEqual(blockData);
-
-      ctrl.destroy();
-    });
-
-    it('should clear blocker on bridge "resolve" event', () => {
-      const { ctrl, bridge } = createController();
-      ctrl.init();
-
-      // First set a blocker
-      ctrl.activeBlocker = { task: 'task-1', reason: 'stuck', question: 'help?' };
-
-      const events: string[] = [];
-      ctrl.on('blocker-cleared', () => events.push('cleared'));
-
-      bridge.emit('resolve', 'Use approach B');
-
-      expect(ctrl.activeBlocker).toBeNull();
-      expect(ctrl.chatInput).toBe('');
-      expect(events.length).toBe(1);
-
-      ctrl.destroy();
-    });
-
-    it('should log blocker with error type', () => {
-      const { ctrl, bridge } = createController();
-      ctrl.init();
-
-      bridge.emit('block', { task: 'task-1', reason: 'stuck', question: 'What to do?' });
-
-      const blockerLog = ctrl.activityLogs.find(l => l.message.includes('Blocker'));
-      expect(blockerLog).toBeDefined();
-      expect(blockerLog!.type).toBe('error');
-
-      ctrl.destroy();
-    });
-  });
-
-  // ────────────────────────────────────────────────────────────────────────
   // Halt Event (Runner)
   // ────────────────────────────────────────────────────────────────────────
 
   describe('halt event handling', () => {
     it('should set blocker and stop spinner on runner "halt" event', () => {
-      const { ctrl, runner, bridge } = createController();
+      const { ctrl, runner } = createController();
       ctrl.init();
 
       // Start spinner first
       runner.emit('start');
       expect(ctrl.isSpinnerActive).toBe(true);
-
-      const setContextSpy = spyOn(bridge, 'setBlockerContext' as keyof CommsBridge);
 
       runner.emit('halt', { task: 'task-1', reason: 'Agent blocked', question: 'Need guidance' });
 
@@ -680,9 +591,22 @@ describe('DashboardController', () => {
       });
       expect(ctrl.chatInput).toBe('');
       expect(ctrl.activeTab as string).toBe('activity');
-      expect(setContextSpy).toHaveBeenCalledWith('task-1', 'Need guidance');
 
-      setContextSpy.mockRestore();
+      ctrl.destroy();
+    });
+
+    it('should emit "blocker-active" on halt event', () => {
+      const { ctrl, runner } = createController();
+      ctrl.init();
+
+      const events: BlockRequest[] = [];
+      ctrl.on('blocker-active', (data: BlockRequest) => events.push(data));
+
+      runner.emit('halt', { task: 'task-1', reason: 'stuck', question: 'help?' });
+
+      expect(events.length).toBe(1);
+      expect(events[0]).toEqual({ task: 'task-1', reason: 'stuck', question: 'help?' });
+
       ctrl.destroy();
     });
   });
@@ -826,27 +750,21 @@ describe('DashboardController', () => {
     });
 
     it('should not submit empty input', () => {
-      const { ctrl, bridge } = createController();
+      const { ctrl } = createController();
       ctrl.activeBlocker = { task: 'task-1', reason: 'test', question: 'help?' };
       ctrl.chatInput = '   ';
-
-      const resumeSpy = spyOn(bridge, 'resume' as keyof CommsBridge);
 
       ctrl.handleBlockerSubmit();
 
       // Should still have blocker active because input was empty
       expect(ctrl.activeBlocker).not.toBeNull();
-      expect(resumeSpy).not.toHaveBeenCalled();
-
-      resumeSpy.mockRestore();
     });
 
     it('should dismiss blocker and stop runner on handleBlockerDismiss', () => {
-      const { ctrl, bridge, runner } = createController();
+      const { ctrl, runner } = createController();
       ctrl.activeBlocker = { task: 'task-1', reason: 'test', question: 'help?' };
       runner.setIsRunning(true);
 
-      const resumeSpy = spyOn(bridge, 'resume' as keyof CommsBridge);
       const stopSpy = spyOn(runner, 'stop');
 
       const events: string[] = [];
@@ -856,11 +774,9 @@ describe('DashboardController', () => {
 
       expect(ctrl.activeBlocker).toBeNull();
       expect(ctrl.chatInput).toBe('');
-      expect(resumeSpy).toHaveBeenCalled();
       expect(stopSpy).toHaveBeenCalled();
       expect(events.length).toBe(1);
 
-      resumeSpy.mockRestore();
       stopSpy.mockRestore();
     });
   });

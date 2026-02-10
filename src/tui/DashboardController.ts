@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
-import { CommsBridge, BlockRequest } from '../utils/bridge.js';
 import { SprintRunner, SprintManifest } from '../utils/sprint.js';
+import { writeResponseFile } from '../utils/mcp-ipc.js';
+import { saveMemory } from '../utils/asm-storage.js';
 
 // ─── Shared Types ──────────────────────────────────────────────────────────────
 
@@ -17,6 +18,12 @@ export interface Manifest {
   name: string;
   status: string;
   tasks: Task[];
+}
+
+export interface BlockRequest {
+  task?: string;
+  reason?: string;
+  question?: string;
 }
 
 export type LogChannel = 'activity' | 'process';
@@ -58,7 +65,6 @@ const QUIT_TIMEOUT_MS = 3000;
 
 export class DashboardController extends EventEmitter {
   // --- Dependencies ---
-  private readonly bridge: CommsBridge;
   private readonly runner: SprintRunner;
 
   // --- Tab / View ---
@@ -127,10 +133,9 @@ export class DashboardController extends EventEmitter {
   // Construction
   // ────────────────────────────────────────────────────────────────────────────
 
-  constructor(sprintDir: string, bridge: CommsBridge, runner: SprintRunner) {
+  constructor(sprintDir: string, runner: SprintRunner) {
     super();
     this.currentSprintDir = sprintDir;
-    this.bridge = bridge;
     this.runner = runner;
   }
 
@@ -141,7 +146,6 @@ export class DashboardController extends EventEmitter {
   /** Boot the controller: discover sprints, wire events, start intervals. */
   public init(): void {
     this.discoverSprints();
-    this.wireBridgeEvents();
     this.wireRunnerEvents();
     this.startManifestPolling();
     this.startTimerInterval();
@@ -167,41 +171,6 @@ export class DashboardController extends EventEmitter {
       s => path.resolve(s.path) === path.resolve(this.currentSprintDir),
     );
     if (initialIndex !== -1) this.selectedIndex = initialIndex;
-  }
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // Bridge Events
-  // ────────────────────────────────────────────────────────────────────────────
-
-  private wireBridgeEvents(): void {
-    if (!this.bridge) return;
-
-    this.bridge.on('block', (data: BlockRequest) => {
-      this.activeBlocker = data;
-      this.chatInput = '';
-      this.addLog(`🛑 Blocker: ${data.question || data.reason}`, 'error');
-      this.switchTab('activity');
-      this.emit('blocker-active', data);
-    });
-
-    this.bridge.on('resolve', (response: string) => {
-      this.activeBlocker = null;
-      this.chatInput = '';
-      this.addLog(
-        `✅ Blocker resolved: ${response.substring(0, 30)}${response.length > 30 ? '...' : ''}`,
-        'success',
-      );
-      this.emit('blocker-cleared');
-      this.emitChange();
-
-      // Auto-restart if runner is not running
-      setTimeout(() => {
-        if (!this.runner.getIsRunning()) {
-          this.addLog('🧠 Restarting sprint with guidance...', 'warning');
-          this.runner.run().catch(err => this.addLog(`Restart Error: ${err.message}`, 'error'));
-        }
-      }, 500);
-    });
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -250,7 +219,6 @@ export class DashboardController extends EventEmitter {
 
     this.runner.on('halt', (data: { task: string; reason: string; question: string }) => {
       this.stopSpinner();
-      this.bridge.setBlockerContext(data.task, data.question);
       this.activeBlocker = { task: data.task, reason: data.reason, question: data.question };
       this.chatInput = '';
       this.addLog(`🛑 ${data.reason}: ${data.task}`, 'error');
@@ -586,6 +554,7 @@ export class DashboardController extends EventEmitter {
 
     const response = this.chatInput.trim();
     const taskId = this.activeBlocker.task || '';
+    const question = this.activeBlocker.question || '';
     const isDone = response.toLowerCase() === 'done' || response.toLowerCase() === 'done.';
 
     // Append user's response to the task file (unless "Done")
@@ -604,10 +573,22 @@ export class DashboardController extends EventEmitter {
       }
     }
 
-    // Clear blocker state and unpause bridge
+    // Save to ASM storage for guidance on restart
+    if (taskId && question) {
+      saveMemory(taskId, question, response);
+    }
+
+    // Write response file for MCP server to pick up (if the agent is still running)
+    try {
+      const projectRoot = this.findProjectRoot();
+      writeResponseFile(projectRoot, response);
+    } catch {
+      // MCP response file write failed — the agent may have already exited
+    }
+
+    // Clear blocker state
     this.activeBlocker = null;
     this.chatInput = '';
-    this.bridge.resume();
 
     if (isDone) {
       this.addLog('✅ Action confirmed. Restarting sprint...', 'success');
@@ -618,9 +599,10 @@ export class DashboardController extends EventEmitter {
     this.emit('blocker-cleared');
     this.emitChange();
 
-    // Restart the sprint
+    // Restart the sprint if the agent already exited
     setTimeout(() => {
       if (!this.runner.getIsRunning()) {
+        this.addLog('🧠 Restarting sprint with guidance...', 'warning');
         this.runner.run().catch(err => this.addLog(`Restart Error: ${err.message}`, 'error'));
       }
     }, 500);
@@ -629,9 +611,16 @@ export class DashboardController extends EventEmitter {
   public handleBlockerDismiss(): void {
     if (!this.activeBlocker) return;
 
+    // Write a dismissal response to unblock the MCP server if agent is still running
+    try {
+      const projectRoot = this.findProjectRoot();
+      writeResponseFile(projectRoot, '[DISMISSED] The human dismissed this block without providing guidance.');
+    } catch {
+      // Ignore
+    }
+
     this.activeBlocker = null;
     this.chatInput = '';
-    this.bridge.resume();
     if (this.runner.getIsRunning()) this.runner.stop();
     this.addLog('Help dismissed, sprint stopped.', 'warning');
     this.emit('blocker-cleared');
@@ -641,6 +630,17 @@ export class DashboardController extends EventEmitter {
   // ────────────────────────────────────────────────────────────────────────────
   // Private Helpers
   // ────────────────────────────────────────────────────────────────────────────
+
+  private findProjectRoot(): string {
+    let current = path.resolve(this.currentSprintDir);
+    while (current !== path.dirname(current)) {
+      if (fs.existsSync(path.join(current, '.clifford'))) {
+        return current;
+      }
+      current = path.dirname(current);
+    }
+    return process.cwd();
+  }
 
   private emitChange(): void {
     this.emit('state-changed');

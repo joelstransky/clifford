@@ -105,4 +105,104 @@
    ```bash
    bun test
    ```
-   Expect: 107 pass, 1 fail (same pre-existing `discovery.test.ts` issue — unchanged).
+    Expect: 107 pass, 1 fail (same pre-existing `discovery.test.ts` issue — unchanged).
+
+## Task 3: Wire MCP Server into SprintRunner
+
+### What Changed
+
+- **Created `src/utils/mcp-ipc.ts`**: New file-based IPC module for communication between the MCP server (spawned by OpenCode as a child process) and the Clifford TUI/SprintRunner (parent process). Provides:
+  - `writeBlockFile()` — writes `.clifford/mcp-block.json` when `request_help` is called
+  - `pollForResponse()` — polls `.clifford/mcp-response.json` every 500ms for the human's answer
+  - `writeResponseFile()` — writes the response file (called by TUI)
+  - `readBlockFile()` — reads the block file (called by SprintRunner)
+  - `cleanupMcpFiles()` — removes stale IPC files on exit
+- **Updated `src/utils/mcp-server.ts`**: Integrated file-based IPC into the `request_help` tool handler. When `request_help` is called, the server now writes a block file AND polls for a response file in parallel with the in-process `resolveCurrentBlock()` API. Also accepts `projectRoot` as constructor parameter (defaults to `CLIFFORD_PROJECT_ROOT` env var or `cwd()`).
+- **Updated `src/mcp-entry.ts`**: Reads `CLIFFORD_PROJECT_ROOT` from environment and passes it to the MCP server constructor.
+- **Refactored `src/utils/sprint.ts` (SprintRunner)**:
+  - **Removed** all `CommsBridge` imports and references
+  - **Removed** `bridge` constructor parameter — constructor is now `(sprintDir, quietMode?)`
+  - **Removed** `bridge.start()/stop()` calls, `bridge.checkPaused()` polling, `bridge.triggerBlock()`, `bridge.setActiveChild()/killActiveChild()`
+  - **Added** MCP block file polling (`readBlockFile()`) during agent execution — polls every 1 second alongside stdout/stderr monitoring
+  - **Added** `cleanupMcpFiles()` calls on agent exit and sprint end
+  - **Simplified** `checkForPrompts()` to emit `'halt'` directly instead of calling `bridge.triggerBlock()`
+  - **Simplified** `stop()` to kill the child process directly (no bridge)
+  - **Removed** `CLIFFORD_BRIDGE_PORT` from prompt injection — agent discovers `request_help` via MCP protocol
+- **Refactored `src/tui/DashboardController.ts`**:
+  - **Removed** `CommsBridge` dependency from constructor — now `(sprintDir, runner)`
+  - **Removed** `wireBridgeEvents()` — all blockers now come through runner's `'halt'` event
+  - **Added** `writeResponseFile()` call in `handleBlockerSubmit()` and `handleBlockerDismiss()` to send responses back to the MCP server via file-based IPC
+  - **Added** `saveMemory()` call in `handleBlockerSubmit()` for ASM storage (previously in bridge)
+  - **Added** `findProjectRoot()` helper for resolving the `.clifford/` directory
+  - **Moved** `BlockRequest` type to be defined locally (no longer imported from bridge)
+- **Updated `src/tui/Dashboard.ts`**: Removed `CommsBridge` import and parameter from `launchDashboard()` — now `(sprintDir, runner)`
+- **Updated `src/index.ts`**:
+  - Removed `CommsBridge` import and instantiation from the default action
+  - Updated `resolve` command to use file-based IPC (`writeResponseFile`/`readBlockFile`) instead of HTTP POST
+- **Created `src/utils/mcp-ipc.test.ts`**: 9 unit tests covering all IPC functions including an integration test for `pollForResponse()`
+- **Updated `src/tui/DashboardController.test.ts`**: Removed all `CommsBridge` mock factory and references — tests now construct `DashboardController` with just `(sprintDir, runner)`
+
+### Verification Steps
+
+1. **Build succeeds with zero CommsBridge references in sprint.ts**:
+   ```bash
+   bun run build
+   ```
+   Expect: Both `dist/index.js` and `dist/mcp-entry.js` are produced with no errors.
+
+2. **No CommsBridge/bridge references in sprint.ts**:
+   ```bash
+   grep -E "CommsBridge|bridge" src/utils/sprint.ts
+   ```
+   Expect: No output (exit code 1).
+
+3. **No CommsBridge references in DashboardController.ts**:
+   ```bash
+   grep "CommsBridge" src/tui/DashboardController.ts
+   ```
+   Expect: No output.
+
+4. **No CommsBridge references in Dashboard.ts or index.ts**:
+   ```bash
+   grep "CommsBridge" src/tui/Dashboard.ts src/index.ts
+   ```
+   Expect: No output.
+
+5. **MCP IPC tests pass**:
+   ```bash
+   bun test src/utils/mcp-ipc.test.ts
+   ```
+   Expect: 9 tests pass:
+   - Block file creation and structure
+   - Block file creation with missing `.clifford/` directory
+   - Reading non-existent block file returns null
+   - Reading existing block file
+   - Handling malformed JSON gracefully
+   - Response file creation and structure
+   - Cleanup removes both files
+   - Cleanup doesn't throw when files don't exist
+   - `pollForResponse` resolves when response file is written
+
+6. **DashboardController tests pass (with CommsBridge removed)**:
+   ```bash
+   bun test src/tui/DashboardController.test.ts
+   ```
+   Expect: 50 tests pass.
+
+7. **MCP server tests still pass**:
+   ```bash
+   bun test src/utils/mcp-server.test.ts
+   ```
+   Expect: 6 tests pass.
+
+8. **Full test suite (no regressions)**:
+   ```bash
+   bun test
+   ```
+   Expect: 113 pass, 1 fail (same pre-existing `discovery.test.ts` issue — unchanged).
+
+9. **Verify the `resolve` CLI command uses file-based IPC**:
+   ```bash
+   grep -A5 "command('resolve" src/index.ts
+   ```
+   Expect: Uses `writeResponseFile`/`readBlockFile` from `mcp-ipc.js` instead of HTTP.
