@@ -46,6 +46,13 @@ export interface SprintContextResponse {
   sprintDir: string;
 }
 
+export interface UpdateTaskStatusResponse {
+  success: boolean;
+  taskId: string;
+  previousStatus: string;
+  newStatus: string;
+}
+
 interface PendingBlock {
   data: BlockData;
   resolve: (response: string) => void;
@@ -162,6 +169,122 @@ export function buildSprintContext(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Valid task status transitions
+// ---------------------------------------------------------------------------
+
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  'pending':   ['active'],
+  'active':    ['completed', 'blocked'],
+  'blocked':   ['active'],
+  'completed': [],  // terminal state — no going back
+  'pushed':    [],  // terminal state
+};
+
+// ---------------------------------------------------------------------------
+// Exported handler for update_task_status (testable standalone)
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates and transitions a task's status in the sprint manifest.
+ * Enforces the state machine defined by VALID_TRANSITIONS, preventing
+ * illegal transitions like completed→pending or pending→completed.
+ */
+export function updateTaskStatus(
+  sprintDir: string,
+  taskId: string,
+  status: 'active' | 'completed' | 'blocked'
+): { content: Array<{ type: 'text'; text: string }> } {
+  const resolvedDir = path.resolve(process.cwd(), sprintDir);
+  const manifestPath = path.join(resolvedDir, 'manifest.json');
+
+  // Check if manifest exists
+  if (!fs.existsSync(manifestPath)) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Sprint manifest not found at ${manifestPath}`,
+        }),
+      }],
+    };
+  }
+
+  // Read and parse manifest
+  let manifest: SprintManifestData;
+  try {
+    const raw = fs.readFileSync(manifestPath, 'utf8');
+    manifest = JSON.parse(raw) as SprintManifestData;
+  } catch (err) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Failed to parse manifest at ${manifestPath}: ${String(err)}`,
+        }),
+      }],
+    };
+  }
+
+  // Find the task by ID
+  const task = manifest.tasks.find((t) => t.id === taskId);
+  if (!task) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Task '${taskId}' not found in manifest`,
+        }),
+      }],
+    };
+  }
+
+  // Validate the transition
+  const currentStatus = task.status;
+  const allowed = VALID_TRANSITIONS[currentStatus] ?? [];
+  if (!allowed.includes(status)) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Invalid transition: ${currentStatus} → ${status}. Allowed: [${allowed.join(', ')}]`,
+        }),
+      }],
+    };
+  }
+
+  // Apply the transition
+  task.status = status;
+
+  // Write the manifest back
+  try {
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+  } catch (err) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Failed to write manifest: ${String(err)}`,
+        }),
+      }],
+    };
+  }
+
+  const response: UpdateTaskStatusResponse = {
+    success: true,
+    taskId,
+    previousStatus: currentStatus,
+    newStatus: status,
+  };
+
+  return {
+    content: [{
+      type: 'text' as const,
+      text: JSON.stringify(response),
+    }],
+  };
+}
+
 /**
  * MCP server that exposes a `request_help` tool for agent↔human communication.
  *
@@ -263,6 +386,27 @@ export class CliffordMcpServer extends EventEmitter {
       },
       async ({ sprintDir }: { sprintDir: string }) => {
         return buildSprintContext(sprintDir);
+      }
+    );
+
+    // -------------------------------------------------------------------------
+    // update_task_status — validate and transition task status in manifest
+    // -------------------------------------------------------------------------
+    this.mcpServer.registerTool(
+      'update_task_status',
+      {
+        description:
+          'Update a task\'s status in the sprint manifest. Valid transitions: ' +
+          'pending→active, active→completed, active→blocked, blocked→active. ' +
+          'The tool validates the transition and writes the manifest.',
+        inputSchema: {
+          sprintDir: z.string().describe('The sprint directory path'),
+          taskId: z.string().describe("The task ID to update (e.g., 'task-1')"),
+          status: z.enum(['active', 'completed', 'blocked']).describe('The new status to set'),
+        },
+      },
+      async ({ sprintDir, taskId, status }: { sprintDir: string; taskId: string; status: 'active' | 'completed' | 'blocked' }) => {
+        return updateTaskStatus(sprintDir, taskId, status);
       }
     );
   }

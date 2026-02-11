@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'bun:test';
 import fs from 'fs';
 import path from 'path';
-import { CliffordMcpServer, buildSprintContext, SprintContextResponse } from './mcp-server';
+import { CliffordMcpServer, buildSprintContext, updateTaskStatus, SprintContextResponse, UpdateTaskStatusResponse } from './mcp-server';
 import { saveMemory, clearMemory } from './asm-storage';
 
 describe('CliffordMcpServer', () => {
@@ -272,6 +272,218 @@ describe('buildSprintContext', () => {
     fs.writeFileSync(path.join(TEST_DIR, 'manifest.json'), 'not valid json{{{', 'utf8');
 
     const result = buildSprintContext(TEST_DIR);
+    const parsed = parseResult(result);
+
+    expect(parsed.error).toBeDefined();
+    expect((parsed.error as string)).toContain('Failed to parse manifest');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateTaskStatus tests
+// ---------------------------------------------------------------------------
+
+describe('updateTaskStatus', () => {
+  const TEST_ID = Math.random().toString(36).substring(7);
+  const TEST_DIR = path.resolve(`.clifford/test-update-status-${TEST_ID}`);
+  const TASKS_DIR = path.join(TEST_DIR, 'tasks');
+
+  function writeManifest(manifest: Record<string, unknown>): void {
+    fs.writeFileSync(
+      path.join(TEST_DIR, 'manifest.json'),
+      JSON.stringify(manifest, null, 2),
+      'utf8'
+    );
+  }
+
+  function readManifest(): Record<string, unknown> {
+    const raw = fs.readFileSync(path.join(TEST_DIR, 'manifest.json'), 'utf8');
+    return JSON.parse(raw) as Record<string, unknown>;
+  }
+
+  function parseResult(result: { content: Array<{ type: string; text: string }> }): Record<string, unknown> {
+    return JSON.parse(result.content[0].text) as Record<string, unknown>;
+  }
+
+  beforeEach(() => {
+    // Clean up test directories
+    if (fs.existsSync(TEST_DIR)) {
+      fs.rmSync(TEST_DIR, { recursive: true, force: true });
+    }
+
+    // Create fresh test directory structure
+    fs.mkdirSync(TASKS_DIR, { recursive: true });
+  });
+
+  afterAll(() => {
+    // Clean up test artifacts
+    if (fs.existsSync(TEST_DIR)) {
+      fs.rmSync(TEST_DIR, { recursive: true, force: true });
+    }
+  });
+
+  it('should successfully transition pending → active', () => {
+    writeManifest({
+      id: 'sprint-test',
+      name: 'Test Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'pending' },
+        { id: 'task-2', file: 'tasks/02-second.md', status: 'pending' },
+      ],
+    });
+
+    const result = updateTaskStatus(TEST_DIR, 'task-1', 'active');
+    const parsed = parseResult(result) as unknown as UpdateTaskStatusResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.taskId).toBe('task-1');
+    expect(parsed.previousStatus).toBe('pending');
+    expect(parsed.newStatus).toBe('active');
+
+    // Verify the manifest file was actually updated
+    const manifest = readManifest();
+    const tasks = manifest.tasks as Array<{ id: string; status: string }>;
+    expect(tasks[0].status).toBe('active');
+    expect(tasks[1].status).toBe('pending');
+  });
+
+  it('should successfully transition active → completed', () => {
+    writeManifest({
+      id: 'sprint-test',
+      name: 'Test Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'active' },
+      ],
+    });
+
+    const result = updateTaskStatus(TEST_DIR, 'task-1', 'completed');
+    const parsed = parseResult(result) as unknown as UpdateTaskStatusResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.previousStatus).toBe('active');
+    expect(parsed.newStatus).toBe('completed');
+
+    // Verify manifest was written
+    const manifest = readManifest();
+    const tasks = manifest.tasks as Array<{ id: string; status: string }>;
+    expect(tasks[0].status).toBe('completed');
+  });
+
+  it('should successfully transition active → blocked', () => {
+    writeManifest({
+      id: 'sprint-test',
+      name: 'Test Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'active' },
+      ],
+    });
+
+    const result = updateTaskStatus(TEST_DIR, 'task-1', 'blocked');
+    const parsed = parseResult(result) as unknown as UpdateTaskStatusResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.previousStatus).toBe('active');
+    expect(parsed.newStatus).toBe('blocked');
+  });
+
+  it('should successfully transition blocked → active', () => {
+    writeManifest({
+      id: 'sprint-test',
+      name: 'Test Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'blocked' },
+      ],
+    });
+
+    const result = updateTaskStatus(TEST_DIR, 'task-1', 'active');
+    const parsed = parseResult(result) as unknown as UpdateTaskStatusResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.previousStatus).toBe('blocked');
+    expect(parsed.newStatus).toBe('active');
+  });
+
+  it('should reject invalid transition completed → pending (completed is terminal)', () => {
+    writeManifest({
+      id: 'sprint-test',
+      name: 'Test Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'completed' },
+      ],
+    });
+
+    // Note: 'active' is the closest valid enum value we can test with —
+    // completed → active is also invalid since completed is terminal
+    const result = updateTaskStatus(TEST_DIR, 'task-1', 'active');
+    const parsed = parseResult(result);
+
+    expect(parsed.error).toBeDefined();
+    expect((parsed.error as string)).toContain('Invalid transition: completed → active');
+    expect((parsed.error as string)).toContain('Allowed: []');
+
+    // Verify manifest was NOT changed
+    const manifest = readManifest();
+    const tasks = manifest.tasks as Array<{ id: string; status: string }>;
+    expect(tasks[0].status).toBe('completed');
+  });
+
+  it('should reject invalid transition pending → completed (must go through active)', () => {
+    writeManifest({
+      id: 'sprint-test',
+      name: 'Test Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'pending' },
+      ],
+    });
+
+    const result = updateTaskStatus(TEST_DIR, 'task-1', 'completed');
+    const parsed = parseResult(result);
+
+    expect(parsed.error).toBeDefined();
+    expect((parsed.error as string)).toContain('Invalid transition: pending → completed');
+    expect((parsed.error as string)).toContain('Allowed: [active]');
+
+    // Verify manifest was NOT changed
+    const manifest = readManifest();
+    const tasks = manifest.tasks as Array<{ id: string; status: string }>;
+    expect(tasks[0].status).toBe('pending');
+  });
+
+  it('should return error for nonexistent task ID', () => {
+    writeManifest({
+      id: 'sprint-test',
+      name: 'Test Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'pending' },
+      ],
+    });
+
+    const result = updateTaskStatus(TEST_DIR, 'task-99', 'active');
+    const parsed = parseResult(result);
+
+    expect(parsed.error).toBeDefined();
+    expect((parsed.error as string)).toContain("Task 'task-99' not found in manifest");
+  });
+
+  it('should return error for nonexistent sprint directory', () => {
+    const result = updateTaskStatus('/tmp/nonexistent-sprint-dir-xyz-456', 'task-1', 'active');
+    const parsed = parseResult(result);
+
+    expect(parsed.error).toBeDefined();
+    expect((parsed.error as string)).toContain('Sprint manifest not found');
+  });
+
+  it('should return error for invalid JSON in manifest', () => {
+    fs.writeFileSync(path.join(TEST_DIR, 'manifest.json'), 'not valid json{{{', 'utf8');
+
+    const result = updateTaskStatus(TEST_DIR, 'task-1', 'active');
     const parsed = parseResult(result);
 
     expect(parsed.error).toBeDefined();
