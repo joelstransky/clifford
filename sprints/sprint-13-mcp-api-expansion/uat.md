@@ -98,3 +98,39 @@
    - It returns `{ success, taskId, result, totalEntries }`.
 5. Confirm the `report_uat` tool is registered in `registerTools()` with the correct zod input schema (`taskId: z.string()`, `description: z.string()`, `steps: z.array(z.string())`, `result: z.enum(['pass', 'fail', 'partial'])`, `notes: z.string().optional()`).
 6. Confirm `src/utils/scaffolder.ts` now includes `.clifford/uat.json` in the gitignore entries array.
+
+## Task 4: `complete_sprint` MCP Tool
+
+### What Changed
+- Added a new `complete_sprint` MCP tool to `src/utils/mcp-server.ts`.
+- The tool accepts `sprintDir` (required) and `summary` (optional) parameters. It validates that all tasks in the sprint have status `completed` or `pushed` before marking the sprint as completed.
+- Extracted the handler logic into a standalone exported function `completeSprint()` for testability.
+- Added new exported interface: `CompleteSprintResponse`.
+- The handler:
+  - Reads `manifest.json` from the resolved sprint directory.
+  - Guards against double-completion: if `manifest.status` is already `"completed"`, returns `{ success: true, note: "Sprint was already marked as completed" }`.
+  - Checks all tasks: if any task has a status other than `completed` or `pushed`, returns `{ success: false }` with the count of unfinished tasks and a full task status list.
+  - If all tasks are done, sets `manifest.status = "completed"`, writes the manifest, and returns success with `sprintId`, `sprintName`, `completedAt` (ISO timestamp), `summary`, and `taskCount`.
+  - Handles missing manifest and invalid JSON with descriptive error messages.
+- Added 8 new unit tests in `src/utils/mcp-server.test.ts` covering:
+  - Sprint with all tasks `completed` → success, manifest status set to `completed`.
+  - Sprint with mix of `completed` and `pushed` tasks → success.
+  - Summary parameter included in response when provided.
+  - Sprint with 1 task still `pending` → failure with task list.
+  - Sprint with a `blocked` task → failure.
+  - Sprint already `completed` → success with note (double-completion guard).
+  - Nonexistent sprint dir → error.
+  - Invalid JSON manifest → error.
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 142 tests should pass across 12 files (8 new tests for completeSprint).
+3. Run `npm run lint` — no new lint errors introduced.
+4. Review the `completeSprint` function in `src/utils/mcp-server.ts` to confirm:
+   - It reads `manifest.json` from the resolved sprint directory.
+   - It guards against double-completion (returns success with note).
+   - It validates all tasks have status `completed` or `pushed`.
+   - On failure, it returns the count of unfinished tasks and full task status list.
+   - On success, it sets `manifest.status = "completed"` and writes the manifest.
+   - It returns structured JSON matching the `CompleteSprintResponse` interface.
+5. Confirm the `complete_sprint` tool is registered in `registerTools()` with the correct zod input schema (`sprintDir: z.string()`, `summary: z.string().optional()`).

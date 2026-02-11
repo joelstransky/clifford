@@ -6,7 +6,7 @@
     { "id": "task-1", "file": "tasks/01-get-sprint-context-tool.md", "status": "completed" },
     { "id": "task-2", "file": "tasks/02-update-task-status-tool.md", "status": "completed" },
     { "id": "task-3", "file": "tasks/03-report-uat-tool.md", "status": "completed" },
-    { "id": "task-4", "file": "tasks/04-complete-sprint-tool.md", "status": "active" },
+    { "id": "task-4", "file": "tasks/04-complete-sprint-tool.md", "status": "completed" },
     { "id": "task-5", "file": "tasks/05-update-templates-permissions.md", "status": "pending" },
     { "id": "task-6", "file": "tasks/06-activity-tab-styling.md", "status": "pending" }
   ]
