@@ -400,9 +400,11 @@ export interface ActivityViewComponents {
   infoProgressText: Renderable;
   // Activity Row
   activityRow: Renderable;
+  activityScroll: Renderable;
   activityLogContainer: Renderable;
   // Process Row
   processRow: Renderable;
+  processScroll: Renderable;
   processLogContainer: Renderable;
   // Blocker
   blockerContainer: Renderable;
@@ -424,8 +426,10 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
 
   // ── Row 1: Status Row ──
   const statusRow = new BoxRenderable(renderer, {
-    id: 'status-row', width: '100%', height: 5, flexDirection: 'column',
-    paddingLeft: 2, paddingRight: 2,
+    id: 'status-row', width: '100%', height: 7, flexDirection: 'column',
+    padding: 1,
+    border: true,
+    borderColor: COLORS.primary,
     backgroundColor: COLORS.titleBg,
   });
 
@@ -443,6 +447,7 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   const activityRow = new BoxRenderable(renderer, {
     id: 'activity-row', width: '100%', flexGrow: 1, flexDirection: 'column',
     overflow: 'hidden',
+    padding: 1,
   });
 
   const activityHeader = new TextRenderable(renderer, {
@@ -464,6 +469,7 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   const processRow = new BoxRenderable(renderer, {
     id: 'process-row', width: '100%', flexGrow: 1, flexDirection: 'column',
     overflow: 'hidden',
+    padding: 1,
   });
 
   const processHeader = new TextRenderable(renderer, {
@@ -532,8 +538,8 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   return {
     activityPanel,
     infoSprintText, infoTaskText, infoTimerText, infoProgressText,
-    activityRow, activityLogContainer,
-    processRow, processLogContainer,
+    activityRow, activityScroll, activityLogContainer,
+    processRow, processScroll, processLogContainer,
     blockerContainer,
     blockerTask, blockerReason, blockerQuestion, blockerInputText, blockerFooterHint,
   };
@@ -572,6 +578,16 @@ export function createFooter(renderer: Renderer, tui: OpenTuiModule): FooterComp
 
 // ─── 7. renderLogEntries (shared helper) ────────────────────────────────────────
 
+/** Safely scroll a ScrollBoxRenderable to the bottom. */
+export function scrollToEnd(scrollBox: Renderable): void {
+  const sb = scrollBox as unknown as Record<string, unknown>;
+  if (typeof sb.scrollToBottom === 'function') {
+    (sb.scrollToBottom as () => void)();
+  } else if (typeof sb.scrollTo === 'function') {
+    (sb.scrollTo as (offset: number) => void)(999999);
+  }
+}
+
 export function renderLogEntries(
   renderer: Renderer,
   tui: OpenTuiModule,
@@ -581,6 +597,7 @@ export function renderLogEntries(
   prefix: string,
   emptyMessage: string,
   maxVisible: number = 30,
+  showTimestamp: boolean = true,
 ): void {
   const { TextRenderable, fg, dim, t } = tui;
 
@@ -602,9 +619,13 @@ export function renderLogEntries(
     if (log.type === 'warning') color = COLORS.warning;
     if (log.type === 'error') color = COLORS.error;
 
+    const content = showTimestamp
+      ? t`${dim(`[${formatTime(log.timestamp)}]`)} ${fg(color)(log.message)}`
+      : t`${fg(color)(log.message)}`;
+
     const el = new TextRenderable(renderer, {
       id: `${prefix}-${i}`,
-      content: t`${dim(`[${formatTime(log.timestamp)}]`)} ${fg(color)(log.message)}`,
+      content,
     });
     elements.push(el);
     container.add(el);

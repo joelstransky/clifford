@@ -17,6 +17,7 @@ import {
   createActivityView,
   createFooter,
   renderLogEntries,
+  scrollToEnd,
 } from './components.js';
 
 export async function launchDashboard(sprintDir: string, runner: SprintRunner): Promise<void> {
@@ -79,8 +80,8 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
   const {
     activityPanel,
     infoSprintText, infoTaskText, infoTimerText, infoProgressText,
-    activityRow, activityLogContainer,
-    processRow, processLogContainer,
+    activityRow, activityScroll, activityLogContainer,
+    processRow, processScroll, processLogContainer,
     blockerContainer,
     blockerTask, blockerReason, blockerQuestion, blockerInputText,
   } = createActivityView(renderer as Renderer, tui);
@@ -185,6 +186,7 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
       'log',
       'No activity yet. Start a sprint to see events here.',
     );
+    scrollToEnd(activityScroll);
   };
 
   const updateProcessLog = () => {
@@ -195,7 +197,10 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
       processElements,
       'proc',
       'No process output yet.',
+      30,
+      false,
     );
+    scrollToEnd(processScroll);
   };
 
   // Track which sub-view is rendered in the activity panel
