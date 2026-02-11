@@ -200,7 +200,8 @@ export async function scaffold(targetDir: string, options: {
   const gitignoreEntries = [
     '\n# Clifford',
     '.clifford/state.json',
-    '.clifford/asm.json'
+    '.clifford/asm.json',
+    '.clifford/uat.json'
   ];
 
   if (await fs.pathExists(gitignorePath)) {

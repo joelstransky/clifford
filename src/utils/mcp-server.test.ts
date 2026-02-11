@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'bun:test';
 import fs from 'fs';
 import path from 'path';
-import { CliffordMcpServer, buildSprintContext, updateTaskStatus, SprintContextResponse, UpdateTaskStatusResponse } from './mcp-server';
+import { CliffordMcpServer, buildSprintContext, updateTaskStatus, reportUat, SprintContextResponse, UpdateTaskStatusResponse, ReportUatResponse, UatEntry } from './mcp-server';
 import { saveMemory, clearMemory } from './asm-storage';
 
 describe('CliffordMcpServer', () => {
@@ -488,5 +488,174 @@ describe('updateTaskStatus', () => {
 
     expect(parsed.error).toBeDefined();
     expect((parsed.error as string)).toContain('Failed to parse manifest');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reportUat tests
+// ---------------------------------------------------------------------------
+
+describe('reportUat', () => {
+  const TEST_ID = Math.random().toString(36).substring(7);
+  const TEST_CLIFFORD_DIR = path.resolve(`.clifford/test-uat-${TEST_ID}`);
+  const UAT_PATH = path.join(TEST_CLIFFORD_DIR, 'uat.json');
+
+  // We need to override process.cwd() so reportUat resolves .clifford/ to our test dir.
+  // Instead, we'll create the .clifford dir at cwd and use a unique filename approach.
+  // Actually, reportUat uses `path.resolve(process.cwd(), '.clifford')` — so we'll
+  // temporarily move the uat.json after each call. Simpler: just use the real .clifford/
+  // dir at cwd and clean up.
+
+  const REAL_CLIFFORD_DIR = path.resolve(process.cwd(), '.clifford');
+  const REAL_UAT_PATH = path.join(REAL_CLIFFORD_DIR, 'uat.json');
+
+  // Save any existing uat.json before tests, restore after
+  let originalUatContent: string | null = null;
+
+  function parseResult(result: { content: Array<{ type: string; text: string }> }): Record<string, unknown> {
+    return JSON.parse(result.content[0].text) as Record<string, unknown>;
+  }
+
+  function readUatFile(): UatEntry[] {
+    const raw = fs.readFileSync(REAL_UAT_PATH, 'utf8');
+    return JSON.parse(raw) as UatEntry[];
+  }
+
+  beforeEach(() => {
+    // Back up existing uat.json if it exists
+    if (originalUatContent === null && fs.existsSync(REAL_UAT_PATH)) {
+      originalUatContent = fs.readFileSync(REAL_UAT_PATH, 'utf8');
+    }
+
+    // Remove uat.json for a clean slate each test
+    if (fs.existsSync(REAL_UAT_PATH)) {
+      fs.rmSync(REAL_UAT_PATH, { force: true });
+    }
+
+    // Ensure .clifford/ exists
+    if (!fs.existsSync(REAL_CLIFFORD_DIR)) {
+      fs.mkdirSync(REAL_CLIFFORD_DIR, { recursive: true });
+    }
+  });
+
+  afterAll(() => {
+    // Restore original uat.json if it existed
+    if (originalUatContent !== null) {
+      fs.writeFileSync(REAL_UAT_PATH, originalUatContent, 'utf8');
+    } else if (fs.existsSync(REAL_UAT_PATH)) {
+      fs.rmSync(REAL_UAT_PATH, { force: true });
+    }
+  });
+
+  it('should create uat.json with one entry when called with valid input', () => {
+    const result = reportUat(
+      'task-1',
+      'Verified build compiles',
+      ['Ran npm run build', 'Checked for type errors'],
+      'pass',
+      'All clean'
+    );
+    const parsed = parseResult(result) as unknown as ReportUatResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.taskId).toBe('task-1');
+    expect(parsed.result).toBe('pass');
+    expect(parsed.totalEntries).toBe(1);
+
+    // Verify the file was created with correct structure
+    const entries = readUatFile();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].taskId).toBe('task-1');
+    expect(entries[0].description).toBe('Verified build compiles');
+    expect(entries[0].steps).toEqual(['Ran npm run build', 'Checked for type errors']);
+    expect(entries[0].result).toBe('pass');
+    expect(entries[0].notes).toBe('All clean');
+    expect(typeof entries[0].timestamp).toBe('string');
+    // Verify timestamp is a valid ISO string
+    expect(new Date(entries[0].timestamp).toISOString()).toBe(entries[0].timestamp);
+  });
+
+  it('should append a second entry without overwriting the first', () => {
+    // First entry
+    reportUat('task-1', 'First test', ['Step 1'], 'pass');
+
+    // Second entry
+    const result = reportUat('task-2', 'Second test', ['Step A', 'Step B'], 'fail', 'Something broke');
+    const parsed = parseResult(result) as unknown as ReportUatResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.totalEntries).toBe(2);
+
+    // Verify both entries exist
+    const entries = readUatFile();
+    expect(entries).toHaveLength(2);
+    expect(entries[0].taskId).toBe('task-1');
+    expect(entries[0].description).toBe('First test');
+    expect(entries[1].taskId).toBe('task-2');
+    expect(entries[1].description).toBe('Second test');
+    expect(entries[1].result).toBe('fail');
+    expect(entries[1].notes).toBe('Something broke');
+  });
+
+  it('should include correct timestamp in ISO format', () => {
+    const before = new Date().toISOString();
+    reportUat('task-1', 'Timestamp test', ['Check time'], 'pass');
+    const after = new Date().toISOString();
+
+    const entries = readUatFile();
+    expect(entries).toHaveLength(1);
+
+    const ts = entries[0].timestamp;
+    expect(ts >= before).toBe(true);
+    expect(ts <= after).toBe(true);
+  });
+
+  it('should handle malformed existing JSON gracefully (reset to [] + new entry)', () => {
+    // Write malformed JSON to uat.json
+    fs.writeFileSync(REAL_UAT_PATH, 'this is not valid json{{{', 'utf8');
+
+    const result = reportUat('task-1', 'After corruption', ['Step 1'], 'partial');
+    const parsed = parseResult(result) as unknown as ReportUatResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.totalEntries).toBe(1);
+
+    // Verify the file was reset and contains only the new entry
+    const entries = readUatFile();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].taskId).toBe('task-1');
+    expect(entries[0].description).toBe('After corruption');
+    expect(entries[0].result).toBe('partial');
+  });
+
+  it('should omit notes field when not provided', () => {
+    reportUat('task-1', 'No notes test', ['Step 1'], 'pass');
+
+    const entries = readUatFile();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].notes).toBeUndefined();
+  });
+
+  it('should omit notes field when provided as empty string', () => {
+    reportUat('task-1', 'Empty notes test', ['Step 1'], 'pass', '');
+
+    const entries = readUatFile();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].notes).toBeUndefined();
+  });
+
+  it('should handle non-array JSON gracefully (reset to [])', () => {
+    // Write valid JSON that is not an array
+    fs.writeFileSync(REAL_UAT_PATH, '{"not": "an array"}', 'utf8');
+
+    const result = reportUat('task-1', 'After non-array', ['Step 1'], 'pass');
+    const parsed = parseResult(result) as unknown as ReportUatResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.totalEntries).toBe(1);
+
+    const entries = readUatFile();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].taskId).toBe('task-1');
   });
 });

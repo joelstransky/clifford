@@ -60,3 +60,41 @@
    - On invalid transition, it returns a descriptive error with the allowed transitions.
    - Error cases (missing manifest, missing task, write failure) return descriptive error messages.
 5. Confirm the `update_task_status` tool is registered in `registerTools()` with the correct zod input schema (`sprintDir: z.string()`, `taskId: z.string()`, `status: z.enum(['active', 'completed', 'blocked'])`).
+
+## Task 3: `report_uat` MCP Tool
+
+### What Changed
+- Added a new `report_uat` MCP tool to `src/utils/mcp-server.ts`.
+- The tool accepts `taskId`, `description`, `steps`, `result`, and optional `notes` parameters, and appends a structured UAT entry to `.clifford/uat.json`.
+- Extracted the handler logic into a standalone exported function `reportUat()` for testability.
+- Added new exported interfaces: `UatEntry`, `ReportUatResponse`.
+- The handler:
+  - Creates `.clifford/` directory if it doesn't exist.
+  - Reads existing `uat.json` entries or starts with `[]`.
+  - Handles malformed JSON gracefully — logs a warning to stderr and resets to `[]`.
+  - Handles non-array JSON gracefully — logs a warning and resets to `[]`.
+  - Appends the new entry with an ISO timestamp.
+  - Omits the `notes` field when not provided or empty.
+  - Writes back with `JSON.stringify(entries, null, 2)`.
+- Updated `src/utils/scaffolder.ts` to include `.clifford/uat.json` in the `.gitignore` entries.
+- Added 7 new unit tests in `src/utils/mcp-server.test.ts` covering:
+  - Valid input creates `uat.json` with one correctly structured entry.
+  - Calling again appends a second entry (doesn't overwrite).
+  - Timestamp is a valid ISO string within expected range.
+  - Malformed existing JSON is handled gracefully (reset to `[]` + new entry).
+  - Notes field omitted when not provided.
+  - Notes field omitted when provided as empty string.
+  - Non-array JSON is handled gracefully (reset to `[]`).
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 134 tests should pass across 12 files.
+3. Run `npm run lint` — should produce no errors.
+4. Review the `reportUat` function in `src/utils/mcp-server.ts` to confirm:
+   - It resolves `.clifford/uat.json` from `process.cwd()`.
+   - It creates the `.clifford/` directory if missing.
+   - It reads existing entries, or starts fresh on corruption.
+   - It appends the new `UatEntry` with an ISO timestamp.
+   - It returns `{ success, taskId, result, totalEntries }`.
+5. Confirm the `report_uat` tool is registered in `registerTools()` with the correct zod input schema (`taskId: z.string()`, `description: z.string()`, `steps: z.array(z.string())`, `result: z.enum(['pass', 'fail', 'partial'])`, `notes: z.string().optional()`).
+6. Confirm `src/utils/scaffolder.ts` now includes `.clifford/uat.json` in the gitignore entries array.

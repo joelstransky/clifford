@@ -53,6 +53,22 @@ export interface UpdateTaskStatusResponse {
   newStatus: string;
 }
 
+export interface UatEntry {
+  taskId: string;
+  description: string;
+  steps: string[];
+  result: 'pass' | 'fail' | 'partial';
+  notes?: string;
+  timestamp: string;
+}
+
+export interface ReportUatResponse {
+  success: boolean;
+  taskId: string;
+  result: 'pass' | 'fail' | 'partial';
+  totalEntries: number;
+}
+
 interface PendingBlock {
   data: BlockData;
   resolve: (response: string) => void;
@@ -285,6 +301,103 @@ export function updateTaskStatus(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Exported handler for report_uat (testable standalone)
+// ---------------------------------------------------------------------------
+
+/**
+ * Appends a structured UAT (User Acceptance Testing) entry to `.clifford/uat.json`.
+ * Creates the file and directory if they do not exist. Handles malformed JSON
+ * gracefully by resetting to an empty array.
+ */
+export function reportUat(
+  taskId: string,
+  description: string,
+  steps: string[],
+  result: 'pass' | 'fail' | 'partial',
+  notes?: string,
+): { content: Array<{ type: 'text'; text: string }> } {
+  const cliffordDir = path.resolve(process.cwd(), '.clifford');
+  const uatPath = path.join(cliffordDir, 'uat.json');
+
+  // Ensure .clifford/ directory exists
+  if (!fs.existsSync(cliffordDir)) {
+    try {
+      fs.mkdirSync(cliffordDir, { recursive: true });
+    } catch (err) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: `Failed to create .clifford directory: ${String(err)}`,
+          }),
+        }],
+      };
+    }
+  }
+
+  // Read existing entries or start fresh
+  let entries: UatEntry[] = [];
+  if (fs.existsSync(uatPath)) {
+    try {
+      const raw = fs.readFileSync(uatPath, 'utf8');
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        entries = parsed as UatEntry[];
+      } else {
+        console.error('[clifford-mcp] uat.json was not an array — resetting to []');
+        entries = [];
+      }
+    } catch {
+      console.error('[clifford-mcp] uat.json was malformed JSON — resetting to []');
+      entries = [];
+    }
+  }
+
+  // Construct and append the new entry
+  const entry: UatEntry = {
+    taskId,
+    description,
+    steps,
+    result,
+    timestamp: new Date().toISOString(),
+  };
+
+  if (notes !== undefined && notes !== '') {
+    entry.notes = notes;
+  }
+
+  entries.push(entry);
+
+  // Write back
+  try {
+    fs.writeFileSync(uatPath, JSON.stringify(entries, null, 2), 'utf8');
+  } catch (err) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Failed to write uat.json: ${String(err)}`,
+        }),
+      }],
+    };
+  }
+
+  const response: ReportUatResponse = {
+    success: true,
+    taskId,
+    result,
+    totalEntries: entries.length,
+  };
+
+  return {
+    content: [{
+      type: 'text' as const,
+      text: JSON.stringify(response),
+    }],
+  };
+}
+
 /**
  * MCP server that exposes a `request_help` tool for agent↔human communication.
  *
@@ -407,6 +520,34 @@ export class CliffordMcpServer extends EventEmitter {
       },
       async ({ sprintDir, taskId, status }: { sprintDir: string; taskId: string; status: 'active' | 'completed' | 'blocked' }) => {
         return updateTaskStatus(sprintDir, taskId, status);
+      }
+    );
+
+    // -------------------------------------------------------------------------
+    // report_uat — append structured UAT entries to .clifford/uat.json
+    // -------------------------------------------------------------------------
+    this.mcpServer.registerTool(
+      'report_uat',
+      {
+        description:
+          'Log a UAT (User Acceptance Testing) entry after completing task verification. ' +
+          'Records what was tested and the result.',
+        inputSchema: {
+          taskId: z.string().describe('The task ID this UAT entry is for'),
+          description: z.string().describe('Brief description of what was tested'),
+          steps: z.array(z.string()).describe('List of verification steps performed'),
+          result: z.enum(['pass', 'fail', 'partial']).describe('Overall test result'),
+          notes: z.string().optional().describe('Additional notes or observations'),
+        },
+      },
+      async ({ taskId, description, steps, result, notes }: {
+        taskId: string;
+        description: string;
+        steps: string[];
+        result: 'pass' | 'fail' | 'partial';
+        notes?: string;
+      }) => {
+        return reportUat(taskId, description, steps, result, notes);
       }
     );
   }
