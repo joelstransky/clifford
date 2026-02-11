@@ -69,6 +69,18 @@ export interface ReportUatResponse {
   totalEntries: number;
 }
 
+export interface CompleteSprintResponse {
+  success: boolean;
+  sprintId: string;
+  sprintName?: string;
+  completedAt?: string;
+  summary?: string | null;
+  taskCount?: number;
+  note?: string;
+  reason?: string;
+  tasks?: Array<{ id: string; status: string }>;
+}
+
 interface PendingBlock {
   data: BlockData;
   resolve: (response: string) => void;
@@ -398,6 +410,118 @@ export function reportUat(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Exported handler for complete_sprint (testable standalone)
+// ---------------------------------------------------------------------------
+
+/**
+ * Marks a sprint as completed after validating that all tasks are done.
+ * All tasks must have status 'completed' or 'pushed' for the sprint to
+ * be marked complete. Guards against double-completion gracefully.
+ */
+export function completeSprint(
+  sprintDir: string,
+  summary?: string
+): { content: Array<{ type: 'text'; text: string }> } {
+  const resolvedDir = path.resolve(process.cwd(), sprintDir);
+  const manifestPath = path.join(resolvedDir, 'manifest.json');
+
+  // Check if manifest exists
+  if (!fs.existsSync(manifestPath)) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Sprint manifest not found at ${manifestPath}`,
+        }),
+      }],
+    };
+  }
+
+  // Read and parse manifest
+  let manifest: SprintManifestData;
+  try {
+    const raw = fs.readFileSync(manifestPath, 'utf8');
+    manifest = JSON.parse(raw) as SprintManifestData;
+  } catch (err) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Failed to parse manifest at ${manifestPath}: ${String(err)}`,
+        }),
+      }],
+    };
+  }
+
+  // Guard against double-completion
+  if (manifest.status === 'completed') {
+    const response: CompleteSprintResponse = {
+      success: true,
+      sprintId: manifest.id,
+      note: 'Sprint was already marked as completed',
+    };
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify(response),
+      }],
+    };
+  }
+
+  // Check all tasks: every task must have status 'completed' or 'pushed'
+  const unfinishedTasks = manifest.tasks.filter(
+    (t) => t.status !== 'completed' && t.status !== 'pushed'
+  );
+
+  if (unfinishedTasks.length > 0) {
+    const response: CompleteSprintResponse = {
+      success: false,
+      sprintId: manifest.id,
+      reason: `Cannot complete sprint: ${unfinishedTasks.length} task(s) not finished`,
+      tasks: manifest.tasks.map((t) => ({ id: t.id, status: t.status })),
+    };
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify(response),
+      }],
+    };
+  }
+
+  // All tasks are done — mark sprint as completed
+  manifest.status = 'completed';
+
+  try {
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+  } catch (err) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Failed to write manifest: ${String(err)}`,
+        }),
+      }],
+    };
+  }
+
+  const response: CompleteSprintResponse = {
+    success: true,
+    sprintId: manifest.id,
+    sprintName: manifest.name,
+    completedAt: new Date().toISOString(),
+    summary: summary || null,
+    taskCount: manifest.tasks.length,
+  };
+
+  return {
+    content: [{
+      type: 'text' as const,
+      text: JSON.stringify(response),
+    }],
+  };
+}
+
 /**
  * MCP server that exposes a `request_help` tool for agent↔human communication.
  *
@@ -548,6 +672,25 @@ export class CliffordMcpServer extends EventEmitter {
         notes?: string;
       }) => {
         return reportUat(taskId, description, steps, result, notes);
+      }
+    );
+
+    // -------------------------------------------------------------------------
+    // complete_sprint — validate all tasks done, then mark sprint completed
+    // -------------------------------------------------------------------------
+    this.mcpServer.registerTool(
+      'complete_sprint',
+      {
+        description:
+          'Mark the current sprint as completed. Only succeeds if all tasks have status ' +
+          "'completed' or 'pushed'. Call this after finishing the final task.",
+        inputSchema: {
+          sprintDir: z.string().describe('The sprint directory path'),
+          summary: z.string().optional().describe('Optional completion summary'),
+        },
+      },
+      async ({ sprintDir, summary }: { sprintDir: string; summary?: string }) => {
+        return completeSprint(sprintDir, summary);
       }
     );
   }

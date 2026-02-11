@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'bun:test';
 import fs from 'fs';
 import path from 'path';
-import { CliffordMcpServer, buildSprintContext, updateTaskStatus, reportUat, SprintContextResponse, UpdateTaskStatusResponse, ReportUatResponse, UatEntry } from './mcp-server';
+import { CliffordMcpServer, buildSprintContext, updateTaskStatus, reportUat, completeSprint, SprintContextResponse, UpdateTaskStatusResponse, ReportUatResponse, CompleteSprintResponse, UatEntry } from './mcp-server';
 import { saveMemory, clearMemory } from './asm-storage';
 
 describe('CliffordMcpServer', () => {
@@ -657,5 +657,205 @@ describe('reportUat', () => {
     const entries = readUatFile();
     expect(entries).toHaveLength(1);
     expect(entries[0].taskId).toBe('task-1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// completeSprint tests
+// ---------------------------------------------------------------------------
+
+describe('completeSprint', () => {
+  const TEST_ID = Math.random().toString(36).substring(7);
+  const TEST_DIR = path.resolve(`.clifford/test-complete-sprint-${TEST_ID}`);
+  const TASKS_DIR = path.join(TEST_DIR, 'tasks');
+
+  function writeManifest(manifest: Record<string, unknown>): void {
+    fs.writeFileSync(
+      path.join(TEST_DIR, 'manifest.json'),
+      JSON.stringify(manifest, null, 2),
+      'utf8'
+    );
+  }
+
+  function readManifest(): Record<string, unknown> {
+    const raw = fs.readFileSync(path.join(TEST_DIR, 'manifest.json'), 'utf8');
+    return JSON.parse(raw) as Record<string, unknown>;
+  }
+
+  function parseResult(result: { content: Array<{ type: string; text: string }> }): Record<string, unknown> {
+    return JSON.parse(result.content[0].text) as Record<string, unknown>;
+  }
+
+  beforeEach(() => {
+    // Clean up test directories
+    if (fs.existsSync(TEST_DIR)) {
+      fs.rmSync(TEST_DIR, { recursive: true, force: true });
+    }
+
+    // Create fresh test directory structure
+    fs.mkdirSync(TASKS_DIR, { recursive: true });
+  });
+
+  afterAll(() => {
+    // Clean up test artifacts
+    if (fs.existsSync(TEST_DIR)) {
+      fs.rmSync(TEST_DIR, { recursive: true, force: true });
+    }
+  });
+
+  it('should successfully complete a sprint when all tasks are completed', () => {
+    writeManifest({
+      id: 'sprint-test',
+      name: 'Test Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'completed' },
+        { id: 'task-2', file: 'tasks/02-second.md', status: 'completed' },
+        { id: 'task-3', file: 'tasks/03-third.md', status: 'completed' },
+      ],
+    });
+
+    const result = completeSprint(TEST_DIR);
+    const parsed = parseResult(result) as unknown as CompleteSprintResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.sprintId).toBe('sprint-test');
+    expect(parsed.sprintName).toBe('Test Sprint');
+    expect(parsed.taskCount).toBe(3);
+    expect(parsed.completedAt).toBeDefined();
+    expect(typeof parsed.completedAt).toBe('string');
+    // Verify completedAt is a valid ISO string
+    const completedAt = parsed.completedAt as string;
+    expect(new Date(completedAt).toISOString()).toBe(completedAt);
+    expect(parsed.summary).toBeNull();
+
+    // Verify the manifest file was actually updated
+    const manifest = readManifest();
+    expect(manifest.status).toBe('completed');
+  });
+
+  it('should successfully complete a sprint with a mix of completed and pushed tasks', () => {
+    writeManifest({
+      id: 'sprint-mixed',
+      name: 'Mixed Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'pushed' },
+        { id: 'task-2', file: 'tasks/02-second.md', status: 'completed' },
+        { id: 'task-3', file: 'tasks/03-third.md', status: 'pushed' },
+      ],
+    });
+
+    const result = completeSprint(TEST_DIR);
+    const parsed = parseResult(result) as unknown as CompleteSprintResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.sprintId).toBe('sprint-mixed');
+    expect(parsed.taskCount).toBe(3);
+
+    // Verify manifest updated
+    const manifest = readManifest();
+    expect(manifest.status).toBe('completed');
+  });
+
+  it('should include the summary when provided', () => {
+    writeManifest({
+      id: 'sprint-summary',
+      name: 'Summary Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'completed' },
+      ],
+    });
+
+    const result = completeSprint(TEST_DIR, 'All MCP tools implemented successfully');
+    const parsed = parseResult(result) as unknown as CompleteSprintResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.summary).toBe('All MCP tools implemented successfully');
+  });
+
+  it('should fail when tasks are still pending', () => {
+    writeManifest({
+      id: 'sprint-pending',
+      name: 'Pending Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'completed' },
+        { id: 'task-2', file: 'tasks/02-second.md', status: 'pending' },
+        { id: 'task-3', file: 'tasks/03-third.md', status: 'active' },
+      ],
+    });
+
+    const result = completeSprint(TEST_DIR);
+    const parsed = parseResult(result) as unknown as CompleteSprintResponse;
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.reason).toContain('Cannot complete sprint: 2 task(s) not finished');
+    expect(parsed.tasks).toBeDefined();
+    expect(parsed.tasks).toHaveLength(3);
+    expect(parsed.tasks![0]).toEqual({ id: 'task-1', status: 'completed' });
+    expect(parsed.tasks![1]).toEqual({ id: 'task-2', status: 'pending' });
+    expect(parsed.tasks![2]).toEqual({ id: 'task-3', status: 'active' });
+
+    // Verify manifest was NOT changed
+    const manifest = readManifest();
+    expect(manifest.status).toBe('active');
+  });
+
+  it('should fail when a task is blocked', () => {
+    writeManifest({
+      id: 'sprint-blocked',
+      name: 'Blocked Sprint',
+      status: 'active',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'completed' },
+        { id: 'task-2', file: 'tasks/02-second.md', status: 'blocked' },
+      ],
+    });
+
+    const result = completeSprint(TEST_DIR);
+    const parsed = parseResult(result) as unknown as CompleteSprintResponse;
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.reason).toContain('Cannot complete sprint: 1 task(s) not finished');
+  });
+
+  it('should handle already-completed sprint gracefully (double-completion guard)', () => {
+    writeManifest({
+      id: 'sprint-already-done',
+      name: 'Already Done Sprint',
+      status: 'completed',
+      tasks: [
+        { id: 'task-1', file: 'tasks/01-first.md', status: 'completed' },
+      ],
+    });
+
+    const result = completeSprint(TEST_DIR);
+    const parsed = parseResult(result) as unknown as CompleteSprintResponse;
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.sprintId).toBe('sprint-already-done');
+    expect(parsed.note).toBe('Sprint was already marked as completed');
+    // Should NOT have completedAt or taskCount for the "already done" case
+    expect(parsed.completedAt).toBeUndefined();
+  });
+
+  it('should return error for nonexistent sprint directory', () => {
+    const result = completeSprint('/tmp/nonexistent-sprint-dir-xyz-789');
+    const parsed = parseResult(result);
+
+    expect(parsed.error).toBeDefined();
+    expect((parsed.error as string)).toContain('Sprint manifest not found');
+  });
+
+  it('should return error for invalid JSON in manifest', () => {
+    fs.writeFileSync(path.join(TEST_DIR, 'manifest.json'), 'not valid json{{{', 'utf8');
+
+    const result = completeSprint(TEST_DIR);
+    const parsed = parseResult(result);
+
+    expect(parsed.error).toBeDefined();
+    expect((parsed.error as string)).toContain('Failed to parse manifest');
   });
 });
