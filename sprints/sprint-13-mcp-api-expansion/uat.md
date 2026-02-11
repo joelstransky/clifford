@@ -134,3 +134,31 @@
    - On success, it sets `manifest.status = "completed"` and writes the manifest.
    - It returns structured JSON matching the `CompleteSprintResponse` interface.
 5. Confirm the `complete_sprint` tool is registered in `registerTools()` with the correct zod input schema (`sprintDir: z.string()`, `summary: z.string().optional()`).
+
+## Task 5: Update Prompt Templates & Agent Permissions
+
+### What Changed
+- **Rewrote `templates/.clifford/prompt.md`**: Replaced all direct filesystem manipulation instructions (read/write `manifest.json`, create `uat.md`) with MCP tool call instructions. Added a complete "MCP Tools" section documenting all 5 tools (`get_sprint_context`, `update_task_status`, `report_uat`, `complete_sprint`, `request_help`), a "Task Lifecycle" section using MCP tools, and a "File Restrictions" section with explicit "NEVER write to `.clifford/`" rules. Removed the old "Mandatory Exit Protocol" that instructed direct file edits and git commits.
+- **Rewrote `templates/.opencode/agent/Developer.md`**: Replaced direct manifest editing instructions (`Update Manifest`, `Atomic Commits`) with MCP tool equivalents (`Activate Task`, `Complete Task`, `Complete Sprint`). Added an "MCP Tools Available" section listing all 5 tools. Changed write permissions to explicitly exclude `.clifford/`. Added "NEVER run `git commit` or `git push`" rule.
+- **Updated `.opencode/agent/Developer.md`** (Clifford's own): Same changes as the template version — MCP tool references, no direct manifest/uat writes, no git commit instructions.
+- **Updated `AGENTS.md`**: Changed the "Task Lifecycle" section to use MCP tool calls (`get_sprint_context`, `update_task_status`, `report_uat`, `complete_sprint`). Updated the "Mandatory Exit Protocol" to reference `update_task_status` and `report_uat` instead of direct file edits. Updated the "Communication Protocol (MCP)" section to list all 5 available MCP tools.
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm run lint` — no new lint errors introduced (pre-existing errors are unrelated to template changes).
+3. Open `templates/.clifford/prompt.md` and verify:
+   - No references to reading or editing `manifest.json` directly.
+   - All 5 MCP tools are documented with input schemas.
+   - The "NEVER write to `.clifford/`" rule is prominent in the "File Restrictions" section.
+   - No "Mandatory Exit Protocol" referencing direct file edits remains.
+   - No instructions to run `git commit` automatically.
+4. Open `templates/.opencode/agent/Developer.md` and verify:
+   - MCP tools are listed in a dedicated section.
+   - No references to `Atomic Commits` or `git add && git commit`.
+   - Write permissions explicitly exclude `.clifford/`.
+5. Open `.opencode/agent/Developer.md` and verify consistency with the template version.
+6. Open `AGENTS.md` and verify:
+   - Task Lifecycle steps reference MCP tool calls.
+   - Mandatory Exit Protocol references `update_task_status` and `report_uat`.
+   - Communication Protocol lists all 5 MCP tools.
+7. Run `grep -rn "edit.*manifest\|write.*manifest\|fs.write.*manifest" templates/` — should return only the `clifford-approve.sh` script (external tooling) and the prohibition rule in `prompt.md`, NOT any instructions for the agent to edit manifests.
