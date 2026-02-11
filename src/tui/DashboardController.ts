@@ -218,6 +218,8 @@ export class DashboardController extends EventEmitter {
     });
 
     this.runner.on('halt', (data: { task: string; reason: string; question: string }) => {
+      // Ignore duplicate halt events if we already have an active blocker
+      if (this.activeBlocker) return;
       this.stopSpinner();
       this.activeBlocker = { task: data.task, reason: data.reason, question: data.question };
       this.chatInput = '';

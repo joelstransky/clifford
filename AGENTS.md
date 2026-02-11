@@ -58,7 +58,7 @@ Welcome, Clifford Agent. This document defines the standards, workflows, and con
 ## 📂 Project Structure
 
 - `clifford/src/`: Core logic.
-  - `utils/`: Reusable logic (Bridge, Discovery, Sprint, ASM, etc.).
+  - `utils/`: Reusable logic (Discovery, Sprint, ASM, MCP, etc.).
 - `clifford/sprints/`: Storage for core sprint manifests and task definitions.
 - `clifford-sandbox/`: The primary UAT environment. Isolated from core code.
 
@@ -84,12 +84,12 @@ Welcome, Clifford Agent. This document defines the standards, workflows, and con
 - **You MUST document your work and verification in `uat.md`.** If it does not exist, create it.
 - **NEVER exit without updating the manifest if work was performed.** Even on partial failure, update the manifest to reflect actual state.
 
-### Communication Bridge (The "Phone Home" Protocol)
-If you hit a logical blocker or detect an interactive prompt (e.g., `read -p`):
-- **Protocol**: Send a POST request to the local bridge.
-- **Endpoint**: `http://localhost:8686/block`
-- **Payload**: `{ "task": string, "reason": string, "question": string }`
-- **Action**: Update manifest status to `blocked` and exit. The outer loop will handle user interaction.
+### Communication Protocol (MCP)
+- The Developer agent communicates with Clifford via the `request_help` MCP tool.
+- Clifford provides an MCP server that OpenCode connects to automatically.
+- When the agent calls `request_help`, the TUI displays a blocker panel.
+- The human types a response, which is returned to the agent via the tool call.
+- The agent stays alive throughout this process — no restart cycle.
 
 ### ASM Storage (Recursive Memory)
 - Utilize `.clifford/asm.json` to persist guidance across task attempts.

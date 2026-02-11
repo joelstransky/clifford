@@ -31,23 +31,19 @@ Failure to follow this protocol will cause the sprint loop to stall or repeat wo
 
 ---
 
-## If You Get Stuck
+## Communication Protocol
 
-If you encounter a problem you cannot solve, need clarification, or need the user to take action before you can proceed:
+When you encounter a blocker, need clarification, or require human input:
 
-1. Send a POST request to the Clifford bridge (port provided via `CLIFFORD_BRIDGE_PORT`):
-   ```
-   POST http://localhost:<CLIFFORD_BRIDGE_PORT>/block
-   Content-Type: application/json
+1. Use the `request_help` MCP tool. Provide:
+   - `task`: The current task ID (e.g., "task-3")
+   - `reason`: A brief description of what's blocking you
+   - `question`: The specific question you need answered
 
-   {
-     "task": "<task-id>",
-     "reason": "<brief description of the problem>",
-     "question": "<what you need from the user>"
-   }
-   ```
-2. Update the task status to `"blocked"` in `manifest.json`.
-3. After sending the request, **exit immediately**. Do NOT continue working on the task.
-4. The user will provide guidance, and you will be re-invoked with updated task instructions.
+2. The tool will block until the human responds. **Do NOT exit.** Wait for the response.
+
+3. When you receive the response, incorporate the guidance and continue working.
+
+4. Update the task status to `blocked` in the manifest ONLY if the tool returns a dismissal message.
 
 **Do NOT mark a task as completed if it did not actually succeed.** If a required command fails, a dependency is missing, or instructions are ambiguous, call for help instead of guessing.

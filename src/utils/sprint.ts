@@ -200,7 +200,7 @@ Proceed with this information.
           this.log(`🧠 Injected human guidance for task ${nextTask.id}`);
         }
 
-        // Build prompt — no more CLIFFORD_BRIDGE_PORT, agent discovers request_help via MCP
+        // Build prompt — agent discovers request_help tool via MCP automatically
         const finalPrompt = `CURRENT_SPRINT_DIR: ${this.sprintDir}
 
 ${humanGuidance}${promptContent}`;
@@ -221,15 +221,20 @@ ${humanGuidance}${promptContent}`;
           this.activeChild = child;
 
           // Poll for MCP block files during agent execution
+          let blockEmitted = false;
           const blockPollInterval = setInterval(() => {
             const blockData = readBlockFile(this.projectRoot);
-            if (blockData) {
+            if (blockData && !blockEmitted) {
+              blockEmitted = true;
               this.status = 'Needs Help';
               this.emit('halt', {
                 task: blockData.task,
                 reason: blockData.reason,
                 question: blockData.question,
               });
+            } else if (!blockData && blockEmitted) {
+              // Block file was cleaned up (response was written) — reset for next block
+              blockEmitted = false;
             }
           }, 1000);
 

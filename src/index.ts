@@ -137,28 +137,6 @@ program
     }
   });
 
-program
-  .command('resolve <response>')
-  .description('Resolve a blocker by sending a response to the active agent')
-  .action(async (response) => {
-    try {
-      const { writeResponseFile, readBlockFile } = await import('./utils/mcp-ipc.js');
-      const projectRoot = process.cwd();
-
-      const block = readBlockFile(projectRoot);
-      if (!block) {
-        console.log('⚠️ No active blocker found. Is the sprint loop running?');
-        return;
-      }
-
-      writeResponseFile(projectRoot, response);
-      console.log(`✅ Sent resolution: ${response}`);
-      console.log(`   (Task: ${block.task})`);
-    } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
-    }
-  });
-
 function findActiveSprintDir(): string {
   try {
     const sprints = SprintRunner.discoverSprints();

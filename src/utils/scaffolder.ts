@@ -51,13 +51,14 @@ async function resolveTemplateDir(): Promise<string> {
 // ---------------------------------------------------------------------------
 
 interface OpenCodeConfig {
-  mcpServers?: Record<string, McpServerEntry>;
+  mcp?: Record<string, McpServerEntry>;
   [key: string]: unknown;
 }
 
 interface McpServerEntry {
-  command: string;
-  args: string[];
+  type: string;
+  command: string[];
+  environment?: Record<string, string>;
   [key: string]: unknown;
 }
 
@@ -80,12 +81,15 @@ async function resolveMcpEntry(cliffordRoot: string): Promise<{ command: string;
 }
 
 /**
- * Ensures `opencode.json` at `projectRoot` contains a `mcpServers.clifford` entry
- * pointing to the Clifford MCP server entry point.
- *
- * - If the file already exists, existing keys are preserved (deep-merge).
- * - If `mcpServers.clifford` already exists, it is updated in-place.
- */
+  * Ensures `opencode.json` at `projectRoot` contains a `mcp.clifford` entry
+  * pointing to the Clifford MCP server entry point.
+  *
+  * OpenCode uses `"mcp": { "<name>": { "type": "local", "command": [...] } }`
+  * (NOT the Claude Desktop `mcpServers` format).
+  *
+  * - If the file already exists, existing keys are preserved (deep-merge).
+  * - If `mcp.clifford` already exists, it is updated in-place.
+  */
 export async function ensureOpenCodeConfig(projectRoot: string): Promise<void> {
   const cliffordRoot = await resolveCliffordRoot();
   const { command, entryPath } = await resolveMcpEntry(cliffordRoot);
@@ -103,14 +107,14 @@ export async function ensureOpenCodeConfig(projectRoot: string): Promise<void> {
     }
   }
 
-  // Deep-merge: preserve other mcpServers entries
-  if (!config.mcpServers) {
-    config.mcpServers = {};
+  // Deep-merge: preserve other mcp server entries
+  if (!config.mcp) {
+    config.mcp = {};
   }
 
-  config.mcpServers['clifford'] = {
-    command,
-    args: [entryPath],
+  config.mcp['clifford'] = {
+    type: 'local',
+    command: [command, entryPath],
   };
 
   await fs.writeJson(configPath, config, { spaces: 2 });

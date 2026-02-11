@@ -103,3 +103,10 @@
 - 04-task-list-status-labels
 - 05-dynamic-status-bar
 - 06-activity-header-panel
+
+## [2026-02-10] sprint-12-mcp-communication
+- 01-mcp-server-skeleton
+- 02-template-opencode-json
+- 03-wire-mcp-into-runner
+- 04-wire-mcp-into-controller-tui
+- 05-templates-cleanup-removal

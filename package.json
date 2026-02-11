@@ -7,7 +7,7 @@
     "clifford": "./dist/index.js"
   },
   "scripts": {
-    "build": "bun build src/index.ts src/mcp-entry.ts --outdir dist --target bun --external @opentui/core --external @opentui/core-win32-x64 --external @opentui/core-linux-x64",
+    "build": "bun build src/index.ts src/mcp-entry.ts --outdir dist --target bun --external @opentui/core --external @opentui/core-win32-x64 --external @opentui/core-win32-arm64 --external @opentui/core-linux-x64 --external @opentui/core-linux-arm64 --external @opentui/core-darwin-x64 --external @opentui/core-darwin-arm64",
     "start": "bun run dist/index.js",
     "dev": "bun run src/index.ts",
     "lint": "eslint .",
@@ -38,12 +38,11 @@
   },
   "homepage": "https://github.com/joelstransky/clifford#readme",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
     "@opentui/core": "^0.1.75",
-    "axios": "^1.7.9",
     "commander": "^14.0.2",
     "fs-extra": "^11.3.3",
     "inquirer": "^8.2.7",
-    "@modelcontextprotocol/sdk": "^1.12.1",
     "zod": "^3.25.3"
   },
   "devDependencies": {

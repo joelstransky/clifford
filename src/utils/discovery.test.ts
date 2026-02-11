@@ -44,10 +44,10 @@ describe('discovery', () => {
 
     // Test getInvokeArgs
     const args = tools[0].getInvokeArgs('test prompt', 'test-model');
-    expect(args).toEqual(['run', 'test prompt']);
+    expect(args).toEqual(['run', '--agent', 'Developer', '--model', 'test-model', 'test prompt']);
 
     const argsNoModel = tools[0].getInvokeArgs('test prompt');
-    expect(argsNoModel).toEqual(['run', 'test prompt']);
+    expect(argsNoModel).toEqual(['run', '--agent', 'Developer', 'test prompt']);
   });
 
   it('should report OpenCode as not installed when missing', () => {
