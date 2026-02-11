@@ -162,3 +162,24 @@
    - Mandatory Exit Protocol references `update_task_status` and `report_uat`.
    - Communication Protocol lists all 5 MCP tools.
 7. Run `grep -rn "edit.*manifest\|write.*manifest\|fs.write.*manifest" templates/` — should return only the `clifford-approve.sh` script (external tooling) and the prohibition rule in `prompt.md`, NOT any instructions for the agent to edit manifests.
+
+## Task 6: Activity Tab Styling Tweaks
+
+### What Changed
+- **Blue border on Status Row** (`src/tui/components.ts:427`): Added `border: true` and `borderColor: COLORS.primary` (#7aa2f7) to the status row. Increased height from 5 to 7 to accommodate the border (2 chars) and padding (2 chars). Replaced `paddingLeft: 2` / `paddingRight: 2` with uniform `padding: 1`.
+- **Inner padding on all three panes** (`src/tui/components.ts:444,465`): Added `padding: 1` to `activityRow` and `processRow`. The status row already had padding from the border change above.
+- **Auto-scroll to bottom** (`src/tui/components.ts:582`, `src/tui/Dashboard.ts:189,200`): Exposed `activityScroll` and `processScroll` references from `createActivityView()` via the `ActivityViewComponents` interface. Added a `scrollToEnd()` helper that safely calls `scrollToBottom()` or falls back to `scrollTo(999999)`. Called `scrollToEnd()` after each `renderLogEntries()` invocation in Dashboard.ts.
+- **Remove timestamps from process output** (`src/tui/components.ts:597`, `src/tui/Dashboard.ts:198`): Added a `showTimestamp: boolean = true` parameter to `renderLogEntries()`. When `false`, the `[HH:MM:SS]` prefix is omitted. The process log call in Dashboard.ts passes `false`; the activity log retains the default `true`.
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 142 tests should pass across 12 files.
+3. Launch the Clifford TUI and switch to the **Activity** tab.
+4. Verify:
+   - The status row has a visible blue (`#7aa2f7`) border around it.
+   - The blue border touches the outer edges of the panel — no gap between the border and the panel edge.
+   - All three panes (status, activity, process) have ~1 character of inner padding.
+   - When a sprint is running, the activity log auto-scrolls to show the latest entry.
+   - The process output pane auto-scrolls to show the latest stdout/stderr line.
+   - Process output lines do NOT have `[HH:MM:SS]` timestamps.
+   - Activity log lines DO still have `[HH:MM:SS]` timestamps.
