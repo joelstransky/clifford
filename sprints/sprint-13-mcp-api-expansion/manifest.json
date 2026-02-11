@@ -3,7 +3,7 @@
   "name": "MCP API Expansion & Activity Styling",
   "status": "active",
   "tasks": [
-    { "id": "task-1", "file": "tasks/01-get-sprint-context-tool.md", "status": "pending" },
+    { "id": "task-1", "file": "tasks/01-get-sprint-context-tool.md", "status": "completed" },
     { "id": "task-2", "file": "tasks/02-update-task-status-tool.md", "status": "pending" },
     { "id": "task-3", "file": "tasks/03-report-uat-tool.md", "status": "pending" },
     { "id": "task-4", "file": "tasks/04-complete-sprint-tool.md", "status": "pending" },

@@ -1,8 +1,11 @@
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import path from 'path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod/v3';
 import { writeBlockFile, pollForResponse, cleanupMcpFiles } from './mcp-ipc.js';
+import { getMemory } from './asm-storage.js';
 
 export interface BlockData {
   task: string;
@@ -10,9 +13,153 @@ export interface BlockData {
   question: string;
 }
 
+export interface SprintTaskEntry {
+  id: string;
+  file: string;
+  status: 'pending' | 'active' | 'completed' | 'blocked' | 'pushed';
+}
+
+export interface SprintManifestData {
+  id: string;
+  name: string;
+  status: string;
+  tasks: SprintTaskEntry[];
+}
+
+export interface SprintContextResponse {
+  sprint: {
+    id: string;
+    name: string;
+    status: string;
+    tasks: SprintTaskEntry[];
+  };
+  currentTask: {
+    id: string;
+    file: string;
+    status: string;
+    content: string | null;
+  } | null;
+  guidance: {
+    previousQuestion: string;
+    humanResponse: string;
+  } | null;
+  sprintDir: string;
+}
+
 interface PendingBlock {
   data: BlockData;
   resolve: (response: string) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Exported handler for get_sprint_context (testable standalone)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds the sprint context response for a given sprint directory.
+ * Reads the manifest, identifies the current task, loads its content,
+ * and checks ASM storage for human guidance from previous attempts.
+ */
+export function buildSprintContext(
+  sprintDir: string
+): { content: Array<{ type: 'text'; text: string }> } {
+  const resolvedDir = path.resolve(process.cwd(), sprintDir);
+  const manifestPath = path.join(resolvedDir, 'manifest.json');
+
+  // Check if manifest exists
+  if (!fs.existsSync(manifestPath)) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Sprint manifest not found at ${manifestPath}`,
+        }, null, 2),
+      }],
+    };
+  }
+
+  // Read and parse manifest
+  let manifest: SprintManifestData;
+  try {
+    const raw = fs.readFileSync(manifestPath, 'utf8');
+    manifest = JSON.parse(raw) as SprintManifestData;
+  } catch (err) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: `Failed to parse manifest at ${manifestPath}: ${String(err)}`,
+        }, null, 2),
+      }],
+    };
+  }
+
+  // Find the current task — first pending or active
+  const currentTaskEntry = manifest.tasks.find(
+    (t) => t.status === 'pending' || t.status === 'active'
+  ) ?? null;
+
+  let currentTask: SprintContextResponse['currentTask'] = null;
+  let guidance: SprintContextResponse['guidance'] = null;
+
+  if (currentTaskEntry) {
+    // Read task markdown content
+    const taskFilePath = path.join(resolvedDir, currentTaskEntry.file);
+    let taskContent: string | null = null;
+
+    if (fs.existsSync(taskFilePath)) {
+      try {
+        taskContent = fs.readFileSync(taskFilePath, 'utf8');
+      } catch {
+        taskContent = null;
+      }
+    }
+
+    // Check ASM storage for human guidance
+    const memory = getMemory(currentTaskEntry.id);
+    guidance = memory
+      ? { previousQuestion: memory.question, humanResponse: memory.answer }
+      : null;
+
+    currentTask = {
+      id: currentTaskEntry.id,
+      file: currentTaskEntry.file,
+      status: currentTaskEntry.status,
+      content: taskContent,
+    };
+  }
+
+  const response: SprintContextResponse = {
+    sprint: {
+      id: manifest.id,
+      name: manifest.name,
+      status: manifest.status,
+      tasks: manifest.tasks,
+    },
+    currentTask,
+    guidance,
+    sprintDir,
+  };
+
+  // Add a note when no pending/active task exists
+  if (!currentTask) {
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          ...response,
+          note: 'All tasks completed or no pending tasks',
+        }, null, 2),
+      }],
+    };
+  }
+
+  return {
+    content: [{
+      type: 'text' as const,
+      text: JSON.stringify(response, null, 2),
+    }],
+  };
 }
 
 /**
@@ -98,6 +245,24 @@ export class CliffordMcpServer extends EventEmitter {
         });
 
         return { content: [{ type: 'text' as const, text: response }] };
+      }
+    );
+
+    // -------------------------------------------------------------------------
+    // get_sprint_context — read-only tool returning sprint + task context
+    // -------------------------------------------------------------------------
+    this.mcpServer.registerTool(
+      'get_sprint_context',
+      {
+        description:
+          'Returns the current sprint manifest, the next pending task\'s content, and any human guidance from previous attempts. ' +
+          'Call this at the start of each task to understand what to do.',
+        inputSchema: {
+          sprintDir: z.string().describe('The sprint directory path (from CURRENT_SPRINT_DIR)'),
+        },
+      },
+      async ({ sprintDir }: { sprintDir: string }) => {
+        return buildSprintContext(sprintDir);
       }
     );
   }
