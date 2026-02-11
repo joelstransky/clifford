@@ -72,21 +72,22 @@ Welcome, Clifford Agent. This document defines the standards, workflows, and con
 - **Pushing**: No `git push` unless explicitly requested by the Human.
 
 ### Task Lifecycle
-1. **Selection**: Read `manifest.json` in the active sprint directory. Find the first `pending` task.
-2. **Activation**: Mark task `active` in `manifest.json` before beginning work.
+1. **Selection**: Call `get_sprint_context` with the active sprint directory. Identify the first `pending` task.
+2. **Activation**: Call `update_task_status` with `status: "active"` to mark the task as started.
 3. **Execution**: Implement logic precisely.
 4. **Verification**: Run `npm test` and appropriate sandbox verification.
-5. **Documentation**: Update `uat.md` with manual verification steps for the Human.
-6. **Completion**: Mark task `completed` in `manifest.json` and create a local commit.
+5. **Documentation**: Call `report_uat` with a description of changes and step-by-step verification instructions.
+6. **Completion**: Call `update_task_status` with `status: "completed"`. If this was the last task, call `complete_sprint`.
 
 ### Mandatory Exit Protocol
-- **You MUST update the task status to `completed` in `manifest.json` immediately after finishing a task.** The outer loop depends on manifest state.
-- **You MUST document your work and verification in `uat.md`.** If it does not exist, create it.
-- **NEVER exit without updating the manifest if work was performed.** Even on partial failure, update the manifest to reflect actual state.
+- **You MUST call `update_task_status` with `status: "completed"` immediately after finishing a task.** The outer loop depends on manifest state.
+- **You MUST call `report_uat` to document your work and verification results.**
+- **NEVER exit without updating the task status if work was performed.** Even on partial failure, call `update_task_status` to reflect actual state (`completed`, `blocked`, etc.).
 
 ### Communication Protocol (MCP)
-- The Developer agent communicates with Clifford via the `request_help` MCP tool.
-- Clifford provides an MCP server that OpenCode connects to automatically.
+- The Developer agent communicates with Clifford via MCP tools provided by the Clifford MCP server.
+- Available tools: `get_sprint_context`, `update_task_status`, `report_uat`, `complete_sprint`, `request_help`.
+- Clifford provides an MCP server that Claude Code connects to automatically.
 - When the agent calls `request_help`, the TUI displays a blocker panel.
 - The human types a response, which is returned to the agent via the tool call.
 - The agent stays alive throughout this process — no restart cycle.
