@@ -78,9 +78,13 @@ Input: `{ task: "task-1", reason: "...", question: "..." }`
 - **NEVER** create `uat.md` or `uat.json` directly. Use `report_uat`.
 - You MAY read files inside `.clifford/` if needed for context, but prefer `get_sprint_context`.
 - You MAY read and write files in `src/`, `templates/`, `tests/`, and other project directories — that's your job.
+- **NEVER** run `git init`. If the project is not a git repository, do NOT initialize one.
+- **NEVER** run `git commit` unless the project is already a git repository AND the task instructions explicitly ask you to commit. Clifford manages git workflow — you do not.
 ```
 
-**Keep** all other prompt content that's still relevant (project structure, coding standards, git workflow, etc.).
+**Remove** any "Mandatory Exit Protocol" or "create a local commit after completing each task" instructions from the old prompt. The agent should NOT be committing automatically. Git operations are managed externally by Clifford or the human.
+
+**Keep** all other prompt content that's still relevant (project structure, coding standards, etc.).
 
 ### 2. Update `templates/.opencode/agent/Developer.md`
 
