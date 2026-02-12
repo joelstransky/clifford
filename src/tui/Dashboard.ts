@@ -79,7 +79,7 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
 
   const {
     activityPanel,
-    infoSprintText, infoTaskText, infoTimerText, infoProgressText,
+    infoSprintText, infoTaskText, infoTimerText, infoProgressText, infoMcpText,
     activityRow, activityScroll, activityLogContainer,
     processRow, processScroll, processLogContainer,
     blockerContainer,
@@ -255,12 +255,18 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
       infoTimerText.content = t`${bold(fg(COLORS.primary)('Elapsed: '))}${fg(COLORS.warning)(`${mm}:${ss}`)}`;
 
       const progress = generateProgressBar(completedCount, totalCount, 30);
-      infoProgressText.content = t`${bold(fg(COLORS.primary)('Progress: '))}${fg(completedCount === totalCount && totalCount > 0 ? COLORS.success : COLORS.primary)(progress)} (${completedCount}/${totalCount})`;
+      infoProgressText.content = t`${bold(fg(COLORS.primary)('Progress:'))}${fg(completedCount === totalCount && totalCount > 0 ? COLORS.success : COLORS.primary)(progress)} (${completedCount}/${totalCount})`;
+
+      const mcpColor = ctrl.mcpStatus === 'running' ? COLORS.success
+        : ctrl.mcpStatus === 'error' ? COLORS.error
+        : COLORS.dim;
+      infoMcpText.content = t`${bold(fg(COLORS.primary)('MCP:    '))}${fg(mcpColor)(ctrl.mcpStatus.toUpperCase())}`;
     } else {
       infoSprintText.content = t`${dim('No sprint running')}`;
       infoTaskText.content = '';
       infoTimerText.content = '';
       infoProgressText.content = '';
+      infoMcpText.content = t`${bold(fg(COLORS.primary)('MCP:    '))}${fg(COLORS.dim)('IDLE')}`;
     }
 
     // ── Blocker swap: replaces activityRow + processRow with blockerContainer ──

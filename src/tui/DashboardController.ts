@@ -382,6 +382,10 @@ export class DashboardController extends EventEmitter {
     return this.runner.getIsRunning();
   }
 
+  public get mcpStatus(): 'idle' | 'running' | 'error' {
+    return this.isRunning ? 'running' : 'idle';
+  }
+
   public get isBlocked(): boolean {
     return this.manifest
       ? this.manifest.tasks.some(t => t.status === 'blocked')
