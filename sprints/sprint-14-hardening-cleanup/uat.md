@@ -76,3 +76,22 @@ Added a color-coded MCP status label to the Activity tab's status pane, giving t
 4. Start a sprint. Verify "MCP: RUNNING" appears in green.
 5. Stop the sprint. Verify it returns to "MCP: IDLE" in gray.
 
+## Task 4: UI Tweaks — Title Rendering, Border Gap, Process Color
+
+### What Changed
+Fixed three visual issues in the Activity tab of the TUI:
+
+- **Panel title scroll overlap**: Wrapped both the ACTIVITY and PROCESS OUTPUT header `TextRenderable`s in fixed-height `BoxRenderable` containers (`height: 1, flexShrink: 0`). This prevents the `ScrollBoxRenderable` siblings (which use `flexGrow: 1`) from collapsing the headers when content overflows. Changed in `src/tui/components.ts` — `createActivityView()`.
+- **Blue border gap**: Added explicit `gap: 0` to the `activityPanel` `BoxRenderable` to eliminate any default spacing between the status row's blue border and the panel edges. Changed in `src/tui/components.ts` — `createActivityView()`.
+- **Process output title color**: Changed the PROCESS OUTPUT header color from `COLORS.dim` (`#565f89`) to `COLORS.text` (`#c0caf5`) for better readability, matching the visibility level of the ACTIVITY header. Changed in `src/tui/components.ts` — `createActivityView()`.
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 147 tests pass.
+3. Launch TUI (`npm run dev -- tui`), switch to the Activity tab.
+4. Start a sprint that produces enough output to scroll the process pane.
+5. Scroll up in the process pane — verify the "PROCESS OUTPUT" title stays fixed at the top and is NOT covered by scrolling text.
+6. Same check for the "ACTIVITY" title — it should remain visible above scrolling content.
+7. Verify the blue border on the status row touches the edges of the activity panel with no visible black gap.
+8. Verify "PROCESS OUTPUT" title is clearly visible (bright text, not dim gray).
+

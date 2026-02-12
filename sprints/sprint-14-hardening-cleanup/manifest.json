@@ -6,7 +6,7 @@
     { "id": "task-1", "file": "tasks/01-entropy-cleanup.md", "status": "completed" },
     { "id": "task-2", "file": "tasks/02-sprint-approval-tui.md", "status": "completed" },
     { "id": "task-3", "file": "tasks/03-mcp-status-indicator.md", "status": "completed" },
-    { "id": "task-4", "file": "tasks/04-ui-tweaks.md", "status": "active" },
+    { "id": "task-4", "file": "tasks/04-ui-tweaks.md", "status": "completed" },
     { "id": "task-5", "file": "tasks/05-raw-process-output.md", "status": "pending" },
     { "id": "task-6", "file": "tasks/06-test-realignment.md", "status": "pending" }
   ]
