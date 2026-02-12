@@ -133,7 +133,6 @@ describe('mcp-ipc', () => {
       expect(result).toBe('The answer is 42');
 
       // Both files should be cleaned up
-      const blockPath = path.join(tempDir, '.clifford', 'mcp-block.json');
       const responsePath = path.join(tempDir, '.clifford', 'mcp-response.json');
       expect(fs.existsSync(responsePath)).toBe(false);
     });

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import fs from 'fs';
 import { EventEmitter } from 'events';
-import { DashboardController, type Manifest, type LogEntry, type LogChannel, type BlockRequest } from './DashboardController';
+import { DashboardController, type Manifest, type LogEntry, type BlockRequest } from './DashboardController';
 import type { SprintRunner, SprintManifest } from '../utils/sprint';
 
 // ─── Mock Types ─────────────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ function createMockRunner(): MockRunner {
   let sprintDir = 'sprints/test-sprint';
   let status = 'Ready';
   return Object.assign(emitter, {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     setQuietMode: (_quiet: boolean) => {},
     getIsRunning: () => running,
     setIsRunning: (v: boolean) => { running = v; },
@@ -75,6 +76,7 @@ describe('DashboardController', () => {
     existsSyncSpy = spyOn(fs, 'existsSync').mockReturnValue(false);
     readFileSyncSpy = spyOn(fs, 'readFileSync').mockReturnValue('{}');
     // Mock static discoverSprints to avoid filesystem access
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { SprintRunner: SR } = require('../utils/sprint');
     discoverSprintsSpy = spyOn(SR, 'discoverSprints').mockReturnValue([]);
   });

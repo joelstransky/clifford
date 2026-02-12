@@ -95,3 +95,20 @@ Fixed three visual issues in the Activity tab of the TUI:
 7. Verify the blue border on the status row touches the edges of the activity panel with no visible black gap.
 8. Verify "PROCESS OUTPUT" title is clearly visible (bright text, not dim gray).
 
+## Task 5: Raw Process Output
+
+### What Changed
+Removed the `> ` prefix and `.substring(0, 120)` truncation from the process output handler in `DashboardController.ts`:
+
+- **`src/tui/DashboardController.ts`** (line 216):
+  - Changed `this.addLog(`> ${line.substring(0, 120)}`, streamType, 'process')` to `this.addLog(line, streamType, 'process')`.
+  - Process output lines now pass through unmodified — no prefix prepended, no character limit applied.
+
+No test changes were needed — existing tests use `.toContain()` assertions on the raw message content and do not assert the `> ` prefix.
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 147 tests pass.
+3. Launch TUI (`npm run dev -- tui`), start a sprint, and observe the process output pane. Lines should appear exactly as the agent outputs them — no `> ` prefix, no 120-character truncation.
+4. Verify long output lines (>120 chars) are displayed in full.
+

@@ -496,15 +496,8 @@ describe('updateTaskStatus', () => {
 // ---------------------------------------------------------------------------
 
 describe('reportUat', () => {
-  const TEST_ID = Math.random().toString(36).substring(7);
-  const TEST_CLIFFORD_DIR = path.resolve(`.clifford/test-uat-${TEST_ID}`);
-  const UAT_PATH = path.join(TEST_CLIFFORD_DIR, 'uat.json');
-
-  // We need to override process.cwd() so reportUat resolves .clifford/ to our test dir.
-  // Instead, we'll create the .clifford dir at cwd and use a unique filename approach.
-  // Actually, reportUat uses `path.resolve(process.cwd(), '.clifford')` — so we'll
-  // temporarily move the uat.json after each call. Simpler: just use the real .clifford/
-  // dir at cwd and clean up.
+  // reportUat uses `path.resolve(process.cwd(), '.clifford')` — so we use the real
+  // .clifford/ dir at cwd and clean up after each test.
 
   const REAL_CLIFFORD_DIR = path.resolve(process.cwd(), '.clifford');
   const REAL_UAT_PATH = path.join(REAL_CLIFFORD_DIR, 'uat.json');
