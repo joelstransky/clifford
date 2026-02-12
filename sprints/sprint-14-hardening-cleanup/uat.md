@@ -27,3 +27,27 @@ No changes needed in `src/utils/scaffolder.ts` — it had already been cleaned u
    - `templates/.clifford/clifford-sprint.sh`
    - `.clifford/sprint-verify.sh`
 6. Confirm `templates/.opencode/agent/Developer.md` line 11 now references `npm run build && npm test && npm run lint` instead of `.clifford/sprint-verify.sh`.
+
+## Task 2: Sprint Approval in TUI
+
+### What Changed
+Added `[A]pprove` hotkey to the TUI task view for completing a sprint, replacing the previously removed `clifford-approve.sh` shell script:
+
+- **`src/tui/DashboardController.ts`**:
+  - Added `canSprintApprove(): boolean` — computed getter that returns `true` only when all tasks are `completed` or `pushed`, the sprint is not already `completed`, and the runner is not running.
+  - Added `approveSprint(): void` — guards on `viewMode === 'tasks'`, runner not running, and `canSprintApprove()`. Writes `manifest.status = "completed"` to disk, logs a success message, and refreshes the manifest.
+- **`src/tui/Dashboard.ts`**:
+  - Wired the `a` key to call `ctrl.approveSprint()` in the keyboard handler.
+  - Updated footer hotkey hints: shows `[A]pprove` when `canSprintApprove()` is true, `[S]tart` when `canSprintStart()` is true, or just `[←] Back` otherwise.
+- **`src/tui/DashboardController.test.ts`**:
+  - Added 10 new tests in a `sprint approval` describe block covering `canSprintApprove()` and `approveSprint()` edge cases (no manifest, running, pending tasks, all completed, already completed, empty tasks, filesystem write, viewMode guard, running guard, and filesystem error handling).
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 147 tests pass, including 10 new sprint approval tests.
+3. Launch TUI (`npm run dev -- tui`), navigate to a sprint with all tasks completed/pushed. Verify `[A]pprove` appears in the footer instead of `[S]tart`.
+4. Press `A`. Verify the sprint's `manifest.json` status updates to `"completed"` and the activity log shows `"Sprint approved: {name}"`.
+5. Verify `[A]pprove` does NOT appear when:
+   - Tasks are still pending or active.
+   - A sprint is currently running.
+   - The sprint is already marked as completed.
