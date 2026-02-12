@@ -1,7 +1,7 @@
 {
   "id": "sprint-14",
   "name": "Hardening & Cleanup",
-  "status": "active",
+  "status": "completed",
   "tasks": [
     { "id": "task-1", "file": "tasks/01-entropy-cleanup.md", "status": "completed" },
     { "id": "task-2", "file": "tasks/02-sprint-approval-tui.md", "status": "completed" },

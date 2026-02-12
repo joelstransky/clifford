@@ -110,3 +110,11 @@
 - 03-wire-mcp-into-runner
 - 04-wire-mcp-into-controller-tui
 - 05-templates-cleanup-removal
+
+## [2026-02-12] sprint-14-hardening-cleanup
+- 01-entropy-cleanup
+- 02-sprint-approval-tui
+- 03-mcp-status-indicator
+- 04-ui-tweaks
+- 05-raw-process-output
+- 06-test-realignment
