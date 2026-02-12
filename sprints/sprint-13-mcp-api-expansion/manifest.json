@@ -1,7 +1,7 @@
 {
   "id": "sprint-13",
   "name": "MCP API Expansion & Activity Styling",
-  "status": "active",
+  "status": "completed",
   "tasks": [
     { "id": "task-1", "file": "tasks/01-get-sprint-context-tool.md", "status": "completed" },
     { "id": "task-2", "file": "tasks/02-update-task-status-tool.md", "status": "completed" },
