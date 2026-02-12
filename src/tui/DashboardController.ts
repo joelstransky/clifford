@@ -213,7 +213,7 @@ export class DashboardController extends EventEmitter {
       const lines = data.data.split('\n').filter((l: string) => l.trim().length > 0);
       const streamType: LogEntry['type'] = data.stream === 'stderr' ? 'error' : 'info';
       lines.forEach(line => {
-        this.addLog(`> ${line.substring(0, 120)}`, streamType, 'process');
+        this.addLog(line, streamType, 'process');
       });
     });
 
