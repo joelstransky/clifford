@@ -398,7 +398,7 @@ export interface ActivityViewComponents {
   infoTaskText: Renderable;
   infoTimerText: Renderable;
   infoProgressText: Renderable;
-  infoMcpText: Renderable;
+  mcpLabel: Renderable;
   // Activity Row
   activityRow: Renderable;
   activityScroll: Renderable;
@@ -427,7 +427,7 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
 
   // ── Row 1: Status Row ──
   const statusRow = new BoxRenderable(renderer, {
-    id: 'status-row', width: '100%', height: 9, flexDirection: 'column',
+    id: 'status-row', width: '100%', height: 8, flexDirection: 'column',
     padding: 1,
     border: true,
     borderColor: COLORS.primary,
@@ -437,14 +437,21 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   const infoSprintText = new TextRenderable(renderer, { id: 'info-sprint', content: '', width: '100%' });
   const infoTaskText = new TextRenderable(renderer, { id: 'info-task', content: '', width: '100%' });
   const infoTimerText = new TextRenderable(renderer, { id: 'info-timer', content: '', width: '100%' });
-  const infoProgressText = new TextRenderable(renderer, { id: 'info-progress', content: '', width: '100%' });
-  const infoMcpText = new TextRenderable(renderer, { id: 'info-mcp', content: '', width: '100%' });
+  const infoProgressText = new TextRenderable(renderer, { id: 'info-progress', content: '' });
+  const mcpLabel = new TextRenderable(renderer, { id: 'mcp-label', content: t`${fg(COLORS.dim)('MCP')}` });
+
+  // Progress row: progress text left, MCP label right
+  const progressRow = new BoxRenderable(renderer, {
+    id: 'progress-row', width: '100%', height: 1, flexDirection: 'row',
+    justifyContent: 'space-between',
+  });
+  progressRow.add(infoProgressText);
+  progressRow.add(mcpLabel);
 
   statusRow.add(infoSprintText);
   statusRow.add(infoTaskText);
   statusRow.add(infoTimerText);
-  statusRow.add(infoProgressText);
-  statusRow.add(infoMcpText);
+  statusRow.add(progressRow);
 
   // ── Row 2: Activity Row ──
   const activityRow = new BoxRenderable(renderer, {
@@ -548,7 +555,7 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
 
   return {
     activityPanel,
-    infoSprintText, infoTaskText, infoTimerText, infoProgressText, infoMcpText,
+    infoSprintText, infoTaskText, infoTimerText, infoProgressText, mcpLabel,
     activityRow, activityScroll, activityLogContainer,
     processRow, processScroll, processLogContainer,
     blockerContainer,

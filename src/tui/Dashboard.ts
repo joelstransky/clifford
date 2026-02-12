@@ -79,7 +79,7 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
 
   const {
     activityPanel,
-    infoSprintText, infoTaskText, infoTimerText, infoProgressText, infoMcpText,
+    infoSprintText, infoTaskText, infoTimerText, infoProgressText, mcpLabel,
     activityRow, activityScroll, activityLogContainer,
     processRow, processScroll, processLogContainer,
     blockerContainer,
@@ -260,13 +260,13 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
       const mcpColor = ctrl.mcpStatus === 'running' ? COLORS.success
         : ctrl.mcpStatus === 'error' ? COLORS.error
         : COLORS.dim;
-      infoMcpText.content = t`${bold(fg(COLORS.primary)('MCP:    '))}${fg(mcpColor)(ctrl.mcpStatus.toUpperCase())}`;
+      mcpLabel.content = t`${fg(mcpColor)('MCP')}`;
     } else {
       infoSprintText.content = t`${dim('No sprint running')}`;
       infoTaskText.content = '';
       infoTimerText.content = '';
       infoProgressText.content = '';
-      infoMcpText.content = t`${bold(fg(COLORS.primary)('MCP:    '))}${fg(COLORS.dim)('IDLE')}`;
+      mcpLabel.content = t`${fg(COLORS.dim)('MCP')}`;
     }
 
     // ── Blocker swap: replaces activityRow + processRow with blockerContainer ──
