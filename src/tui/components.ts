@@ -422,7 +422,7 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   // ── Root Panel ──
   const activityPanel = new BoxRenderable(renderer, {
     id: 'activity-panel', width: '100%', height: '100%', flexDirection: 'column',
-    backgroundColor: COLORS.panelBg,
+    backgroundColor: COLORS.panelBg, gap: 0,
   });
 
   // ── Row 1: Status Row ──
@@ -456,6 +456,10 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   const activityHeader = new TextRenderable(renderer, {
     id: 'activity-header', content: t`${bold(fg(COLORS.purple)(' ACTIVITY'))}`,
   });
+  const activityHeaderBox = new BoxRenderable(renderer, {
+    id: 'activity-header-box', width: '100%', height: 1, flexShrink: 0,
+  });
+  activityHeaderBox.add(activityHeader);
 
   const activityScroll = new ScrollBoxRenderable(renderer, {
     id: 'activity-scroll', width: '100%', flexGrow: 1,
@@ -465,7 +469,7 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   });
   activityScroll.add(activityLogContainer);
 
-  activityRow.add(activityHeader);
+  activityRow.add(activityHeaderBox);
   activityRow.add(activityScroll);
 
   // ── Row 3: Process Row ──
@@ -476,8 +480,12 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   });
 
   const processHeader = new TextRenderable(renderer, {
-    id: 'process-header', content: t`${bold(fg(COLORS.dim)(' PROCESS OUTPUT'))}`,
+    id: 'process-header', content: t`${bold(fg(COLORS.text)(' PROCESS OUTPUT'))}`,
   });
+  const processHeaderBox = new BoxRenderable(renderer, {
+    id: 'process-header-box', width: '100%', height: 1, flexShrink: 0,
+  });
+  processHeaderBox.add(processHeader);
 
   const processScroll = new ScrollBoxRenderable(renderer, {
     id: 'process-scroll', width: '100%', flexGrow: 1,
@@ -487,7 +495,7 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   });
   processScroll.add(processLogContainer);
 
-  processRow.add(processHeader);
+  processRow.add(processHeaderBox);
   processRow.add(processScroll);
 
   // ── Blocker UI ──
