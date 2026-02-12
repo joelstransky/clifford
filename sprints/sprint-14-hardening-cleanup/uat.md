@@ -50,4 +50,29 @@ Added `[A]pprove` hotkey to the TUI task view for completing a sprint, replacing
 5. Verify `[A]pprove` does NOT appear when:
    - Tasks are still pending or active.
    - A sprint is currently running.
-   - The sprint is already marked as completed.
+    - The sprint is already marked as completed.
+
+## Task 3: MCP Status Indicator
+
+### What Changed
+Added a color-coded MCP status label to the Activity tab's status pane, giving the user visibility into whether the MCP server is active:
+
+- **`src/tui/DashboardController.ts`**:
+  - Added `mcpStatus` getter returning `'idle' | 'running' | 'error'`. Maps directly from `isRunning` — when the agent process is running, MCP is running (since the MCP server lifecycle is tied to the OpenCode process). The `error` state is reserved for future MCP communication failure detection.
+- **`src/tui/components.ts`**:
+  - Added `infoMcpText: Renderable` to the `ActivityViewComponents` interface.
+  - Created a new `TextRenderable` (`id: 'info-mcp'`) and added it to the `statusRow`.
+  - Increased `statusRow` height from 7 to 9 to accommodate the fifth line of text.
+  - Included `infoMcpText` in the return object.
+- **`src/tui/Dashboard.ts`**:
+  - Destructured `infoMcpText` from `createActivityView()`.
+  - In the running branch of `updateDisplay()`: renders `MCP: RUNNING` in green (`COLORS.success`), or `MCP: ERROR` in red (`COLORS.error`), or `MCP: IDLE` in gray (`COLORS.dim`).
+  - In the idle branch: renders `MCP: IDLE` in gray.
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 147 tests pass.
+3. Launch TUI (`npm run dev -- tui`), switch to the Activity tab. Verify "MCP: IDLE" appears in the status pane in gray.
+4. Start a sprint. Verify "MCP: RUNNING" appears in green.
+5. Stop the sprint. Verify it returns to "MCP: IDLE" in gray.
+
