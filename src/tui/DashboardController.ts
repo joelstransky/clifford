@@ -395,6 +395,14 @@ export class DashboardController extends EventEmitter {
     return validSprintStatus && hasWorkableTasks;
   }
 
+  public canSprintApprove(): boolean {
+    if (!this.manifest) return false;
+    if (this.runner.getIsRunning()) return false;
+    if (this.manifest.status === 'completed') return false;
+    return this.manifest.tasks.length > 0 &&
+      this.manifest.tasks.every(t => t.status === 'completed' || t.status === 'pushed');
+  }
+
   public getRunningSprintName(): string {
     const runningDir = this.runner.getSprintDir();
     const runningSprint = this.allSprints.find(
@@ -492,6 +500,23 @@ export class DashboardController extends EventEmitter {
     if (this.runner.getIsRunning()) {
       this.addLog('Stopping sprint...', 'error');
       this.runner.stop();
+    }
+  }
+
+  public approveSprint(): void {
+    if (this.viewMode !== 'tasks') return;
+    if (this.runner.getIsRunning()) return;
+    if (!this.manifest) return;
+    if (!this.canSprintApprove()) return;
+
+    const manifestPath = path.resolve(this.currentSprintDir, 'manifest.json');
+    try {
+      const updated: Manifest = { ...this.manifest, status: 'completed' };
+      fs.writeFileSync(manifestPath, JSON.stringify(updated, null, 2), 'utf8');
+      this.addLog(`Sprint approved: ${this.manifest.name}`, 'success');
+      this.refresh();
+    } catch (err) {
+      this.addLog(`❌ Failed to approve sprint: ${(err as Error).message}`, 'error');
     }
   }
 

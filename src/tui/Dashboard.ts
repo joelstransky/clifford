@@ -299,7 +299,15 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
         if (isSprintsView) {
           hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[→] Select'))}`;
         } else if (isTasksView && !isRunning) {
-          hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}`;
+          const canApprove = ctrl.canSprintApprove();
+          const canStart = ctrl.canSprintStart();
+          if (canApprove) {
+            hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[A]pprove'))}`;
+          } else if (canStart) {
+            hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}  ${bold(fg(COLORS.success)('[S]tart'))}`;
+          } else {
+            hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.primary)('[←] Back'))}`;
+          }
         } else if (isRunning) {
           hotkeyText.content = t`${dim('[QQ]uit')}  ${bold(fg(COLORS.purple)('[Tab] Activity'))}  ${bold(fg(COLORS.error)('[X] Stop'))}`;
         }
@@ -410,6 +418,9 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
       }
       if (key.name === 'x') {
         ctrl.stopSprint();
+      }
+      if (key.name === 'a') {
+        ctrl.approveSprint();
       }
     }
   });

@@ -832,6 +832,171 @@ describe('DashboardController', () => {
   });
 
   // ────────────────────────────────────────────────────────────────────────
+  // Sprint Approval
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe('sprint approval', () => {
+    it('canSprintApprove() returns false when no manifest', () => {
+      const { ctrl } = createController();
+      ctrl.manifest = null;
+      expect(ctrl.canSprintApprove()).toBe(false);
+    });
+
+    it('canSprintApprove() returns false when running', () => {
+      const { ctrl, runner } = createController();
+      ctrl.manifest = {
+        ...SAMPLE_MANIFEST,
+        tasks: [
+          { id: 'task-1', file: 'tasks/01.md', status: 'completed' },
+          { id: 'task-2', file: 'tasks/02.md', status: 'completed' },
+        ],
+      };
+      runner.setIsRunning(true);
+      expect(ctrl.canSprintApprove()).toBe(false);
+    });
+
+    it('canSprintApprove() returns false when tasks are pending', () => {
+      const { ctrl } = createController();
+      ctrl.manifest = SAMPLE_MANIFEST; // has pending tasks
+      expect(ctrl.canSprintApprove()).toBe(false);
+    });
+
+    it('canSprintApprove() returns true when all tasks completed', () => {
+      const { ctrl } = createController();
+      ctrl.manifest = {
+        ...SAMPLE_MANIFEST,
+        tasks: [
+          { id: 'task-1', file: 'tasks/01.md', status: 'completed' },
+          { id: 'task-2', file: 'tasks/02.md', status: 'completed' },
+          { id: 'task-3', file: 'tasks/03.md', status: 'pushed' },
+        ],
+      };
+      expect(ctrl.canSprintApprove()).toBe(true);
+    });
+
+    it('canSprintApprove() returns false when sprint already completed', () => {
+      const { ctrl } = createController();
+      ctrl.manifest = {
+        ...SAMPLE_MANIFEST,
+        status: 'completed',
+        tasks: [
+          { id: 'task-1', file: 'tasks/01.md', status: 'completed' },
+          { id: 'task-2', file: 'tasks/02.md', status: 'completed' },
+        ],
+      };
+      expect(ctrl.canSprintApprove()).toBe(false);
+    });
+
+    it('canSprintApprove() returns false when tasks array is empty', () => {
+      const { ctrl } = createController();
+      ctrl.manifest = {
+        ...SAMPLE_MANIFEST,
+        tasks: [],
+      };
+      expect(ctrl.canSprintApprove()).toBe(false);
+    });
+
+    it('approveSprint() writes manifest and logs success', () => {
+      const writeFileSyncSpy = spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+      const { ctrl } = createController();
+      ctrl.init();
+      ctrl.viewMode = 'tasks';
+      ctrl.manifest = {
+        id: 'sprint-test',
+        name: 'Test Sprint',
+        status: 'active',
+        tasks: [
+          { id: 'task-1', file: 'tasks/01.md', status: 'completed' },
+          { id: 'task-2', file: 'tasks/02.md', status: 'completed' },
+        ],
+      };
+
+      // Mock loadManifest to prevent it from overwriting our test manifest
+      existsSyncSpy.mockReturnValue(true);
+      readFileSyncSpy.mockReturnValue(JSON.stringify({
+        ...ctrl.manifest,
+        status: 'completed',
+      }));
+
+      ctrl.approveSprint();
+
+      expect(writeFileSyncSpy).toHaveBeenCalled();
+      const writtenData = JSON.parse(writeFileSyncSpy.mock.calls[0][1] as string) as Manifest;
+      expect(writtenData.status).toBe('completed');
+
+      const approvalLog = ctrl.activityLogs.find(l => l.message.includes('Sprint approved'));
+      expect(approvalLog).toBeDefined();
+      expect(approvalLog!.type).toBe('success');
+
+      writeFileSyncSpy.mockRestore();
+      ctrl.destroy();
+    });
+
+    it('approveSprint() does nothing when viewMode is sprints', () => {
+      const writeFileSyncSpy = spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+      const { ctrl } = createController();
+      ctrl.viewMode = 'sprints';
+      ctrl.manifest = {
+        ...SAMPLE_MANIFEST,
+        tasks: [
+          { id: 'task-1', file: 'tasks/01.md', status: 'completed' },
+        ],
+      };
+
+      ctrl.approveSprint();
+
+      expect(writeFileSyncSpy).not.toHaveBeenCalled();
+
+      writeFileSyncSpy.mockRestore();
+    });
+
+    it('approveSprint() does nothing when runner is running', () => {
+      const writeFileSyncSpy = spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+      const { ctrl, runner } = createController();
+      ctrl.viewMode = 'tasks';
+      ctrl.manifest = {
+        ...SAMPLE_MANIFEST,
+        tasks: [
+          { id: 'task-1', file: 'tasks/01.md', status: 'completed' },
+        ],
+      };
+      runner.setIsRunning(true);
+
+      ctrl.approveSprint();
+
+      expect(writeFileSyncSpy).not.toHaveBeenCalled();
+
+      writeFileSyncSpy.mockRestore();
+    });
+
+    it('approveSprint() logs error on filesystem failure', () => {
+      const writeFileSyncSpy = spyOn(fs, 'writeFileSync').mockImplementation(() => {
+        throw new Error('Permission denied');
+      });
+      const { ctrl } = createController();
+      ctrl.init();
+      ctrl.viewMode = 'tasks';
+      ctrl.manifest = {
+        id: 'sprint-test',
+        name: 'Test Sprint',
+        status: 'active',
+        tasks: [
+          { id: 'task-1', file: 'tasks/01.md', status: 'completed' },
+        ],
+      };
+
+      ctrl.approveSprint();
+
+      const errorLog = ctrl.activityLogs.find(l => l.message.includes('Failed to approve sprint'));
+      expect(errorLog).toBeDefined();
+      expect(errorLog!.type).toBe('error');
+
+      writeFileSyncSpy.mockRestore();
+      ctrl.destroy();
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────
   // Lifecycle (init/destroy)
   // ────────────────────────────────────────────────────────────────────────
 
