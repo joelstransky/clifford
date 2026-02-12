@@ -112,3 +112,19 @@ No test changes were needed — existing tests use `.toContain()` assertions on 
 3. Launch TUI (`npm run dev -- tui`), start a sprint, and observe the process output pane. Lines should appear exactly as the agent outputs them — no `> ` prefix, no 120-character truncation.
 4. Verify long output lines (>120 chars) are displayed in full.
 
+## Task 6: Test Realignment
+
+### What Changed
+Audited and cleaned up all 7 test files (11 test suites, 147 tests) to ensure they test current behavior after Tasks 1-5. Findings:
+
+- **No obsolete behavior found**: Tests were already properly aligned with the current codebase. No references to the `> ` prefix on process output, `sprint-verify.sh`, `clifford-approve.sh`, or any deleted modules (`skills`, etc.).
+- **Cleaned up lint errors in test files**:
+  - `DashboardController.test.ts`: Removed unused `LogChannel` import. Added `eslint-disable` comments for intentional `_quiet` unused parameter and `require()` dynamic import in `beforeEach`.
+  - `mcp-ipc.test.ts`: Removed unused `blockPath` variable declaration (the assertion it was intended for was already absent).
+  - `mcp-server.test.ts`: Removed unused `TEST_ID`, `TEST_CLIFFORD_DIR`, and `UAT_PATH` constants from the `reportUat` describe block (the test had already been refactored to use `REAL_CLIFFORD_DIR`/`REAL_UAT_PATH`).
+
+### Verification Steps
+1. Run `npm test` — 147 tests pass across 11 files, 0 failures.
+2. Run `npm run build` — succeeds with no errors.
+3. Run `npm run lint` — no lint errors in test files (only 3 pre-existing errors in non-test source files: `Dashboard.ts` and `components.ts`).
+4. Verify no test file imports deleted modules: `grep -rn "skills\|sprint-verify\|clifford-approve" src/**/*.test.ts` returns no results.
