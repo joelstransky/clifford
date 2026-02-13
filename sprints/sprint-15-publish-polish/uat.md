@@ -74,3 +74,21 @@
    - Each sprint shows `[X of Y]` next to its name in dim text.
 4. The progress bar is gone from the bottom of the sprints panel.
 5. Drill into a sprint — the header shows "SPRINT PLAN [X of Y]" with the count in dim text.
+
+## Task 6: Sprint Completion Synopsis
+
+### Changes
+- **`src/tui/DashboardController.ts`**: Added a `lastCompletedSprint` public property (typed as `{ name: string; completedCount: number; totalCount: number; elapsed: string } | null`). In the `'stop'` runner event handler, the controller now snapshots the sprint name, completed/total task counts, and formatted elapsed time before clearing state. In the `'start'` handler, `lastCompletedSprint` is cleared so starting a new sprint removes the old synopsis.
+- **`src/tui/Dashboard.ts`**: Added a third branch to the status pane rendering in `updateDisplay()`. When neither running nor has a start time, but `ctrl.lastCompletedSprint` is set, the status pane displays the sprint name, result (X of Y tasks completed), elapsed time, and "Sprint finished." — all rendered with `dim()` for gray text. The existing "No sprint running" fallback only shows when there is no synopsis data either.
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 139 tests pass.
+3. Launch the TUI, start a sprint and let it run to completion.
+4. After the sprint finishes, verify the Activity tab status pane shows:
+   - `Sprint: <name>` in gray
+   - `Result: X of Y tasks completed` in gray
+   - `Elapsed: MM:SS` in gray
+   - `Sprint finished.` in gray
+5. Start a new sprint — verify the synopsis clears and live sprint info is shown instead.
+6. If no sprint has ever been run, verify the status pane shows "No sprint running" as before.
