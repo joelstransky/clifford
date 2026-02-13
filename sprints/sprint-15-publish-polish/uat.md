@@ -106,3 +106,17 @@
 3. Launch the TUI and start a sprint that produces colored terminal output.
 4. Observe the process output pane — colored background blocks and SGR styling artifacts should no longer appear. Text content should be readable plain text.
 5. Verify that emoji/Unicode characters in output are preserved (only ANSI SGR sequences are stripped).
+
+## Task 8: Remove Cross-Sprint State Sync
+
+### Changes
+- **`src/utils/sprint.ts`**: Deleted the `syncSprintStates(targetManifestPath: string)` private method (previously lines 361-391). This method iterated all sprint directories and demoted any `active` sprint to `"planning"` when a new sprint started, causing cross-sprint contamination. Also removed the `this.syncSprintStates(manifestPath)` call in the `run()` method (previously line 143). The sprint runner now only reads and writes the manifest for the sprint it was told to run.
+- **`src/utils/sprint.ts`** (type): Removed `'planning'` from the `SprintManifest.status` type union. The valid sprint statuses are now `'active' | 'completed'`. The `planning` status was only ever set by `syncSprintStates` and was not used in the TUI or any other logic.
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 145 tests pass.
+3. Confirm `syncSprintStates` no longer exists in `src/utils/sprint.ts` — `grep -n syncSprintStates src/utils/sprint.ts` returns nothing.
+4. Confirm `planning` is no longer in the `SprintManifest` type — `grep -n planning src/utils/sprint.ts` returns nothing.
+5. Start a sprint (e.g., test-sprint-01) and let it complete. Check another sprint's manifest (e.g., test-sprint-02) — its `status` field should be unchanged from whatever it was before the run.
+6. Confirm the other sprint can be started normally after the first sprint finishes.

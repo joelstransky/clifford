@@ -10,7 +10,7 @@
     { "id": "task-5", "file": "tasks/05-publish-readiness.md", "status": "completed" },
     { "id": "task-6", "file": "tasks/06-sprint-completion-synopsis.md", "status": "completed" },
     { "id": "task-7", "file": "tasks/07-strip-ansi-process-output.md", "status": "completed" },
-    { "id": "task-8", "file": "tasks/08-remove-sync-sprint-states.md", "status": "active" },
+    { "id": "task-8", "file": "tasks/08-remove-sync-sprint-states.md", "status": "completed" },
     { "id": "task-9", "file": "tasks/09-revert-multi-turn-blocker.md", "status": "pending" }
   ]
 }
