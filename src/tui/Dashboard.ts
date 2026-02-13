@@ -259,6 +259,13 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
         : ctrl.mcpStatus === 'error' ? COLORS.error
         : COLORS.dim;
       mcpLabel.content = t`${fg(mcpColor)('MCP')}`;
+    } else if (ctrl.lastCompletedSprint) {
+      const lc = ctrl.lastCompletedSprint;
+      infoSprintText.content = t`${dim(`Sprint: ${lc.name}`)}`;
+      infoTaskText.content = t`${dim(`Result: ${lc.completedCount} of ${lc.totalCount} tasks completed`)}`;
+      infoTimerText.content = t`${dim(`Elapsed: ${lc.elapsed}`)}`;
+      infoProgressText.content = t`${dim('Sprint finished.')}`;
+      mcpLabel.content = t`${fg(COLORS.dim)('MCP')}`;
     } else {
       infoSprintText.content = t`${dim('No sprint running')}`;
       infoTaskText.content = '';

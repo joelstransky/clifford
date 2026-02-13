@@ -7,7 +7,8 @@
     "clifford": "./dist/index.js"
   },
   "scripts": {
-    "build": "bun build src/index.ts src/mcp-entry.ts --outdir dist --target bun --external @opentui/core --external @opentui/core-win32-x64 --external @opentui/core-win32-arm64 --external @opentui/core-linux-x64 --external @opentui/core-linux-arm64 --external @opentui/core-darwin-x64 --external @opentui/core-darwin-arm64",
+    "prebuild": "rm -rf dist",
+    "build": "bun build src/index.ts src/mcp-entry.ts --outdir dist --target node --external @opentui/core --external @opentui/core-win32-x64 --external @opentui/core-win32-arm64 --external @opentui/core-linux-x64 --external @opentui/core-linux-arm64 --external @opentui/core-darwin-x64 --external @opentui/core-darwin-arm64",
     "start": "bun run dist/index.js",
     "dev": "bun run src/index.ts",
     "lint": "eslint .",

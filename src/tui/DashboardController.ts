@@ -98,6 +98,14 @@ export class DashboardController extends EventEmitter {
   // --- Active Task ---
   public activeTaskId: string | null = null;
 
+  // --- Last Completed Sprint Synopsis ---
+  public lastCompletedSprint: {
+    name: string;
+    completedCount: number;
+    totalCount: number;
+    elapsed: string;
+  } | null = null;
+
   // --- Quit Confirmation ---
   public quitPending: boolean = false;
   private quitTimer: ReturnType<typeof setTimeout> | null = null;
@@ -183,6 +191,7 @@ export class DashboardController extends EventEmitter {
     this.runner.setQuietMode(true);
 
     this.runner.on('start', () => {
+      this.lastCompletedSprint = null;
       this.sprintStartTime = Date.now();
       this.elapsedSeconds = 0;
       this.startSpinner();
@@ -193,6 +202,16 @@ export class DashboardController extends EventEmitter {
     });
 
     this.runner.on('stop', () => {
+      // Snapshot final state before clearing for the synopsis display
+      const mm = Math.floor(this.elapsedSeconds / 60).toString().padStart(2, '0');
+      const ss = (this.elapsedSeconds % 60).toString().padStart(2, '0');
+      this.lastCompletedSprint = {
+        name: this.manifest?.name || 'Unknown',
+        completedCount: this.completedCount,
+        totalCount: this.totalCount,
+        elapsed: `${mm}:${ss}`,
+      };
+
       this.stopSpinner();
       this.sprintStartTime = null;
       this.activeTaskId = null;

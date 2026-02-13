@@ -6,7 +6,11 @@
     { "id": "task-1", "file": "tasks/01-prompt-dedup.md", "status": "completed" },
     { "id": "task-2", "file": "tasks/02-mcp-indicator-restyle.md", "status": "completed" },
     { "id": "task-3", "file": "tasks/03-multi-turn-blocker.md", "status": "completed" },
-    { "id": "task-4", "file": "tasks/04-sprint-list-status-fix.md", "status": "active" },
-    { "id": "task-5", "file": "tasks/05-publish-readiness.md", "status": "pending" }
+    { "id": "task-4", "file": "tasks/04-sprint-list-status-fix.md", "status": "completed" },
+    { "id": "task-5", "file": "tasks/05-publish-readiness.md", "status": "completed" },
+    { "id": "task-6", "file": "tasks/06-sprint-completion-synopsis.md", "status": "active" },
+    { "id": "task-7", "file": "tasks/07-strip-ansi-process-output.md", "status": "pending" },
+    { "id": "task-8", "file": "tasks/08-remove-sync-sprint-states.md", "status": "pending" },
+    { "id": "task-9", "file": "tasks/09-revert-multi-turn-blocker.md", "status": "pending" }
   ]
 }
