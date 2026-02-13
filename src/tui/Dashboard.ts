@@ -74,7 +74,7 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
 
   const {
     sprintsPanel, leftPanelHeader, sprintNameText, sprintDescText,
-    taskListContainer, progressText,
+    taskListContainer,
   } = createSprintListView(renderer as Renderer, tui);
 
   const {
@@ -221,16 +221,16 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
         sprintNameText.content = t`${fg(COLORS.text)('Select a sprint to view tasks')}`;
         sprintDescText.content = t`${dim('Use ↑↓ to navigate, → to drill in')}`;
         updateSprintList();
-        progressText.content = t`${dim('Progress: ')}${fg(COLORS.dim)(generateProgressBar(0, 0, 30))}`;
       } else {
         const canStart = ctrl.canSprintStart();
 
+        const taskCountLabel = dim(`[${completedCount} of ${totalCount}]`);
         if (canStart) {
-          leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.success)('[S] Start')}`;
+          leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${taskCountLabel} ${fg(COLORS.success)('[S] Start')}`;
         } else if (isRunning) {
-          leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${fg(COLORS.warning)('[Running]')}`;
+          leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${taskCountLabel} ${fg(COLORS.warning)('[Running]')}`;
         } else {
-          leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))}`;
+          leftPanelHeader.content = t`${bold(fg(COLORS.primary)('SPRINT PLAN'))} ${taskCountLabel}`;
         }
 
         if (m) {
@@ -238,8 +238,6 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
           sprintDescText.content = t`${dim(m.id)} ${dim('[←] Back')}`;
         }
         updateTaskList();
-        const progress = generateProgressBar(completedCount, totalCount, 30);
-        progressText.content = t`${dim('Progress: ')}${fg(completedCount === totalCount && totalCount > 0 ? COLORS.success : COLORS.primary)(progress)}`;
       }
     }
 

@@ -182,7 +182,6 @@ export interface SprintListViewComponents {
   sprintNameText: Renderable;
   sprintDescText: Renderable;
   taskListContainer: Renderable;
-  progressText: Renderable;
 }
 
 export function createSprintListView(renderer: Renderer, tui: OpenTuiModule): SprintListViewComponents {
@@ -216,14 +215,7 @@ export function createSprintListView(renderer: Renderer, tui: OpenTuiModule): Sp
   taskListBox.add(taskListContainer);
   sprintsPanel.add(taskListBox);
 
-  const progressText = new TextRenderable(renderer, {
-    id: 'progress', content: t`${dim('Progress: ')}${fg(COLORS.dim)('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 0%')}`,
-  });
-  const progWrap = new BoxRenderable(renderer, { id: 'prog-wrap' });
-  progWrap.add(progressText);
-  sprintsPanel.add(progWrap);
-
-  return { sprintsPanel, leftPanelHeader, sprintNameText, sprintDescText, taskListContainer, progressText };
+  return { sprintsPanel, leftPanelHeader, sprintNameText, sprintDescText, taskListContainer };
 }
 
 // ─── 4. createTaskListView ──────────────────────────────────────────────────────
@@ -284,15 +276,18 @@ export function createTaskListRenderer(renderer: Renderer, tui: OpenTuiModule): 
       const runningIndicator = isThisRunning ? ' 🔄' : '';
       const lockIndicator = isLocked ? ' 🔒' : '';
       const displayName = stripEmoji(s.name);
-      const labelContent = `${prefix}${displayName}${runningIndicator}${lockIndicator}`;
+      const completedCount = s.tasks.filter(tk => tk.status === 'completed' || tk.status === 'pushed').length;
+      const totalCount = s.tasks.length;
+      const countLabel = `[${completedCount} of ${totalCount}]`;
+      const nameContent = `${prefix}${displayName}${runningIndicator}${lockIndicator}`;
 
       const label = new TextRenderable(renderer, {
         id: `sprint-label-${i}`,
         content: isSelected
-          ? t`${bold(fg(COLORS.primary)(labelContent))}`
+          ? t`${bold(fg(COLORS.primary)(nameContent))} ${dim(countLabel)}`
           : isLocked
-            ? t`${dim(labelContent)}`
-            : t`${fg(COLORS.text)(labelContent)}`,
+            ? t`${dim(nameContent)} ${dim(countLabel)}`
+            : t`${fg(COLORS.text)(nameContent)} ${dim(countLabel)}`,
       });
       itemBox.add(label);
 
@@ -312,6 +307,9 @@ export function createTaskListRenderer(renderer: Renderer, tui: OpenTuiModule): 
       } else if (s.tasks.length > 0 && s.tasks.every(tk => tk.status === 'completed' || tk.status === 'pushed')) {
         statusLabel = 'Complete';
         statusColor = COLORS.success;
+      } else if (s.tasks.some(tk => tk.status === 'completed' || tk.status === 'active')) {
+        statusLabel = 'In Progress';
+        statusColor = COLORS.warning;
       }
 
       const statusEl = new TextRenderable(renderer, {

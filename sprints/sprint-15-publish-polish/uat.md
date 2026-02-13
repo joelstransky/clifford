@@ -50,3 +50,27 @@
 5. Type another message and press **Enter** — blocker resolves and the agent receives all accumulated messages joined by double newlines.
 6. Press **Esc** — blocker is dismissed without sending.
 7. Verify the blocker footer shows: `[Enter] Done  [Tab] Send & Continue  [Esc] Cancel`.
+
+## Task 4: Fix Sprint List Status and Replace Progress Bar with Task Count
+
+### Changes
+- **`src/tui/components.ts`**:
+  - Fixed the status derivation in `renderSprintItems()` — added a missing `else if` clause that catches sprints with some completed or active tasks and labels them "In Progress" (yellow). Previously these fell through to the default "Pending".
+  - Added `[X of Y]` task count to each sprint label, rendered with `dim()` styling so it doesn't dominate the sprint name. Computed from tasks with `completed` or `pushed` status vs total task count.
+  - Removed `progressText` TextRenderable, `progWrap` BoxRenderable, and the `sprintsPanel.add(progWrap)` call. Removed `progressText` from the `SprintListViewComponents` interface and the return statement.
+- **`src/tui/Dashboard.ts`**:
+  - Removed `progressText` from the destructuring of `createSprintListView()`.
+  - Removed both lines that set `progressText.content` in `updateDisplay()` (sprints view and tasks view branches).
+  - Added `[X of Y]` task count (dim-styled) to the task drill-down header alongside "SPRINT PLAN", visible in all three header variants (start available, running, default).
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 153 tests pass.
+3. Launch the TUI, view the sprints list:
+   - A sprint with all tasks pending shows "Pending" status.
+   - A sprint with some tasks completed shows "In Progress" status (yellow).
+   - A sprint with all tasks completed/pushed shows "Complete" status (green).
+   - A sprint with all tasks pushed shows "Published" status (blue).
+   - Each sprint shows `[X of Y]` next to its name in dim text.
+4. The progress bar is gone from the bottom of the sprints panel.
+5. Drill into a sprint — the header shows "SPRINT PLAN [X of Y]" with the count in dim text.
