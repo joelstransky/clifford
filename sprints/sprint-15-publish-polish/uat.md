@@ -30,3 +30,23 @@
 5. Start a sprint: confirm "MCP" turns green when the MCP server is running.
 6. Stop the sprint: confirm "MCP" returns to gray.
 7. Verify the word "MCP" has no prefix label (no "MCP:") and no status text (no "RUNNING"/"IDLE") — just the three letters, colored by state.
+
+## Task 3: Multi-Turn Blocker Conversations
+
+### Changes
+- **`src/utils/mcp-ipc.ts`**: Added `action: 'continue' | 'done'` field to `McpResponseFile` interface. Updated `writeResponseFile()` to accept an optional `action` parameter (defaults to `'done'` for backward compatibility). Updated `pollForResponse()` to return the full `McpResponseFile` object instead of just the response string; on `'continue'` actions, only the response file is cleaned up (the block file is preserved so the conversation can continue).
+- **`src/utils/mcp-server.ts`**: Rewrote the `request_help` handler to loop on `'continue'` responses. Messages are accumulated in an array. On each `'continue'`, a new block file is written with accumulated context and the loop continues polling. On `'done'`, all messages are joined and returned to the agent as a single response.
+- **`src/tui/DashboardController.ts`**: Updated `handleBlockerSubmit()` to accept an `action: 'continue' | 'done'` parameter (defaults to `'done'`). When `action` is `'continue'`, the blocker stays active, the user's message is logged, and the input is cleared for the next message. Task file appending and ASM storage saving only occur on `'done'`.
+- **`src/tui/Dashboard.ts`**: Added Tab key handling in blocker mode — Tab calls `handleBlockerSubmit('continue')`, Enter calls `handleBlockerSubmit('done')`. Updated blocker footer hint text to `[Enter] Done  [Tab] Send & Continue  [Esc] Cancel`.
+- **`src/tui/components.ts`**: Updated the static blocker footer hint text to match the new key bindings: `[Enter] Done  [Tab] Send & Continue  [Esc] Cancel`.
+- **`src/utils/mcp-ipc.test.ts`**: Updated `writeResponseFile` tests to verify the new `action` field. Added tests for explicit `'continue'` and `'done'` actions. Updated `pollForResponse` integration test to assert the full `McpResponseFile` object. Added a test verifying that `'continue'` responses preserve the block file.
+- **`src/tui/DashboardController.test.ts`**: Added three new tests: `handleBlockerSubmit('continue')` keeps the blocker active and clears input; `handleBlockerSubmit('done')` clears the blocker and emits `blocker-cleared`; default (no argument) behaves as `'done'`.
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 153 tests pass (6 new tests added).
+3. Launch the TUI, trigger a blocker (or simulate one).
+4. Type a message and press **Tab** — message is sent but the blocker input stays open for follow-up. The activity log should show `You: <your message>`.
+5. Type another message and press **Enter** — blocker resolves and the agent receives all accumulated messages joined by double newlines.
+6. Press **Esc** — blocker is dismissed without sending.
+7. Verify the blocker footer shows: `[Enter] Done  [Tab] Send & Continue  [Esc] Cancel`.
