@@ -81,7 +81,7 @@ describe('mcp-ipc', () => {
   });
 
   describe('writeResponseFile', () => {
-    it('should create a response file with correct structure', () => {
+    it('should create a response file with correct structure and default action "done"', () => {
       writeResponseFile(tempDir, 'Use approach B');
 
       const filePath = path.join(tempDir, '.clifford', 'mcp-response.json');
@@ -89,7 +89,26 @@ describe('mcp-ipc', () => {
 
       const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       expect(data.response).toBe('Use approach B');
+      expect(data.action).toBe('done');
       expect(data.timestamp).toBeDefined();
+    });
+
+    it('should accept an explicit "continue" action', () => {
+      writeResponseFile(tempDir, 'More info needed', 'continue');
+
+      const filePath = path.join(tempDir, '.clifford', 'mcp-response.json');
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      expect(data.response).toBe('More info needed');
+      expect(data.action).toBe('continue');
+    });
+
+    it('should accept an explicit "done" action', () => {
+      writeResponseFile(tempDir, 'Final answer', 'done');
+
+      const filePath = path.join(tempDir, '.clifford', 'mcp-response.json');
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      expect(data.response).toBe('Final answer');
+      expect(data.action).toBe('done');
     });
   });
 
@@ -117,7 +136,7 @@ describe('mcp-ipc', () => {
   });
 
   describe('pollForResponse (integration)', () => {
-    it('should resolve when response file is written', async () => {
+    it('should resolve with McpResponseFile when response file is written', async () => {
       // Import dynamically to avoid top-level issues
       const { pollForResponse } = await import('./mcp-ipc');
 
@@ -130,11 +149,40 @@ describe('mcp-ipc', () => {
       }, 100);
 
       const result = await pollPromise;
-      expect(result).toBe('The answer is 42');
+      expect(result.response).toBe('The answer is 42');
+      expect(result.action).toBe('done');
 
-      // Both files should be cleaned up
+      // Both files should be cleaned up (action is 'done')
       const responsePath = path.join(tempDir, '.clifford', 'mcp-response.json');
       expect(fs.existsSync(responsePath)).toBe(false);
+    });
+
+    it('should not clean up block file when action is "continue"', async () => {
+      const { pollForResponse } = await import('./mcp-ipc');
+
+      // Write a block file first
+      writeBlockFile(tempDir, 'task-1', 'stuck', 'What to do?');
+      const blockPath = path.join(tempDir, '.clifford', 'mcp-block.json');
+      expect(fs.existsSync(blockPath)).toBe(true);
+
+      // Start polling
+      const pollPromise = pollForResponse(tempDir);
+
+      // Write a "continue" response after a short delay
+      setTimeout(() => {
+        writeResponseFile(tempDir, 'Try option A first', 'continue');
+      }, 100);
+
+      const result = await pollPromise;
+      expect(result.response).toBe('Try option A first');
+      expect(result.action).toBe('continue');
+
+      // Response file should be cleaned up
+      const responsePath = path.join(tempDir, '.clifford', 'mcp-response.json');
+      expect(fs.existsSync(responsePath)).toBe(false);
+
+      // Block file should still exist (conversation continues)
+      expect(fs.existsSync(blockPath)).toBe(true);
     });
   });
 });

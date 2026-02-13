@@ -13,6 +13,7 @@ export interface McpBlockFile {
 
 export interface McpResponseFile {
   response: string;
+  action: 'continue' | 'done';
   timestamp: string;
 }
 
@@ -67,23 +68,31 @@ export function writeBlockFile(projectRoot: string, task: string, reason: string
  * Returns a Promise that resolves with the human's response string.
  * Cleans up both block and response files once the response is read.
  */
-export function pollForResponse(projectRoot: string): Promise<string> {
+export function pollForResponse(projectRoot: string): Promise<McpResponseFile> {
   const respPath = responseFilePath(projectRoot);
   const blkPath = blockFilePath(projectRoot);
 
-  return new Promise<string>((resolve) => {
+  return new Promise<McpResponseFile>((resolve) => {
     const interval = setInterval(() => {
       try {
         if (fs.existsSync(respPath)) {
           const raw = fs.readFileSync(respPath, 'utf8');
           const data: McpResponseFile = JSON.parse(raw);
 
-          // Clean up both files
+          // Default action to 'done' for backward compatibility
+          if (!data.action) {
+            data.action = 'done';
+          }
+
+          // Always clean up the response file
           try { fs.unlinkSync(respPath); } catch { /* ignore */ }
-          try { fs.unlinkSync(blkPath); } catch { /* ignore */ }
+          // Only clean up the block file when the conversation is done
+          if (data.action === 'done') {
+            try { fs.unlinkSync(blkPath); } catch { /* ignore */ }
+          }
 
           clearInterval(interval);
-          resolve(data.response);
+          resolve(data);
         }
       } catch {
         // Ignore partial reads / parse errors — retry on next tick
@@ -97,8 +106,11 @@ export function pollForResponse(projectRoot: string): Promise<string> {
 /**
  * Write a response file that the MCP server will pick up.
  * Called by the TUI when the human submits their answer.
+ *
+ * @param action - `'done'` finalises the blocker; `'continue'` sends a message
+ *                 but keeps the conversation open for follow-up.
  */
-export function writeResponseFile(projectRoot: string, response: string): void {
+export function writeResponseFile(projectRoot: string, response: string, action: 'continue' | 'done' = 'done'): void {
   const filePath = responseFilePath(projectRoot);
   const dir = path.dirname(filePath);
 
@@ -108,6 +120,7 @@ export function writeResponseFile(projectRoot: string, response: string): void {
 
   const data: McpResponseFile = {
     response,
+    action,
     timestamp: new Date().toISOString(),
   };
 
