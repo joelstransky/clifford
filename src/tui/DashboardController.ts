@@ -4,6 +4,7 @@ import { EventEmitter } from 'events';
 import { SprintRunner, SprintManifest } from '../utils/sprint.js';
 import { writeResponseFile } from '../utils/mcp-ipc.js';
 import { saveMemory } from '../utils/asm-storage.js';
+import { stripAnsi } from '../utils/text.js';
 
 // ─── Shared Types ──────────────────────────────────────────────────────────────
 
@@ -232,7 +233,7 @@ export class DashboardController extends EventEmitter {
       const lines = data.data.split('\n').filter((l: string) => l.trim().length > 0);
       const streamType: LogEntry['type'] = data.stream === 'stderr' ? 'error' : 'info';
       lines.forEach(line => {
-        this.addLog(line, streamType, 'process');
+        this.addLog(stripAnsi(line), streamType, 'process');
       });
     });
 

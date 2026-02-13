@@ -92,3 +92,17 @@
    - `Sprint finished.` in gray
 5. Start a new sprint — verify the synopsis clears and live sprint info is shown instead.
 6. If no sprint has ever been run, verify the status pane shows "No sprint running" as before.
+
+## Task 7: Clean Process Output for TUI Rendering
+
+### Changes
+- **`src/utils/text.ts`**: Added `stripAnsi()` function that removes ANSI SGR (Select Graphic Rendition) escape sequences (`\x1b[...m`) from strings. This targets the color, background, bold, and other styling codes that cause garbled rendering in OpenTUI's text panes.
+- **`src/tui/DashboardController.ts`**: Imported `stripAnsi` from `../utils/text.js`. Applied it to each line in the `runner.on('output', ...)` handler so process output is sanitized before being added to the log.
+- **`src/utils/text.test.ts`**: Added 6 new tests for `stripAnsi`: plain text passthrough, SGR color code removal, SGR background code removal, multiple SGR sequences, empty string, and compound SGR params (e.g. `38;5;196` extended colors).
+
+### Verification Steps
+1. Run `npm run build` — should succeed with no errors.
+2. Run `npm test` — all 145 tests pass (6 new `stripAnsi` tests added).
+3. Launch the TUI and start a sprint that produces colored terminal output.
+4. Observe the process output pane — colored background blocks and SGR styling artifacts should no longer appear. Text content should be readable plain text.
+5. Verify that emoji/Unicode characters in output are preserved (only ANSI SGR sequences are stripped).

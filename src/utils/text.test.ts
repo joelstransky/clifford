@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { stripEmoji } from './text';
+import { stripEmoji, stripAnsi } from './text';
 
 describe('stripEmoji', () => {
   it('should remove a leading rocket emoji', () => {
@@ -40,5 +40,32 @@ describe('stripEmoji', () => {
 
   it('should handle flag emojis', () => {
     expect(stripEmoji('🇺🇸 USA Sprint')).toBe('USA Sprint');
+  });
+});
+
+describe('stripAnsi', () => {
+  it('should pass plain text through unchanged', () => {
+    expect(stripAnsi('hello world')).toBe('hello world');
+  });
+
+  it('should strip SGR color codes', () => {
+    expect(stripAnsi('\x1b[31mred\x1b[0m')).toBe('red');
+  });
+
+  it('should strip SGR background codes', () => {
+    expect(stripAnsi('\x1b[41mhighlighted\x1b[0m')).toBe('highlighted');
+  });
+
+  it('should strip multiple SGR sequences in one string', () => {
+    expect(stripAnsi('\x1b[1m\x1b[32mBold Green\x1b[0m normal \x1b[4munderline\x1b[0m'))
+      .toBe('Bold Green normal underline');
+  });
+
+  it('should handle empty string', () => {
+    expect(stripAnsi('')).toBe('');
+  });
+
+  it('should handle compound SGR params (e.g. 38;5;196)', () => {
+    expect(stripAnsi('\x1b[38;5;196mextended color\x1b[0m')).toBe('extended color');
   });
 });
