@@ -11,7 +11,7 @@ import { readBlockFile, cleanupMcpFiles } from './mcp-ipc.js';
 export interface SprintManifest {
   id: string;
   name: string;
-  status: 'planning' | 'active' | 'completed';
+  status: 'active' | 'completed';
   path: string;
   model?: string;
   tasks: Array<{
@@ -139,8 +139,6 @@ export class SprintRunner extends EventEmitter {
     }
 
     this.projectRoot = SprintRunner.findProjectRoot(path.dirname(manifestPath));
-
-    this.syncSprintStates(manifestPath);
 
     const projectConfig = loadProjectConfig();
     const globalConfig = loadGlobalConfig();
@@ -355,38 +353,6 @@ ${humanGuidance}${promptContent}`;
       return manifest.tasks.some(t => t.status === 'pending');
     } catch {
       return false;
-    }
-  }
-
-  private syncSprintStates(targetManifestPath: string) {
-    const sprintsBaseDir = path.dirname(path.dirname(targetManifestPath));
-    if (!fs.existsSync(sprintsBaseDir)) return;
-    
-    const sprintDirs = fs.readdirSync(sprintsBaseDir);
-
-    for (const dir of sprintDirs) {
-      const mPath = path.join(sprintsBaseDir, dir, 'manifest.json');
-      if (fs.existsSync(mPath)) {
-        try {
-          const content = fs.readFileSync(mPath, 'utf8');
-          const m = JSON.parse(content);
-          if (path.resolve(mPath) === path.resolve(targetManifestPath)) {
-            // Force target to active if not already
-            if (m.status !== 'active') {
-              m.status = 'active';
-              fs.writeFileSync(mPath, JSON.stringify(m, null, 2), 'utf8');
-            }
-          } else {
-            // Set other active sprints to planning
-            if (m.status === 'active') {
-              m.status = 'planning';
-              fs.writeFileSync(mPath, JSON.stringify(m, null, 2), 'utf8');
-            }
-          }
-        } catch {
-          // Ignore
-        }
-      }
     }
   }
 }
