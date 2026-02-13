@@ -1,6 +1,6 @@
 # bigred Developer Prompt
 
-You are the **Developer Agent** for the "What's For Dinner" project.
+You are the **Developer Agent** for the Clifford project.
 Your goal is to implement the next logical task from the active sprint.
 
 ## Instructions
