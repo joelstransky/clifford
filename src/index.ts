@@ -172,18 +172,16 @@ program
         type: 'input',
         name: 'telegramToken',
         message: 'If you have a Telegram Bot Token, paste it here:',
+      },
+      {
+        type: 'input',
+        name: 'telegramChatId',
+        message: 'Enter your Chat ID (or leave blank to auto-detect on first message):',
+        when: (answers) => answers.telegramToken.length > 0
       }
     ]);
 
     if (answers.telegramToken) {
-      const chatAnswers = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'telegramChatId',
-          message: 'Enter your Chat ID (or leave blank to auto-detect on first message):',
-        }
-      ]);
-
       // Update clifford.json
       const configPath = path.join(process.cwd(), 'clifford.json');
       if (fs.existsSync(configPath)) {
@@ -192,7 +190,7 @@ program
           config.afk = config.afk || {};
           config.afk.telegram = {
             token: answers.telegramToken,
-            chatId: chatAnswers.telegramChatId || undefined
+            chatId: answers.telegramChatId || undefined
           };
           fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
           console.log('✅ Updated clifford.json with Telegram configuration.');
