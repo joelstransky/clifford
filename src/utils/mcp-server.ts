@@ -5,11 +5,75 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod/v3';
 import { writeBlockFile, pollForResponse, cleanupMcpFiles } from './mcp-ipc.js';
+
+export interface BlockData {
+  task: string;
+  reason: string;
+  question: string;
+}
+
+export interface SprintTaskEntry {
+  id: string;
+  file: string;
+  status: 'pending' | 'active' | 'completed' | 'blocked' | 'pushed';
+}
+
+export interface SprintManifestData {
+  id: string;
+  name: string;
+  status: string;
+  tasks: SprintTaskEntry[];
+}
+
+export interface SprintContextResponse {
+  sprint: {
+    id: string;
+    name: string;
+    status: string;
+    tasks: SprintTaskEntry[];
+  };
+  currentTask: {
+    id: string;
+    file: string;
+    status: string;
+    content: string | null;
+  } | null;
+  guidance: {
+    previousQuestion: string;
+    humanResponse: string;
+  } | null;
+  sprintDir: string;
+}
+
+export interface UpdateTaskStatusResponse {
+  success: boolean;
+  taskId: string;
+  previousStatus: string;
+  newStatus: string;
+}
+
+export interface CompleteSprintResponse {
+  success: boolean;
+  sprintId: string;
+  sprintName?: string;
+  completedAt?: string;
+  summary?: string | null;
+  taskCount?: number;
+  note?: string;
+  reason?: string;
+  tasks?: Array<{ id: string; status: string }>;
+}
+
+interface PendingBlock {
+  data: BlockData;
+  resolve: (response: string) => void;
+}
 // ---------------------------------------------------------------------------
 // Exported handler for get_sprint_context (testable standalone)
 // ---------------------------------------------------------------------------
 // Exported handler for get_sprint_context (testable standalone)
 // ---------------------------------------------------------------------------
+
 
 /**
  * Builds the sprint context response for a given sprint directory.
@@ -233,97 +297,49 @@ export function updateTaskStatus(
 // ---------------------------------------------------------------------------
 
 /**
- * Appends a structured UAT (User Acceptance Testing) entry to `.clifford/uat.json`.
- * Creates the file and directory if they do not exist. Handles malformed JSON
- * gracefully by resetting to an empty array.
+ * Appends verification steps for a completed task to the sprint's `uat.md`.
+ * Creates the file with a header if it doesn't exist. Matches the format
+ * expected by human reviewers.
  */
-export function reportUat(
+export function reportUatMarkdown(
+  sprintDir: string,
   taskId: string,
-  description: string,
-  steps: string[],
-  result: 'pass' | 'fail' | 'partial',
-  notes?: string,
+  title: string,
+  changes: string,
+  verificationSteps: string[],
 ): { content: Array<{ type: 'text'; text: string }> } {
-  const cliffordDir = path.resolve(process.cwd(), '.clifford');
-  const uatPath = path.join(cliffordDir, 'uat.json');
+  const resolvedDir = path.resolve(process.cwd(), sprintDir);
+  const uatPath = path.join(resolvedDir, 'uat.md');
+  const manifestPath = path.join(resolvedDir, 'manifest.json');
 
-  // Ensure .clifford/ directory exists
-  if (!fs.existsSync(cliffordDir)) {
-    try {
-      fs.mkdirSync(cliffordDir, { recursive: true });
-    } catch (err) {
-      return {
-        content: [{
-          type: 'text' as const,
-          text: JSON.stringify({
-            error: `Failed to create .clifford directory: ${String(err)}`,
-          }),
-        }],
-      };
-    }
-  }
-
-  // Read existing entries or start fresh
-  let entries: UatEntry[] = [];
-  if (fs.existsSync(uatPath)) {
-    try {
-      const raw = fs.readFileSync(uatPath, 'utf8');
-      const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        entries = parsed as UatEntry[];
-      } else {
-        console.error('[clifford-mcp] uat.json was not an array — resetting to []');
-        entries = [];
-      }
-    } catch {
-      console.error('[clifford-mcp] uat.json was malformed JSON — resetting to []');
-      entries = [];
-    }
-  }
-
-  // Construct and append the new entry
-  const entry: UatEntry = {
-    taskId,
-    description,
-    steps,
-    result,
-    timestamp: new Date().toISOString(),
-  };
-
-  if (notes !== undefined && notes !== '') {
-    entry.notes = notes;
-  }
-
-  entries.push(entry);
-
-  // Write back
+  // Read manifest for sprint name (best-effort)
+  let sprintName = 'Unknown Sprint';
+  let sprintId = 'sprint-??';
   try {
-    fs.writeFileSync(uatPath, JSON.stringify(entries, null, 2), 'utf8');
-  } catch (err) {
-    return {
-      content: [{
-        type: 'text' as const,
-        text: JSON.stringify({
-          error: `Failed to write uat.json: ${String(err)}`,
-        }),
-      }],
-    };
+    const raw = fs.readFileSync(manifestPath, 'utf8');
+    const manifest = JSON.parse(raw);
+    sprintName = manifest.name || sprintName;
+    sprintId = manifest.id || sprintId;
+  } catch { /* use defaults */ }
+
+  // Build the section
+  const stepsMarkdown = verificationSteps
+    .map((step, i) => `${i + 1}. ${step}`)
+    .join('\n');
+
+  const section = `\n## ${taskId}: ${title}\n\n### Changes\n${changes}\n\n### Verification Steps\n${stepsMarkdown}\n`;
+
+  // Create or append
+  if (!fs.existsSync(uatPath)) {
+    const header = `# ${sprintId} — ${sprintName} — UAT\n`;
+    fs.writeFileSync(uatPath, header + section, 'utf8');
+  } else {
+    fs.appendFileSync(uatPath, section, 'utf8');
   }
 
-  const response: ReportUatResponse = {
-    success: true,
-    taskId,
-    result,
-    totalEntries: entries.length,
-  };
-
-  return {
-    content: [{
-      type: 'text' as const,
-      text: JSON.stringify(response),
-    }],
-  };
+  return { content: [{ type: 'text' as const, text: JSON.stringify({ success: true, taskId, path: uatPath }) }] };
 }
+
 
 // ---------------------------------------------------------------------------
 // Exported handler for complete_sprint (testable standalone)
@@ -560,32 +576,33 @@ export class CliffordMcpServer extends EventEmitter {
     );
 
     // -------------------------------------------------------------------------
-    // report_uat — append structured UAT entries to .clifford/uat.json
+    // report_uat — append verification steps to the sprint's uat.md
     // -------------------------------------------------------------------------
     this.mcpServer.registerTool(
       'report_uat',
       {
         description:
           'Log a UAT (User Acceptance Testing) entry after completing task verification. ' +
-          'Records what was tested and the result.',
+          'Writes verification steps to the sprint\'s uat.md file.',
         inputSchema: {
-          taskId: z.string().describe('The task ID this UAT entry is for'),
-          description: z.string().describe('Brief description of what was tested'),
-          steps: z.array(z.string()).describe('List of verification steps performed'),
-          result: z.enum(['pass', 'fail', 'partial']).describe('Overall test result'),
-          notes: z.string().optional().describe('Additional notes or observations'),
+          sprintDir: z.string().describe('The sprint directory path (from CURRENT_SPRINT_DIR)'),
+          taskId: z.string().describe('The task ID this UAT entry is for (e.g. "task-1")'),
+          title: z.string().describe('Task title for the section header'),
+          changes: z.string().describe('Markdown description of what was changed'),
+          verificationSteps: z.array(z.string()).describe('Step-by-step verification instructions'),
         },
       },
-      async ({ taskId, description, steps, result, notes }: {
+      async ({ sprintDir, taskId, title, changes, verificationSteps }: {
+        sprintDir: string;
         taskId: string;
-        description: string;
-        steps: string[];
-        result: 'pass' | 'fail' | 'partial';
-        notes?: string;
+        title: string;
+        changes: string;
+        verificationSteps: string[];
       }) => {
-        return reportUat(taskId, description, steps, result, notes);
+        return reportUatMarkdown(sprintDir, taskId, title, changes, verificationSteps);
       }
     );
+
 
     // -------------------------------------------------------------------------
     // complete_sprint — validate all tasks done, then mark sprint completed

@@ -122,11 +122,12 @@ this.mcpServer.registerTool(
   {
     description:
       'Append a summary of the completed sprint to the project CHANGELOG.md. ' +
-      'Call this after complete_sprint. Respects the changelog setting in clifford.json.',
+      'Call this after complete_sprint. Respects the changelog setting in clifford.json. ' +
+      'Only include entries for features added, features removed, or breaking changes.',
     inputSchema: {
       sprintId: z.string().describe('The sprint ID (e.g. "sprint-16")'),
       sprintName: z.string().describe('The sprint name'),
-      entries: z.array(z.string()).describe('List of changelog entries (one per notable change)'),
+      entries: z.array(z.string()).describe('List of changelog entries. Only include entries for features added, features removed, or breaking changes.'),
     },
   },
   async ({ sprintId, sprintName, entries }: {

@@ -199,9 +199,9 @@ export async function scaffold(targetDir: string, options: {
   const gitignorePath = path.join(targetDir, '.gitignore');
   const gitignoreEntries = [
     '\n# Clifford',
-    '.clifford/state.json',
-    '.clifford/uat.json'
+    '.clifford/state.json'
   ];
+
 
   if (await fs.pathExists(gitignorePath)) {
     let content = await fs.readFile(gitignorePath, 'utf8');

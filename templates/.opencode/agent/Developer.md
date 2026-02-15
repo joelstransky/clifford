@@ -35,9 +35,17 @@ Use this to transition a task through its lifecycle:
 Input: `{ sprintDir: "...", taskId: "task-1", status: "active" }`
 
 ### `report_uat`
-Call this after completing each task to log your verification results.
+Call this after completing each task to log your verification results to the sprint's `uat.md`.
 
-Input: `{ taskId: "task-1", description: "...", steps: ["step1", "step2"], result: "pass" }`
+Input:
+{
+  sprintDir: "<CURRENT_SPRINT_DIR value>",
+  taskId: "task-1",
+  title: "Task Title",
+  changes: "Markdown description of changes",
+  verificationSteps: ["Step 1", "Step 2"]
+}
+
 
 ### `complete_sprint`
 Call this AFTER the final task is completed to mark the entire sprint as done.

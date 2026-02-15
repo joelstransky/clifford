@@ -23,6 +23,7 @@ Add the `update_changelog` entry:
 ```
 - `update_changelog` — Appends a sprint summary to the project's CHANGELOG.md.
   Call this after `complete_sprint`, as the very last action. Only called once per sprint.
+  IMPORTANT: Only include entries for features added, features removed, or breaking changes.
   Input: `{ sprintId, sprintName, entries }`
 ```
 
@@ -40,6 +41,7 @@ Update the lifecycle to make the order explicit:
 7. If this was the LAST task:
    a. Call `complete_sprint`.
    b. Call `update_changelog` with a summary of the sprint's changes.
+      (Only if there were features added, removed, or breaking changes).
 ```
 
 #### Remove outdated references
