@@ -67,3 +67,26 @@
 7. Run `node dist/index.js afk` again and provide a DIFFERENT token.
 8. Verify `clifford.json` reflects the updated token in the `telegram` entry without creating a duplicate array element.
 
+## Task 4: Implement the `--test` and `--listen` verification flags
+
+### Changes
+- Implemented logic for `npx clifford afk --test` and `npx clifford afk --test --listen`.
+- Added automatic copying of adapter scripts from `templates/` to `.clifford/afk/` if missing.
+- Added support for auto-detecting `chatId` during the `--listen` handshake and saving it back to `clifford.json`.
+- Implemented robust spawning of Python bridge with proper error handling and timeouts.
+- Cleaned up `any` types in `src/index.ts` and `src/utils/config.ts` to adhere to project standards.
+
+### Verification Instructions
+1. Run `npm run build`.
+2. Configure a Telegram bot token in `clifford.json` by running `node dist/index.js afk` (leave `chatId` blank).
+3. Run `node dist/index.js afk --test --listen`.
+4. Send a message from your phone to your Telegram bot.
+5. Verify that:
+   - The CLI displays "Found you! Setup complete. Received: [Your Message]".
+   - Your `chatId` is auto-detected and saved to `clifford.json`.
+6. Run `node dist/index.js afk --test`.
+7. Verify that:
+   - A test message "Hello from Clifford 🚀" is sent to your Telegram.
+   - The CLI displays "Test message sent."
+
+

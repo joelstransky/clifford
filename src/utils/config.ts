@@ -8,7 +8,7 @@ export interface AfkAdapterConfig {
   enabled: boolean;
   token?: string;
   chatId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface CliffordConfig {
