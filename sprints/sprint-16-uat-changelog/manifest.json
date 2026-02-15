@@ -1,7 +1,7 @@
 {
   "id": "sprint-16",
   "name": "UAT & Changelog MCP Tools",
-  "status": "active",
+  "status": "completed",
   "tasks": [
     { "id": "task-1", "file": "tasks/01-uat-md-mcp-tool.md", "status": "completed" },
     { "id": "task-2", "file": "tasks/02-changelog-mcp-tool.md", "status": "completed" },

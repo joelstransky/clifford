@@ -130,3 +130,9 @@
 - 08-remove-sync-sprint-states
 - 09-revert-multi-turn-blocker
 - 10-purge-asm-stabilize-halt
+
+## [2026-02-14] sprint-16-uat-changelog
+- 01-uat-md-mcp-tool
+- 02-changelog-mcp-tool
+- 03-agent-workflow-update
+- 04-remove-git-push
