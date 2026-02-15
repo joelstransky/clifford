@@ -134,7 +134,7 @@ program
         console.log(`🟢 OpenCode: installed${versionLabel}`);
       } else {
         console.log('🔴 OpenCode: not found');
-        console.log('   Install it with: npm install -g opencode');
+      console.log('   Install it with: npm install -g opencode');
       }
 
       console.log('');
@@ -142,6 +142,68 @@ program
       console.log('   Architect agent to begin sprint planning.');
     } catch (error) {
       console.error(`❌ Error during initialization: ${(error as Error).message}`);
+    }
+  });
+
+program
+  .command('afk')
+  .description('Configure Clifford AFK (Remote Guidance)')
+  .option('--test', 'Send a test message to all enabled AFK adapters')
+  .option('--listen', 'Wait for a response during the test (requires --test)')
+  .action(async (options) => {
+    // 1. Scaffold the Adapter Directory
+    const afkDir = path.join(process.cwd(), '.clifford', 'afk');
+    if (!fs.existsSync(afkDir)) {
+      fs.mkdirSync(afkDir, { recursive: true });
+      console.log('✅ Created .clifford/afk/ directory');
+    }
+
+    if (options.test) {
+      console.log('🚀 AFK Test Mode not yet fully implemented (requires adapters).');
+      return;
+    }
+
+    // 2. Implement the Interview Wizard
+    console.log('\n--- Clifford AFK Setup ---');
+    console.log('Tip: Message @BotFather the message "/help" to create a bot and get a token.');
+
+    const answers = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'telegramToken',
+        message: 'If you have a Telegram Bot Token, paste it here:',
+      }
+    ]);
+
+    if (answers.telegramToken) {
+      const chatAnswers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'telegramChatId',
+          message: 'Enter your Chat ID (or leave blank to auto-detect on first message):',
+        }
+      ]);
+
+      // Update clifford.json
+      const configPath = path.join(process.cwd(), 'clifford.json');
+      if (fs.existsSync(configPath)) {
+        try {
+          const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+          config.afk = config.afk || {};
+          config.afk.telegram = {
+            token: answers.telegramToken,
+            chatId: chatAnswers.telegramChatId || undefined
+          };
+          fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+          console.log('✅ Updated clifford.json with Telegram configuration.');
+        } catch (err) {
+          console.error(`❌ Error updating clifford.json: ${(err as Error).message}`);
+        }
+      } else {
+        console.log('⚠️ clifford.json not found. Configuration not saved.');
+      }
+    } else {
+      console.log('\nNo token provided. You can add it later to clifford.json.');
     }
   });
 
