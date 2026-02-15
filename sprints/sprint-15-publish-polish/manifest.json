@@ -12,6 +12,6 @@
     { "id": "task-7", "file": "tasks/07-strip-ansi-process-output.md", "status": "completed" },
     { "id": "task-8", "file": "tasks/08-remove-sync-sprint-states.md", "status": "completed" },
     { "id": "task-9", "file": "tasks/09-revert-multi-turn-blocker.md", "status": "completed" },
-    { "id": "task-10", "file": "tasks/10-purge-asm-stabilize-halt.md", "status": "pending" }
+    { "id": "task-10", "file": "tasks/10-purge-asm-stabilize-halt.md", "status": "active" }
   ]
 }

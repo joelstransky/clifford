@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterAll } from 'bun:test';
 import fs from 'fs';
 import path from 'path';
 import { CliffordMcpServer, buildSprintContext, updateTaskStatus, reportUat, completeSprint, SprintContextResponse, UpdateTaskStatusResponse, ReportUatResponse, CompleteSprintResponse, UatEntry } from './mcp-server';
-import { saveMemory, clearMemory } from './asm-storage';
 
 describe('CliffordMcpServer', () => {
   let server: CliffordMcpServer;
@@ -97,15 +96,9 @@ describe('buildSprintContext', () => {
   }
 
   beforeEach(() => {
-    // Set ASM path for test isolation
-    process.env.CLIFFORD_ASM_PATH = ASM_TEST_PATH;
-
     // Clean up test directories
     if (fs.existsSync(TEST_DIR)) {
       fs.rmSync(TEST_DIR, { recursive: true, force: true });
-    }
-    if (fs.existsSync(ASM_TEST_PATH)) {
-      fs.rmSync(ASM_TEST_PATH, { force: true });
     }
 
     // Create fresh test directory structure
@@ -113,19 +106,9 @@ describe('buildSprintContext', () => {
   });
 
   afterAll(() => {
-    // Restore original ASM path
-    if (originalAsmPath !== undefined) {
-      process.env.CLIFFORD_ASM_PATH = originalAsmPath;
-    } else {
-      delete process.env.CLIFFORD_ASM_PATH;
-    }
-
     // Clean up test artifacts
     if (fs.existsSync(TEST_DIR)) {
       fs.rmSync(TEST_DIR, { recursive: true, force: true });
-    }
-    if (fs.existsSync(ASM_TEST_PATH)) {
-      fs.rmSync(ASM_TEST_PATH, { force: true });
     }
   });
 
@@ -239,33 +222,6 @@ describe('buildSprintContext', () => {
     expect(parsed.currentTask).not.toBeNull();
     expect(parsed.currentTask!.id).toBe('task-1');
     expect(parsed.currentTask!.content).toBeNull();
-  });
-
-  it('should include ASM guidance when available for the current task', () => {
-    const manifest = {
-      id: 'sprint-guidance',
-      name: 'Guidance Sprint',
-      status: 'active',
-      tasks: [
-        { id: 'task-1', file: 'tasks/01-first.md', status: 'pending' },
-      ],
-    };
-
-    writeManifest(manifest);
-    writeTaskFile('tasks/01-first.md', '# Task with guidance');
-
-    // Save ASM memory for task-1
-    saveMemory('task-1', 'How should I handle the edge case?', 'Use a fallback value of 0.');
-
-    const result = buildSprintContext(TEST_DIR);
-    const parsed = parseResult(result) as unknown as SprintContextResponse;
-
-    expect(parsed.guidance).not.toBeNull();
-    expect(parsed.guidance!.previousQuestion).toBe('How should I handle the edge case?');
-    expect(parsed.guidance!.humanResponse).toBe('Use a fallback value of 0.');
-
-    // Clean up ASM
-    clearMemory('task-1');
   });
 
   it('should return error for invalid JSON in manifest', () => {

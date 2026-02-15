@@ -4,7 +4,6 @@ import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
 import { ChildProcess } from 'child_process';
 import { discoverTools } from './discovery.js';
-import { getMemory, clearMemory } from './asm-storage.js';
 import { loadProjectConfig, loadGlobalConfig, resolveModel } from './config.js';
 import { readBlockFile, cleanupMcpFiles } from './mcp-ipc.js';
 
@@ -185,23 +184,10 @@ export class SprintRunner extends EventEmitter {
           this.log(`❌ Error reading prompt file: ${(err as Error).message}`, 'error');
         }
 
-        // Inject human guidance from ASM if available
-        let humanGuidance = '';
-        const memory = getMemory(nextTask.id);
-        if (memory) {
-          humanGuidance = `[HUMAN_GUIDANCE]
-On a previous attempt, you hit a blocker: "${memory.question}"
-The human has provided the following guidance: "${memory.answer}"
-Proceed with this information.
-
-`;
-          this.log(`🧠 Injected human guidance for task ${nextTask.id}`);
-        }
-
         // Build prompt — agent discovers request_help tool via MCP automatically
         const finalPrompt = `CURRENT_SPRINT_DIR: ${this.sprintDir}
 
-${humanGuidance}${promptContent}`;
+${promptContent}`;
 
         this.log('🤖 Invoking Agent...');
         this.status = 'Building Task';
@@ -271,11 +257,6 @@ ${humanGuidance}${promptContent}`;
         const updatedManifest: SprintManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         const taskInUpdated = updatedManifest.tasks.find(t => t.id === nextTask.id);
         
-        if (taskInUpdated?.status === 'completed' || taskInUpdated?.status === 'pushed') {
-          this.log(`🧹 Clearing memory for completed task: ${nextTask.id}`);
-          clearMemory(nextTask.id);
-        }
-
         // Detect if we should stop the loop due to failure or lack of progress
         if (exitCode !== 0) {
           this.log(`🛑 Agent failed with exit code ${exitCode} on ${nextTask.id}`, 'error');

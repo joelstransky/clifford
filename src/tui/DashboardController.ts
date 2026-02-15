@@ -3,7 +3,6 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import { SprintRunner, SprintManifest } from '../utils/sprint.js';
 import { writeResponseFile } from '../utils/mcp-ipc.js';
-import { saveMemory } from '../utils/asm-storage.js';
 import { stripAnsi } from '../utils/text.js';
 
 // ─── Shared Types ──────────────────────────────────────────────────────────────
@@ -216,6 +215,13 @@ export class DashboardController extends EventEmitter {
       this.stopSpinner();
       this.sprintStartTime = null;
       this.activeTaskId = null;
+
+      if (this.activeBlocker) {
+        this.activeBlocker = null;
+        this.chatInput = '';
+        this.emit('blocker-cleared');
+      }
+
       this.emitChange();
     });
 
@@ -603,11 +609,36 @@ export class DashboardController extends EventEmitter {
   public handleBlockerSubmit(): void {
     if (!this.activeBlocker || this.chatInput.trim().length === 0) return;
 
+    const blocker = this.activeBlocker;
+    const response = this.chatInput.trim();
+
     try {
       const projectRoot = this.findProjectRoot();
-      writeResponseFile(projectRoot, this.chatInput.trim());
-    } catch {
-      // MCP response file write failed — the agent may have already exited
+      writeResponseFile(projectRoot, response);
+
+      // Markdown backup
+      if (this.manifest && blocker.task) {
+        const taskEntry = this.manifest.tasks.find(t => t.id === blocker.task);
+        if (taskEntry) {
+          const taskFilePath = path.resolve(this.currentSprintDir, taskEntry.file);
+          if (fs.existsSync(taskFilePath)) {
+            let content = fs.readFileSync(taskFilePath, 'utf8');
+            const guidanceEntry = `- **Question**: ${blocker.question}\n- **Response**: ${response}\n`;
+
+            if (!content.includes('## Additional Info')) {
+              content += '\n\n## Additional Info\n';
+            } else {
+              content += '\n';
+            }
+            content += guidanceEntry;
+
+            fs.writeFileSync(taskFilePath, content, 'utf8');
+            this.addLog(`📝 Guidance backed up to ${taskEntry.file}`);
+          }
+        }
+      }
+    } catch (err) {
+      this.addLog(`Failed to write response: ${(err as Error).message}`, 'error');
     }
 
     this.activeBlocker = null;

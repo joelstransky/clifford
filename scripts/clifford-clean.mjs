@@ -5,7 +5,6 @@
  * Wipes transient Clifford state so UAT can start from a clean slate.
  * Removes:
  *   - .clifford/sprints/   (copied test fixtures)
- *   - .clifford/asm.json   (agent memory)
  *   - .clifford/state.json (session state)
  *   - uat-output/          (artifacts from test sprints)
  */
@@ -18,7 +17,6 @@ const projectRoot = path.resolve(__dirname, '..');
 
 const targets = [
   { path: path.join(projectRoot, '.clifford', 'sprints'), label: '.clifford/sprints/' },
-  { path: path.join(projectRoot, '.clifford', 'asm.json'), label: '.clifford/asm.json' },
   { path: path.join(projectRoot, '.clifford', 'state.json'), label: '.clifford/state.json' },
   { path: path.join(projectRoot, 'uat-output'), label: 'uat-output/' },
 ];

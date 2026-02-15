@@ -23,7 +23,6 @@ You have the following MCP tools for sprint lifecycle management. Use them for A
 Call this FIRST at the start of each task. It returns:
 - The full sprint manifest (all tasks and their statuses)
 - The current task's markdown content (your instructions)
-- Any human guidance from previous attempts
 
 Input: `{ sprintDir: "<CURRENT_SPRINT_DIR value>" }`
 

@@ -5,87 +5,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod/v3';
 import { writeBlockFile, pollForResponse, cleanupMcpFiles } from './mcp-ipc.js';
-import { getMemory } from './asm-storage.js';
-
-export interface BlockData {
-  task: string;
-  reason: string;
-  question: string;
-}
-
-export interface SprintTaskEntry {
-  id: string;
-  file: string;
-  status: 'pending' | 'active' | 'completed' | 'blocked' | 'pushed';
-}
-
-export interface SprintManifestData {
-  id: string;
-  name: string;
-  status: string;
-  tasks: SprintTaskEntry[];
-}
-
-export interface SprintContextResponse {
-  sprint: {
-    id: string;
-    name: string;
-    status: string;
-    tasks: SprintTaskEntry[];
-  };
-  currentTask: {
-    id: string;
-    file: string;
-    status: string;
-    content: string | null;
-  } | null;
-  guidance: {
-    previousQuestion: string;
-    humanResponse: string;
-  } | null;
-  sprintDir: string;
-}
-
-export interface UpdateTaskStatusResponse {
-  success: boolean;
-  taskId: string;
-  previousStatus: string;
-  newStatus: string;
-}
-
-export interface UatEntry {
-  taskId: string;
-  description: string;
-  steps: string[];
-  result: 'pass' | 'fail' | 'partial';
-  notes?: string;
-  timestamp: string;
-}
-
-export interface ReportUatResponse {
-  success: boolean;
-  taskId: string;
-  result: 'pass' | 'fail' | 'partial';
-  totalEntries: number;
-}
-
-export interface CompleteSprintResponse {
-  success: boolean;
-  sprintId: string;
-  sprintName?: string;
-  completedAt?: string;
-  summary?: string | null;
-  taskCount?: number;
-  note?: string;
-  reason?: string;
-  tasks?: Array<{ id: string; status: string }>;
-}
-
-interface PendingBlock {
-  data: BlockData;
-  resolve: (response: string) => void;
-}
-
+// ---------------------------------------------------------------------------
+// Exported handler for get_sprint_context (testable standalone)
 // ---------------------------------------------------------------------------
 // Exported handler for get_sprint_context (testable standalone)
 // ---------------------------------------------------------------------------
@@ -149,12 +70,6 @@ export function buildSprintContext(
         taskContent = null;
       }
     }
-
-    // Check ASM storage for human guidance
-    const memory = getMemory(currentTaskEntry.id);
-    guidance = memory
-      ? { previousQuestion: memory.question, humanResponse: memory.answer }
-      : null;
 
     currentTask = {
       id: currentTaskEntry.id,
