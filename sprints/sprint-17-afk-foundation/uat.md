@@ -87,6 +87,19 @@
 6. Run `node dist/index.js afk --test`.
 7. Verify that:
    - A test message "Hello from Clifford 🚀" is sent to your Telegram.
-   - The CLI displays "Test message sent."
+    - The CLI displays "Test message sent."
+
+## Task 5: Purge Legacy Demo Assets
+
+### Changes
+- Removed `read_only_demo_project` entry from `.gitignore`.
+- Removed `read_only_demo_project/**` exclusion from `eslint.config.mjs`.
+- Verified the `read_only_demo_project/` directory is no longer present in the repository.
+
+### Verification Instructions
+1. Run `ls -d read_only_demo_project`. It should return "No such file or directory".
+2. Run `npm run lint`. It should pass (with only existing unrelated warnings).
+3. Run `grep -r "read_only_demo_project" .`. It should return no results except in `uat.md` and the task file.
+
 
 

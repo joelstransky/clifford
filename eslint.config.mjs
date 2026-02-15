@@ -7,7 +7,6 @@ export default [
       'dist/**',
       'node_modules/**',
       '.bigred/**',
-      'read_only_demo_project/**',
     ],
   },
   {
