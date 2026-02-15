@@ -69,7 +69,7 @@ Welcome, Clifford Agent. This document defines the standards, workflows, and con
 ### Safety Protocol
 - **Git**: Never `push --force`. Commits must be atomic per task.
 - **Isolation**: Use `clifford-sandbox/` for all verification testing. NEVER modify files in `clifford/` while running tests.
-- **Pushing**: No `git push` unless explicitly requested by the Human.
+- **Pushing**: `git push` is strictly prohibited. Clifford only makes local commits.
 
 ### Task Lifecycle
 1. **Selection**: Call `get_sprint_context` with the active sprint directory. Identify the first `pending` task.
