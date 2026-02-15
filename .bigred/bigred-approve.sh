@@ -25,11 +25,12 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 3. Push
-echo "🚀 Pushing changes to remote..."
-git push
+# 3. Final Commit
+echo "💾 Finalizing sprint..."
+git add CHANGELOG.md
+git commit -m "chore: approve sprint $(basename "$SPRINT_DIR")" || true
 
-# 4. Mark as Pushed
-sed -i 's/"status": "completed"/"status": "pushed"/' "$SPRINT_DIR/manifest.json"
+# 4. Mark as Verified
+sed -i 's/"status": "completed"/"status": "verified"/' "$SPRINT_DIR/manifest.json"
 
-echo "✨ Sprint approved and pushed successfully."
+echo "✨ Sprint approved and finalized locally."

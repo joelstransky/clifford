@@ -69,7 +69,7 @@ if (errors.length > 0) {
 }
 "
 
-# --- Commit and push ---
+# --- Commit only ---
 if git diff --cached --quiet; then
   echo "ℹ️  Nothing to commit — working tree clean."
 else
@@ -78,7 +78,4 @@ else
   git commit -m "verified: $SPRINT_NAME"
 fi
 
-echo "🚀 Pushing to remote..."
-git push
-
-echo "✅ Sprint verified, committed, and pushed."
+echo "✅ Sprint verified and committed locally."
