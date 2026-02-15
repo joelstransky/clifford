@@ -21,3 +21,21 @@
 6. Provide a dummy token (e.g., `12345:abcde`).
 7. Provide a dummy Chat ID (e.g., `98765`).
 8. Check `clifford.json` and verify it contains the `afk` section with the provided values.
+
+## Task 2: Create the zero-dependency Python adapter for Telegram
+
+### Changes
+- Created `templates/.clifford/afk/telegram.py`.
+- Implemented `urllib`-based communication with Telegram Bot API (no external dependencies).
+- Supported `--notify`, `--listen`, `--test`, and auto-detecting `chat_id`.
+- Added robust error handling and long-polling support.
+
+### Verification Instructions
+1. Navigate to `templates/.clifford/afk/`.
+2. Run `python3 telegram.py --help` to verify arguments are registered.
+3. If you have a Telegram Bot Token and Chat ID:
+   - Run `python3 telegram.py --token <TOKEN> --chat_id <ID> --test` and check Telegram.
+   - Run `python3 telegram.py --token <TOKEN> --chat_id <ID> --notify --message "Testing Clifford"` and check Telegram.
+   - Run `python3 telegram.py --token <TOKEN> --listen` and send a message to the bot. Verify it prints your Chat ID and the message text.
+4. If you don't have a token, verify the script fails gracefully with an error message when attempting to connect.
+
