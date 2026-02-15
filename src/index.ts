@@ -187,11 +187,22 @@ program
       if (fs.existsSync(configPath)) {
         try {
           const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-          config.afk = config.afk || {};
-          config.afk.telegram = {
+          if (!Array.isArray(config.afk)) {
+            config.afk = [];
+          }
+          const telegramIndex = config.afk.findIndex((a: any) => a.provider === 'telegram');
+          const telegramConfig = {
+            provider: 'telegram',
+            enabled: true,
             token: answers.telegramToken,
             chatId: answers.telegramChatId || undefined
           };
+          
+          if (telegramIndex > -1) {
+            config.afk[telegramIndex] = telegramConfig;
+          } else {
+            config.afk.push(telegramConfig);
+          }
           fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
           console.log('✅ Updated clifford.json with Telegram configuration.');
         } catch (err) {

@@ -39,3 +39,31 @@
    - Run `python3 telegram.py --token <TOKEN> --listen` and send a message to the bot. Verify it prints your Chat ID and the message text.
 4. If you don't have a token, verify the script fails gracefully with an error message when attempting to connect.
 
+## Task 3: Inject AFK configuration into the project's `clifford.json`
+
+### Changes
+- Updated `CliffordConfig` interface in `src/utils/config.ts` to include `afk` as an array of `AfkAdapterConfig`.
+- Refactored `afk` command in `src/index.ts` to inject configuration into an array, allowing for multiple providers in the future.
+- Ensured existing `clifford.json` settings are preserved during injection.
+- Added `getEnabledAfkAdapters` helper to `src/utils/config.ts` for standardized adapter validation.
+
+### Verification Instructions
+1. Run `npm run build`.
+2. Ensure you have a `clifford.json` file in the root directory (e.g., run `node dist/index.js init -y`).
+3. Run `node dist/index.js afk`.
+4. Provide a Telegram Bot Token (e.g., `dummy_token`) and Chat ID (e.g., `12345`).
+5. Open `clifford.json` and verify the `afk` block is an array:
+   ```json
+   "afk": [
+     {
+       "provider": "telegram",
+       "enabled": true,
+       "token": "dummy_token",
+       "chatId": "12345"
+     }
+   ]
+   ```
+6. Verify that other fields in `clifford.json` (like `model` or `aiTool`) are still present.
+7. Run `node dist/index.js afk` again and provide a DIFFERENT token.
+8. Verify `clifford.json` reflects the updated token in the `telegram` entry without creating a duplicate array element.
+

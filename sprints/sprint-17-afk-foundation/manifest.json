@@ -5,7 +5,7 @@
   "tasks": [
     { "id": "task-1", "file": "tasks/01-clifford-afk-command.md", "status": "completed" },
     { "id": "task-2", "file": "tasks/02-telegram-python-adapter.md", "status": "completed" },
-    { "id": "task-3", "file": "tasks/03-config-injection-logic.md", "status": "pending" },
+    { "id": "task-3", "file": "tasks/03-config-injection-logic.md", "status": "active" },
     { "id": "task-4", "file": "tasks/04-afk-test-verification.md", "status": "pending" },
     { "id": "task-5", "file": "tasks/05-purge-legacy-demo.md", "status": "pending" }
   ]
