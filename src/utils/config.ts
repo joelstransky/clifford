@@ -7,7 +7,7 @@ export interface CliffordConfig {
   model?: string;
   agentName?: string;
   aiTool?: string;
-  // future-proofing for more settings
+  changelog?: boolean;
 }
 
 /**

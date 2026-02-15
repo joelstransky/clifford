@@ -171,10 +171,69 @@ export function buildSprintContext(
   return {
     content: [{
       type: 'text' as const,
-      text: JSON.stringify(response, null, 2),
+      text: JSON.stringify(response),
     }],
   };
 }
+
+/**
+ * Appends a summary of the completed sprint to the project CHANGELOG.md.
+ * Only include entries for features added, features removed, or breaking changes.
+ * Respects the changelog setting in clifford.json.
+ */
+export function updateChangelog(
+  sprintId: string,
+  sprintName: string,
+  entries: string[],
+): { content: Array<{ type: 'text'; text: string }> } {
+  // Check clifford.json config
+  const configPath = path.resolve(process.cwd(), 'clifford.json');
+  try {
+    if (fs.existsSync(configPath)) {
+      const raw = fs.readFileSync(configPath, 'utf8');
+      const config = JSON.parse(raw);
+      if (config.changelog === false) {
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify({ success: true, skipped: true, reason: 'Changelog updates disabled in clifford.json' }),
+          }],
+        };
+      }
+    }
+  } catch { /* default to enabled if config missing or unparseable */ }
+
+  const changelogPath = path.resolve(process.cwd(), 'CHANGELOG.md');
+  const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const entriesMarkdown = entries.map(e => `- ${e}`).join('\n');
+
+  const section = `\n## [${sprintId}] ${sprintName} — ${date}\n\n${entriesMarkdown}\n`;
+
+  if (fs.existsSync(changelogPath)) {
+    // Read existing, insert new section after the first heading (or at top)
+    const existing = fs.readFileSync(changelogPath, 'utf8');
+    // Find the first ## heading and insert before it, or append if none
+    const firstHeadingIndex = existing.indexOf('\n## ');
+    if (firstHeadingIndex > -1) {
+      const updated = existing.slice(0, firstHeadingIndex) + section + existing.slice(firstHeadingIndex);
+      fs.writeFileSync(changelogPath, updated, 'utf8');
+    } else {
+      fs.appendFileSync(changelogPath, section, 'utf8');
+    }
+  } else {
+    // Create new CHANGELOG.md
+    const header = `# Changelog\n`;
+    fs.writeFileSync(changelogPath, header + section, 'utf8');
+  }
+
+  return {
+    content: [{
+      type: 'text' as const,
+      text: JSON.stringify({ success: true, path: changelogPath }),
+    }],
+  };
+}
+
 
 // ---------------------------------------------------------------------------
 // Valid task status transitions
@@ -620,6 +679,31 @@ export class CliffordMcpServer extends EventEmitter {
       },
       async ({ sprintDir, summary }: { sprintDir: string; summary?: string }) => {
         return completeSprint(sprintDir, summary);
+      }
+    );
+
+    // -------------------------------------------------------------------------
+    // update_changelog — append summary to CHANGELOG.md
+    // -------------------------------------------------------------------------
+    this.mcpServer.registerTool(
+      'update_changelog',
+      {
+        description:
+          'Append a summary of the completed sprint to the project CHANGELOG.md. ' +
+          'Call this after complete_sprint. Respects the changelog setting in clifford.json. ' +
+          'Only include entries for features added, features removed, or breaking changes.',
+        inputSchema: {
+          sprintId: z.string().describe('The sprint ID (e.g. "sprint-16")'),
+          sprintName: z.string().describe('The sprint name'),
+          entries: z.array(z.string()).describe('List of changelog entries. Only include entries for features added, features removed, or breaking changes.'),
+        },
+      },
+      async ({ sprintId, sprintName, entries }: {
+        sprintId: string;
+        sprintName: string;
+        entries: string[];
+      }) => {
+        return updateChangelog(sprintId, sprintName, entries);
       }
     );
   }

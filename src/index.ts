@@ -64,6 +64,7 @@ program
         model: 'opencode/kimi-k2.5-free',
         workflow: 'yolo',
         aiTool: 'opencode',
+        changelog: true,
         extraGates: []
       };
       console.log('🚀 Initializing with default YOLO settings...');
@@ -92,6 +93,12 @@ program
             { name: 'Linting', value: 'lint' },
             { name: 'Tests', value: 'test' }
           ]
+        },
+        {
+          type: 'confirm',
+          name: 'changelog',
+          message: 'Auto-update CHANGELOG.md at the end of each sprint?',
+          default: true
         }
       ]);
       // OpenCode is the only supported engine
@@ -102,7 +109,8 @@ program
       // Write clifford.json — OpenCode is the only supported engine
       const cliffordConfig = {
         model: answers.model,
-        aiTool: 'opencode'
+        aiTool: 'opencode',
+        changelog: answers.changelog
       };
       fs.writeFileSync(configPath, JSON.stringify(cliffordConfig, null, 2));
       console.log('✅ Created clifford.json');

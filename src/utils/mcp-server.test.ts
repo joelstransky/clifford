@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'bun:test';
 import fs from 'fs';
 import path from 'path';
-import { CliffordMcpServer, buildSprintContext, updateTaskStatus, reportUatMarkdown, completeSprint, SprintContextResponse, UpdateTaskStatusResponse, CompleteSprintResponse } from './mcp-server';
+import { CliffordMcpServer, buildSprintContext, updateTaskStatus, reportUatMarkdown, completeSprint, updateChangelog, SprintContextResponse, UpdateTaskStatusResponse, CompleteSprintResponse } from './mcp-server';
 
 describe('CliffordMcpServer', () => {
   let server: CliffordMcpServer;
@@ -524,6 +524,98 @@ describe('reportUatMarkdown', () => {
 
     const content = fs.readFileSync(UAT_MD_PATH, 'utf8');
     expect(content).toContain('# sprint-?? — Unknown Sprint — UAT');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateChangelog tests
+// ---------------------------------------------------------------------------
+
+describe('updateChangelog', () => {
+  const TEST_ID = Math.random().toString(36).substring(7);
+  const TEST_DIR = path.resolve(`.clifford/test-changelog-${TEST_ID}`);
+  const CHANGELOG_PATH = path.join(TEST_DIR, 'CHANGELOG.md');
+  const CONFIG_PATH = path.join(TEST_DIR, 'clifford.json');
+
+  function parseResult(result: { content: Array<{ type: string; text: string }> }): Record<string, unknown> {
+    return JSON.parse(result.content[0].text) as Record<string, unknown>;
+  }
+
+  // Helper to run updateChangelog in TEST_DIR context
+  function runUpdateChangelog(sprintId: string, sprintName: string, entries: string[]) {
+    const originalCwd = process.cwd();
+    process.chdir(TEST_DIR);
+    try {
+      return updateChangelog(sprintId, sprintName, entries);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  }
+
+  beforeEach(() => {
+    if (fs.existsSync(TEST_DIR)) {
+      fs.rmSync(TEST_DIR, { recursive: true, force: true });
+    }
+    fs.mkdirSync(TEST_DIR, { recursive: true });
+  });
+
+  afterAll(() => {
+    if (fs.existsSync(TEST_DIR)) {
+      fs.rmSync(TEST_DIR, { recursive: true, force: true });
+    }
+  });
+
+  it('should create CHANGELOG.md when it doesn\'t exist', () => {
+    const result = runUpdateChangelog('sprint-1', 'Initial Sprint', ['First feature', 'Second feature']);
+    const parsed = parseResult(result);
+
+    expect(parsed.success).toBe(true);
+    expect(fs.existsSync(CHANGELOG_PATH)).toBe(true);
+
+    const content = fs.readFileSync(CHANGELOG_PATH, 'utf8');
+    expect(content).toContain('# Changelog');
+    expect(content).toContain('## [sprint-1] Initial Sprint — ');
+    expect(content).toContain('- First feature');
+    expect(content).toContain('- Second feature');
+    
+    const date = new Date().toISOString().split('T')[0];
+    expect(content).toContain(date);
+  });
+
+  it('should append new section before existing entries (newest first)', () => {
+    const initialContent = '# Changelog\n\n## [sprint-0] Old Sprint — 2024-01-01\n\n- Old feature\n';
+    fs.writeFileSync(CHANGELOG_PATH, initialContent, 'utf8');
+
+    runUpdateChangelog('sprint-1', 'New Sprint', ['New feature']);
+
+    const content = fs.readFileSync(CHANGELOG_PATH, 'utf8');
+    const firstHeadingIndex = content.indexOf('## [sprint-1]');
+    const secondHeadingIndex = content.indexOf('## [sprint-0]');
+    
+    expect(firstHeadingIndex).toBeGreaterThan(-1);
+    expect(secondHeadingIndex).toBeGreaterThan(-1);
+    expect(firstHeadingIndex).toBeLessThan(secondHeadingIndex);
+  });
+
+  it('should respect changelog: false in config (returns skipped)', () => {
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify({ changelog: false }), 'utf8');
+
+    const result = runUpdateChangelog('sprint-1', 'Any', ['Any']);
+    const parsed = parseResult(result);
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.skipped).toBe(true);
+    expect(parsed.reason).toContain('Changelog updates disabled');
+    expect(fs.existsSync(CHANGELOG_PATH)).toBe(false);
+  });
+
+  it('should default to enabled when config is missing', () => {
+    // No clifford.json
+    const result = runUpdateChangelog('sprint-1', 'Any', ['Any']);
+    const parsed = parseResult(result);
+
+    expect(parsed.success).toBe(true);
+    expect(fs.existsSync(CHANGELOG_PATH)).toBe(true);
   });
 });
 

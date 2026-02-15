@@ -42,6 +42,19 @@ describe('config', () => {
       expect(config).toEqual({ model: 'gpt-4o' });
     });
 
+    it('should load changelog field from clifford.json', () => {
+      existsSyncSpy.mockImplementation((p: string) => (p as string).endsWith('clifford.json'));
+      readFileSyncSpy.mockImplementation((p: string) => {
+        if ((p as string).endsWith('clifford.json')) {
+          return JSON.stringify({ changelog: false });
+        }
+        return '';
+      });
+
+      const config = loadProjectConfig();
+      expect(config.changelog).toBe(false);
+    });
+
     it('should handle malformed JSON gracefully', () => {
       existsSyncSpy.mockImplementation((p: string) => (p as string).endsWith('clifford.json'));
       readFileSyncSpy.mockImplementation((p: string) => {

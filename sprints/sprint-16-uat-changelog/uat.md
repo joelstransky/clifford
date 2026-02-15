@@ -21,3 +21,28 @@
 2. Run `npm test` — all tests (including new `reportUatMarkdown` tests) pass.
 3. Review `src/utils/mcp-server.ts` — confirm `report_uat` tool now uses the new schema and `reportUatMarkdown` handler.
 4. Review agent personas — confirm `report_uat` documentation matches the new schema.
+
+## task-2: Changelog MCP Tool
+
+### Changes
+- **`src/utils/config.ts`**: Added `changelog` flag to `CliffordConfig` interface.
+- **`src/index.ts`**: 
+    - Added `Auto-update CHANGELOG.md` prompt to `clifford init`.
+    - Added `changelog: true` to YOLO defaults.
+    - Updated `clifford.json` generation to include the `changelog` setting.
+- **`src/utils/mcp-server.ts`**:
+    - Implemented `updateChangelog` function that appends a summary to `CHANGELOG.md`.
+    - Registered `update_changelog` MCP tool.
+    - The tool respects `changelog` setting in `clifford.json` and skips if disabled.
+- **Agent Personas**: Updated `Developer.md` in both `src/templates` and `.opencode` to include `update_changelog` documentation and updated task lifecycle.
+- **Tests**: 
+    - Added tests for `updateChangelog` in `src/utils/mcp-server.test.ts`.
+    - Added test for `changelog` field parsing in `src/utils/config.test.ts`.
+
+### Verification Steps
+1. Run `npm run build` — should succeed.
+2. Run `npm test` — all tests (including new `updateChangelog` tests) pass.
+3. Run `npx ts-node src/index.ts init` (interactively) and verify the "Auto-update CHANGELOG.md" prompt appears.
+4. Verify `clifford.json` contains `"changelog": true` (or false if chosen).
+5. Manually verify `update_changelog` tool creates/updates `CHANGELOG.md` with correct formatting.
+6. Verify tool skips if `changelog: false` is set in `clifford.json`.

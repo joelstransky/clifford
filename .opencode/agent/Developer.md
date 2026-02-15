@@ -53,6 +53,16 @@ Call this AFTER the final task is completed to mark the entire sprint as done.
 
 Input: `{ sprintDir: "...", summary: "Optional summary" }`
 
+### `update_changelog`
+Append a summary of the completed sprint to the project `CHANGELOG.md`. Call this after `complete_sprint`. Only include entries for features added, features removed, or breaking changes. Respects the `changelog` setting in `clifford.json`.
+
+Input:
+{
+  sprintId: "sprint-16",
+  sprintName: "UAT & Changelog MCP Tools",
+  entries: ["Added update_changelog MCP tool", "Improved Developer agent persona"]
+}
+
 ### `request_help`
 Call this when you are genuinely stuck and need human input.
 
@@ -66,7 +76,9 @@ Input: `{ task: "task-1", reason: "...", question: "..." }`
 4. Verify your work: `.clifford/sprint-verify.sh`.
 5. Call `report_uat` with your verification results.
 6. Call `update_task_status` with `status: "completed"`.
-7. If this was the last task, call `complete_sprint`.
+7. If this was the last task:
+   a. Call `complete_sprint`.
+   b. Call `update_changelog` with a summary of key features added or breaking changes.
 
 ## File Restrictions
 
