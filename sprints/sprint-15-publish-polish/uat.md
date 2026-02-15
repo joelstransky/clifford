@@ -120,3 +120,23 @@
 4. Confirm `planning` is no longer in the `SprintManifest` type — `grep -n planning src/utils/sprint.ts` returns nothing.
 5. Start a sprint (e.g., test-sprint-01) and let it complete. Check another sprint's manifest (e.g., test-sprint-02) — its `status` field should be unchanged from whatever it was before the run.
 6. Confirm the other sprint can be started normally after the first sprint finishes.
+
+## Task 9: Revert Multi-Turn Blocker to Simple Send/Cancel
+
+### Changes
+- **`src/utils/mcp-ipc.ts`**: Removed `action` field from `McpResponseFile`. Reverted `pollForResponse` to return `Promise<string>` and `writeResponseFile` to remove the `action` parameter.
+- **`src/utils/mcp-server.ts`**: Reverted `request_help` handler to a simple single-response flow, removing the conversation loop and accumulated messages.
+- **`src/tui/DashboardController.ts`**: Removed `action` parameter from `handleBlockerSubmit()`. Reverted to simple submission that writes the response and clears the blocker.
+- **`src/tui/Dashboard.ts`**: Removed Tab key handling in blocker mode. Updated blocker footer hint to `[Enter] Submit  [Esc] Cancel`.
+- **`src/tui/components.ts`**: Restored the original hint text: `Type response or "Done" if action taken.  [Enter] Submit  [Esc] Cancel`.
+- **`src/utils/mcp-ipc.test.ts`**: Reverted tests to remove `action` checks and expect simple response strings.
+- **`src/tui/DashboardController.test.ts`**: Reverted tests to remove the `continue` action test and update existing tests for the new signature.
+
+### Verification Steps
+1. Run `npm run build` — should succeed.
+2. Run `npm test` — all tests pass.
+3. Trigger a blocker. Type a response and press **Enter** — confirm the blocker dismisses and the response is sent.
+4. Press **Esc** — confirm the blocker cancels.
+5. Confirm **Tab** does nothing special in blocker mode.
+6. Confirm the footer hint is restored to the simpler version.
+
