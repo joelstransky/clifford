@@ -589,41 +589,19 @@ export class CliffordMcpServer extends EventEmitter {
         // Write the block file for the SprintRunner/TUI to detect
         writeBlockFile(this.projectRoot, task, reason, question);
 
-        // Multi-turn conversation loop: accumulate messages until 'done'
-        const messages: string[] = [];
+        const response = await new Promise<string>((resolve) => {
+          this.pending = { data: blockData, resolve };
 
-        // Wait for human response — either via file-based IPC or direct API call
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const response = await new Promise<string>((resolve) => {
-            this.pending = { data: blockData, resolve };
-
-            // Also poll for file-based response in parallel
-            pollForResponse(this.projectRoot).then((responseData) => {
-              // Only resolve if this block is still pending (not already resolved via API)
-              if (this.pending?.data === blockData) {
-                this.pending = null;
-                messages.push(responseData.response);
-
-                if (responseData.action === 'done') {
-                  this.emit('block-resolved', { task: blockData.task, response: messages.join('\n\n') });
-                  resolve(messages.join('\n\n'));
-                } else {
-                  // 'continue' — write a new block file with accumulated context
-                  writeBlockFile(this.projectRoot, task, reason, `[Previous messages]\n${messages.join('\n')}\n\n[Awaiting follow-up]`);
-                  this.emit('block', { task, reason, question: `[Continued conversation]\n${messages.join('\n')}` });
-                  resolve('__continue__');
-                }
-              }
-            });
+          pollForResponse(this.projectRoot).then((fileResponse) => {
+            if (this.pending?.data === blockData) {
+              this.pending = null;
+              this.emit('block-resolved', { task: blockData.task, response: fileResponse });
+              resolve(fileResponse);
+            }
           });
+        });
 
-          // If resolved via direct API (resolveCurrentBlock), it goes straight to done
-          if (response !== '__continue__') {
-            return { content: [{ type: 'text' as const, text: response }] };
-          }
-          // Otherwise loop — poll for next message
-        }
+        return { content: [{ type: 'text' as const, text: response }] };
       }
     );
 

@@ -58,7 +58,7 @@ Welcome, Clifford Agent. This document defines the standards, workflows, and con
 ## 📂 Project Structure
 
 - `clifford/src/`: Core logic.
-  - `utils/`: Reusable logic (Discovery, Sprint, ASM, MCP, etc.).
+  - `utils/`: Reusable logic (Discovery, Sprint, MCP, etc.).
 - `clifford/sprints/`: Storage for core sprint manifests and task definitions.
 - `clifford-sandbox/`: The primary UAT environment. Isolated from core code.
 
@@ -91,8 +91,3 @@ Welcome, Clifford Agent. This document defines the standards, workflows, and con
 - When the agent calls `request_help`, the TUI displays a blocker panel.
 - The human types a response, which is returned to the agent via the tool call.
 - The agent stays alive throughout this process — no restart cycle.
-
-### ASM Storage (Recursive Memory)
-- Utilize `.clifford/asm.json` to persist guidance across task attempts.
-- On task restart, check for `[HUMAN_GUIDANCE]` in the system prompt.
-- Ensure memories are cleared via `clearMemory()` once a task is completed.

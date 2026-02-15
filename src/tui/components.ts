@@ -534,7 +534,7 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   blockerInputBox.add(blockerInputText);
 
   const blockerFooterHint = new TextRenderable(renderer, {
-    id: 'blocker-footer-hint', content: t`\n${dim('[Enter] Done  [Tab] Send & Continue  [Esc] Cancel')}`,
+    id: 'blocker-footer-hint', content: t`\n${dim('Type response or "Done" if action taken.  [Enter] Submit  [Esc] Cancel')}`,
   });
 
   blockerContainer.add(blockerHeader);

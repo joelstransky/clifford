@@ -762,31 +762,7 @@ describe('DashboardController', () => {
       expect(ctrl.activeBlocker).not.toBeNull();
     });
 
-    it('should keep blocker active and clear input on handleBlockerSubmit("continue")', () => {
-      const { ctrl } = createController();
-      ctrl.activeBlocker = { task: 'task-1', reason: 'stuck', question: 'help?' };
-      ctrl.chatInput = 'Try option A';
-
-      const events: string[] = [];
-      ctrl.on('blocker-cleared', () => events.push('cleared'));
-      ctrl.on('state-changed', () => events.push('state-changed'));
-
-      ctrl.handleBlockerSubmit('continue');
-
-      // Blocker should remain active
-      expect(ctrl.activeBlocker).not.toBeNull();
-      // Input should be cleared for next message
-      expect(ctrl.chatInput).toBe('');
-      // Should NOT emit blocker-cleared
-      expect(events.filter(e => e === 'cleared').length).toBe(0);
-      // Should emit state-changed
-      expect(events.filter(e => e === 'state-changed').length).toBeGreaterThanOrEqual(1);
-      // Should log the user's message
-      const userLog = ctrl.activityLogs.find(l => l.message.includes('You: Try option A'));
-      expect(userLog).toBeDefined();
-    });
-
-    it('should clear blocker and emit blocker-cleared on handleBlockerSubmit("done")', () => {
+    it('should clear blocker and emit blocker-cleared on handleBlockerSubmit()', () => {
       const { ctrl } = createController();
       ctrl.activeBlocker = { task: 'task-1', reason: 'stuck', question: 'help?' };
       ctrl.chatInput = 'Final answer';
@@ -794,25 +770,13 @@ describe('DashboardController', () => {
       const events: string[] = [];
       ctrl.on('blocker-cleared', () => events.push('cleared'));
 
-      ctrl.handleBlockerSubmit('done');
+      ctrl.handleBlockerSubmit();
 
       // Blocker should be cleared
       expect(ctrl.activeBlocker).toBeNull();
       expect(ctrl.chatInput).toBe('');
       // Should emit blocker-cleared
       expect(events.filter(e => e === 'cleared').length).toBe(1);
-    });
-
-    it('should default to "done" action when handleBlockerSubmit() called with no argument', () => {
-      const { ctrl } = createController();
-      ctrl.activeBlocker = { task: 'task-1', reason: 'stuck', question: 'help?' };
-      ctrl.chatInput = 'Some response';
-
-      ctrl.handleBlockerSubmit();
-
-      // Default action is 'done' — blocker should be cleared
-      expect(ctrl.activeBlocker).toBeNull();
-      expect(ctrl.chatInput).toBe('');
     });
 
     it('should dismiss blocker and stop runner on handleBlockerDismiss', () => {

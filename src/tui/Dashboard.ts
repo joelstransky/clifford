@@ -289,7 +289,7 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
 
       blockerInputText.content = t`${ctrl.chatInput}${bold(fg(COLORS.error)('█'))}`;
 
-      hotkeyText.content = t`${bold('[Enter]')} Done  ${bold('[Tab]')} Send & Continue  ${bold('[Esc]')} Cancel`;
+      hotkeyText.content = t`${bold('[Enter]')} Submit  ${bold('[Esc]')} Cancel`;
     } else {
       if (currentRightView !== 'activity') {
         try { activityPanel.remove('blocker-container'); } catch { /* ignore */ }
@@ -393,9 +393,7 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
 
     if (ctrl.activeBlocker) {
       if (isEnter) {
-        ctrl.handleBlockerSubmit('done');
-      } else if (key.name === 'tab') {
-        ctrl.handleBlockerSubmit('continue');
+        ctrl.handleBlockerSubmit();
       } else if (key.name === 'escape') {
         ctrl.handleBlockerDismiss();
       } else if (key.name === 'backspace') {

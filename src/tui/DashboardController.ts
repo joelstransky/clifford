@@ -600,70 +600,20 @@ export class DashboardController extends EventEmitter {
     this.emitChange();
   }
 
-  public handleBlockerSubmit(action: 'continue' | 'done' = 'done'): void {
-    if (!this.activeBlocker || !this.chatInput.trim()) return;
+  public handleBlockerSubmit(): void {
+    if (!this.activeBlocker || this.chatInput.trim().length === 0) return;
 
-    const response = this.chatInput.trim();
-    const taskId = this.activeBlocker.task || '';
-    const question = this.activeBlocker.question || '';
-    const isDone = response.toLowerCase() === 'done' || response.toLowerCase() === 'done.';
-
-    // Append user's response to the task file (unless "Done") — only on final submit
-    if (action === 'done' && !isDone && this.manifest && taskId) {
-      const task = this.manifest.tasks.find(t => t.id === taskId);
-      if (task) {
-        const taskFilePath = path.resolve(this.currentSprintDir, task.file);
-        try {
-          const existing = fs.readFileSync(taskFilePath, 'utf8');
-          const appendix = `\n\n## Supplemental Info\n${response}\n`;
-          fs.writeFileSync(taskFilePath, existing + appendix, 'utf8');
-          this.addLog(`📝 Appended guidance to ${task.file}`, 'success');
-        } catch (err) {
-          this.addLog(`❌ Failed to update task file: ${(err as Error).message}`, 'error');
-        }
-      }
-    }
-
-    // Save to ASM storage for guidance on restart — only on final submit
-    if (action === 'done' && taskId && question) {
-      saveMemory(taskId, question, response);
-    }
-
-    // Write response file for MCP server to pick up (if the agent is still running)
     try {
       const projectRoot = this.findProjectRoot();
-      writeResponseFile(projectRoot, response, action);
+      writeResponseFile(projectRoot, this.chatInput.trim());
     } catch {
       // MCP response file write failed — the agent may have already exited
     }
 
-    if (action === 'done') {
-      // Clear blocker state — conversation is finished
-      this.activeBlocker = null;
-      this.chatInput = '';
-
-      if (isDone) {
-        this.addLog('✅ Action confirmed. Response sent to agent.', 'success');
-      } else {
-        this.addLog('✅ Guidance saved. Response sent to agent.', 'success');
-      }
-
-      this.emit('blocker-cleared');
-      this.emitChange();
-
-      // If the agent already exited before the human responded, restart the sprint
-      setTimeout(() => {
-        if (!this.runner.getIsRunning()) {
-          this.addLog('🧠 Agent exited before response — restarting sprint with guidance...', 'warning');
-          this.runner.run().catch(err => this.addLog(`Restart Error: ${err.message}`, 'error'));
-        }
-      }, 500);
-    } else {
-      // 'continue' — keep blocker active, clear input for next message
-      this.addLog(`You: ${response}`, 'info');
-      this.chatInput = '';
-      this.emitChange();
-    }
+    this.activeBlocker = null;
+    this.chatInput = '';
+    this.emit('blocker-cleared');
+    this.emitChange();
   }
 
   public handleBlockerDismiss(): void {
