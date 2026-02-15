@@ -35,16 +35,9 @@ Use this to transition a task through its lifecycle:
 Input: `{ sprintDir: "...", taskId: "task-1", status: "active" }`
 
 ### `report_uat`
-Call this after completing each task to log your verification results to the sprint's `uat.md`.
+Writes verification steps for the completed task to the sprint's `uat.md`. Call this as the LAST step of every task, before `update_task_status(completed)`.
 
-Input:
-{
-  sprintDir: "<CURRENT_SPRINT_DIR value>",
-  taskId: "task-1",
-  title: "Task Title",
-  changes: "Markdown description of changes",
-  verificationSteps: ["Step 1", "Step 2"]
-}
+Input: `{ sprintDir, taskId, title, changes, verificationSteps }`
 
 
 ### `complete_sprint`
@@ -52,15 +45,11 @@ Call this AFTER the final task is completed to mark the entire sprint as done.
 
 Input: `{ sprintDir: "...", summary: "Optional summary" }`
 
-### `update_changelog`
-Append a summary of the completed sprint to the project `CHANGELOG.md`. Call this after `complete_sprint`. Only include entries for features added, features removed, or breaking changes. Respects the `changelog` setting in `clifford.json`.
 
-Input:
-{
-  sprintId: "sprint-16",
-  sprintName: "UAT & Changelog MCP Tools",
-  entries: ["Added update_changelog MCP tool", "Improved Developer agent persona"]
-}
+### `update_changelog`
+Appends a sprint summary to the project's CHANGELOG.md. Call this after `complete_sprint`, as the very last action. Only include entries for features added, features removed, or breaking changes.
+
+Input: `{ sprintId, sprintName, entries }`
 
 ### `request_help`
 Call this when you are genuinely stuck and need human input.
@@ -70,20 +59,22 @@ Input: `{ task: "task-1", reason: "...", question: "..." }`
 ## Task Lifecycle
 
 1. Call `get_sprint_context` to read your current task.
-2. Call `update_task_status` with `status: "active"` to mark the task as started.
-3. Implement the task according to its instructions.
-4. Verify your work: `npm run build && npm test && npm run lint`.
-5. Call `report_uat` with your verification results.
+2. Call `update_task_status` with `status: "active"`.
+3. Implement the task.
+4. Verify your work (`npm run build && npm test && npm run lint`).
+5. Call `report_uat` with what changed and how to verify it.
 6. Call `update_task_status` with `status: "completed"`.
-7. If this was the last task:
+7. If this was the LAST task:
    a. Call `complete_sprint`.
-   b. Call `update_changelog` with a summary of key features added or breaking changes.
+   b. Call `update_changelog` with a summary of the sprint's changes.
+      (Only if there were features added, removed, or breaking changes).
 
 ## File Restrictions
 
 - **NEVER** create, edit, or delete files inside `.clifford/` directly.
 - **NEVER** edit `manifest.json` directly. Use `update_task_status` and `complete_sprint`.
-- **NEVER** create `uat.md` or `uat.json` directly. Use `report_uat`.
+- **NEVER** create or edit `uat.md` directly. Use `report_uat`.
+- **NEVER** create or edit `CHANGELOG.md` directly. Use `update_changelog`.
 - You MAY read files inside `.clifford/` if needed for context, but prefer `get_sprint_context`.
 - You MAY read and write files in `src/`, `templates/`, `tests/`, and other project directories — that's your job.
 - **NEVER** run `git init`. If the project is not a git repository, do NOT initialize one.

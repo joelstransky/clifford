@@ -4,8 +4,8 @@
   "status": "active",
   "tasks": [
     { "id": "task-1", "file": "tasks/01-uat-md-mcp-tool.md", "status": "completed" },
-    { "id": "task-2", "file": "tasks/02-changelog-mcp-tool.md", "status": "active" },
-    { "id": "task-3", "file": "tasks/03-agent-workflow-update.md", "status": "pending" },
+    { "id": "task-2", "file": "tasks/02-changelog-mcp-tool.md", "status": "completed" },
+    { "id": "task-3", "file": "tasks/03-agent-workflow-update.md", "status": "active" },
     { "id": "task-4", "file": "tasks/04-remove-git-push.md", "status": "pending" }
   ]
 }
