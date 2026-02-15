@@ -66,3 +66,20 @@
     - No references to `uat.json`.
 2. Read `.opencode/agent/Developer.md` and confirm the same changes.
 3. Read `templates/.clifford/prompt.md` and confirm no stale references.
+
+## task-4: Remove Git Push Instructions
+
+### Changes
+- **`AGENTS.md`**: Updated Git safety protocol to strictly prohibit `git push` and clarify that Clifford only makes local commits.
+- **`templates/.opencode/agent/Developer.md`**: Updated Core Mandates and File Restrictions to allow atomic commits but strictly prohibit `git push`.
+- **`.opencode/agent/Developer.md`**: Applied the same changes to the active agent persona.
+- **`.bigred/sprint-verify.sh`**: Removed the `git push` command and updated output messages to reflect a local-only workflow.
+- **`.bigred/bigred-approve.sh`**: Removed the `git push` command, added a final commit step for `CHANGELOG.md`, and updated status to `verified`.
+
+### Verification Steps
+1. Run `grep -r "git push" AGENTS.md .opencode/ templates/` — confirm no instructional references exist (historical references are fine).
+2. Read `AGENTS.md` and confirm the `git push` prohibition.
+3. Read `templates/.opencode/agent/Developer.md` and confirm the updated Git mandate.
+4. Run `./.bigred/sprint-verify.sh` — confirm it completes without pushing to remote.
+5. Review `.bigred/bigred-approve.sh` — confirm `git push` has been removed.
+
