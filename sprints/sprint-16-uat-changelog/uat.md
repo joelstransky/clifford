@@ -46,3 +46,23 @@
 4. Verify `clifford.json` contains `"changelog": true` (or false if chosen).
 5. Manually verify `update_changelog` tool creates/updates `CHANGELOG.md` with correct formatting.
 6. Verify tool skips if `changelog: false` is set in `clifford.json`.
+
+## task-3: Update Agent Workflow for UAT and Changelog
+
+### Changes
+- **`templates/.opencode/agent/Developer.md`** and **`.opencode/agent/Developer.md`**:
+    - Refined `report_uat` documentation to reflect the new schema and lifecycle position.
+    - Updated `update_changelog` documentation.
+    - Updated Task Lifecycle section to explicitly show `report_uat` and `update_changelog` ordering.
+    - Updated File Restrictions to prohibit direct editing of `uat.md` and `CHANGELOG.md`, and removed stale `uat.json` references.
+- **`templates/.clifford/prompt.md`**: Verified it remains minimal and correct.
+
+### Verification Steps
+1. Read `templates/.opencode/agent/Developer.md` and confirm:
+    - `report_uat` uses the new schema (sprintDir, taskId, title, changes, verificationSteps).
+    - `update_changelog` is documented.
+    - Task lifecycle shows `report_uat` before `update_task_status(completed)`.
+    - Task lifecycle shows `update_changelog` after `complete_sprint`.
+    - No references to `uat.json`.
+2. Read `.opencode/agent/Developer.md` and confirm the same changes.
+3. Read `templates/.clifford/prompt.md` and confirm no stale references.

@@ -3,11 +3,10 @@ import { SprintRunner } from '../utils/sprint.js';
 import { DashboardController, LogEntry } from './DashboardController.js';
 import {
   OpenTuiModule,
-  Renderable,
   Renderer,
   COLORS,
-  STATUS_COLORS,
   Identifiable,
+
   generateProgressBar,
   clearTracked,
   createHeader,

@@ -69,10 +69,7 @@ describe('buildSprintContext', () => {
   const TEST_ID = Math.random().toString(36).substring(7);
   const TEST_DIR = path.resolve(`.clifford/test-sprint-context-${TEST_ID}`);
   const TASKS_DIR = path.join(TEST_DIR, 'tasks');
-  const ASM_TEST_PATH = path.resolve(`.clifford/asm-test-ctx-${TEST_ID}.json`);
 
-  // Point ASM storage to a test-specific file
-  const originalAsmPath = process.env.CLIFFORD_ASM_PATH;
 
   function writeManifest(manifest: Record<string, unknown>): void {
     fs.writeFileSync(

@@ -9,7 +9,9 @@
  * the visual structure so that additions/changes only touch one place per section.
  */
 
+import path from 'path';
 import { DashboardController, Task, LogEntry } from './DashboardController.js';
+
 import { stripEmoji } from '../utils/text.js';
 
 // ─── Shared Types ───────────────────────────────────────────────────────────────
@@ -237,7 +239,7 @@ export interface TaskListRenderContext {
 
 export function createTaskListRenderer(renderer: Renderer, tui: OpenTuiModule): TaskListRenderContext {
   const { BoxRenderable, TextRenderable, bold, fg, dim, t } = tui;
-  const path = require('path') as typeof import('path');
+
 
   const renderSprintItems = (
     ctrl: DashboardController,
