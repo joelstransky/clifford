@@ -140,3 +140,26 @@
 5. Confirm **Tab** does nothing special in blocker mode.
 6. Confirm the footer hint is restored to the simpler version.
 
+## Task 10: Purge ASM and Stabilize Halt Flow
+
+### Changes
+- **Purge ASM Logic**:
+    - Deleted `src/utils/asm-storage.ts` and `src/utils/asm-storage.test.ts`.
+    - Removed `asm-storage` imports and calls from `src/utils/mcp-server.ts`, `src/utils/sprint.ts`, and `src/tui/DashboardController.ts`.
+    - Removed `.clifford/asm.json` from `scaffolder.ts` (`.gitignore` entries) and `scripts/clifford-clean.mjs`.
+- **Stabilize Halt Flow**:
+    - Updated `src/tui/DashboardController.ts` to clear `activeBlocker` and `chatInput` when the runner stops. This ensures that killing the agent process (which triggers `runner.on('stop')`) also clears the blocker UI.
+- **Markdown Backup**:
+    - Updated `handleBlockerSubmit` in `DashboardController.ts` to append human guidance to the task markdown file under a `## Additional Info` section. This provides a persistent backup of guidance without needing separate ASM storage.
+- **Documentation**:
+    - Removed mentions of ASM and guidance from `templates/.opencode/agent/Developer.md`.
+
+### Verification Steps
+1. Run `npm run build` — should succeed.
+2. Run `npm test` — all tests pass (after removing ASM-specific tests and updating `mcp-server.test.ts`).
+3. Confirm `src/utils/asm-storage.ts` is gone.
+4. Verify that `.clifford/asm.json` is no longer created or used.
+5. Trigger a blocker in a sprint task.
+6. Submit a response and verify that the task's markdown file now has a `## Additional Info` section with your question and response.
+7. Trigger another blocker, but this time stop the sprint (or kill the agent process) — verify the blocker UI is cleared in the TUI.
+

@@ -118,3 +118,15 @@
 - 04-ui-tweaks
 - 05-raw-process-output
 - 06-test-realignment
+
+## [2026-02-14] sprint-15-publish-polish
+- 01-prompt-dedup
+- 02-mcp-indicator-restyle
+- 03-multi-turn-blocker
+- 04-sprint-list-status-fix
+- 05-publish-readiness
+- 06-sprint-completion-synopsis
+- 07-strip-ansi-process-output
+- 08-remove-sync-sprint-states
+- 09-revert-multi-turn-blocker
+- 10-purge-asm-stabilize-halt
