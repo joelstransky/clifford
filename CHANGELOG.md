@@ -143,3 +143,10 @@
 - 03-config-injection-logic
 - 04-afk-test-verification
 - 05-purge-legacy-demo
+
+## [2026-02-15] sprint-17-afk-foundation
+- 01-clifford-afk-command
+- 02-telegram-python-adapter
+- 03-config-injection-logic
+- 04-afk-test-verification
+- 05-purge-legacy-demo

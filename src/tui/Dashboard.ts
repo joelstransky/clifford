@@ -1,5 +1,6 @@
 import path from 'path';
 import { SprintRunner } from '../utils/sprint.js';
+import { loadProjectConfig, AfkAdapterConfig } from '../utils/config.js';
 import { DashboardController, LogEntry } from './DashboardController.js';
 import {
   OpenTuiModule,
@@ -78,7 +79,7 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
 
   const {
     activityPanel,
-    infoSprintText, infoTaskText, infoTimerText, infoProgressText, mcpLabel,
+    infoSprintText, infoTaskText, infoTimerText, infoProgressText, afkLabel, mcpLabel,
     activityRow, activityScroll, activityLogContainer,
     processRow, processScroll, processLogContainer,
     blockerContainer,
@@ -258,6 +259,16 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
         : ctrl.mcpStatus === 'error' ? COLORS.error
         : COLORS.dim;
       mcpLabel.content = t`${fg(mcpColor)('MCP')}`;
+
+      // AFK Indicator Logic
+      const config = loadProjectConfig();
+      const enabledAdapters = config.afk?.filter((a: AfkAdapterConfig) => a.enabled) || [];
+      let afkColor = COLORS.dim;
+      if (enabledAdapters.length > 0) {
+        const hasMissingToken = enabledAdapters.some((a: AfkAdapterConfig) => !a.token || a.token.trim().length === 0);
+        afkColor = hasMissingToken ? COLORS.error : COLORS.success;
+      }
+      afkLabel.content = t`${fg(afkColor)('AFK')}`;
     } else if (ctrl.lastCompletedSprint) {
       const lc = ctrl.lastCompletedSprint;
       infoSprintText.content = t`${dim(`Sprint: ${lc.name}`)}`;
@@ -265,12 +276,14 @@ export async function launchDashboard(sprintDir: string, runner: SprintRunner): 
       infoTimerText.content = t`${dim(`Elapsed: ${lc.elapsed}`)}`;
       infoProgressText.content = t`${dim('Sprint finished.')}`;
       mcpLabel.content = t`${fg(COLORS.dim)('MCP')}`;
+      afkLabel.content = t`${fg(COLORS.dim)('AFK')}`;
     } else {
       infoSprintText.content = t`${dim('No sprint running')}`;
       infoTaskText.content = '';
       infoTimerText.content = '';
       infoProgressText.content = '';
       mcpLabel.content = t`${fg(COLORS.dim)('MCP')}`;
+      afkLabel.content = t`${fg(COLORS.dim)('AFK')}`;
     }
 
     // ── Blocker swap: replaces activityRow + processRow with blockerContainer ──

@@ -3,11 +3,46 @@ import { Command } from 'commander';
 import inquirer from 'inquirer';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
 import { discoverTools } from './utils/discovery.js';
 import { SprintRunner } from './utils/sprint.js';
 import { scaffold } from './utils/scaffolder.js';
 import { loadProjectConfig, CliffordConfig, AfkAdapterConfig } from './utils/config.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Resolves the absolute path to the templates directory.
+ */
+function resolveTemplateDir(): string {
+  // In dev (src/index.ts), root is ../
+  const devTemplates = path.resolve(__dirname, '..', 'templates');
+  if (fs.existsSync(devTemplates)) return devTemplates;
+
+  // In dist (dist/index.js), root is ../
+  const distTemplates = path.resolve(__dirname, '..', 'templates');
+  if (fs.existsSync(distTemplates)) return distTemplates;
+
+  return path.join(process.cwd(), 'templates');
+}
+
+/**
+ * Detects the available Python command (python3 or python).
+ */
+function getPythonCommand(): string {
+  try {
+    const check3 = spawnSync('python3', ['--version']);
+    if (check3.status === 0) return 'python3';
+  } catch { /* ignore */ }
+
+  try {
+    const check = spawnSync('python', ['--version']);
+    if (check.status === 0) return 'python';
+  } catch { /* ignore */ }
+
+  return 'python3'; // Fallback
+}
 
 const program = new Command();
 
@@ -173,16 +208,20 @@ program
       for (const adapter of adapters) {
         const scriptName = `${adapter.provider}.py`;
         const localScriptPath = path.join(afkDir, scriptName);
-        const templateScriptPath = path.join(process.cwd(), 'templates', '.clifford', 'afk', scriptName);
+        const templateDir = resolveTemplateDir();
+        const templateScriptPath = path.join(templateDir, '.clifford', 'afk', scriptName);
 
         if (!fs.existsSync(localScriptPath)) {
           if (fs.existsSync(templateScriptPath)) {
             fs.copyFileSync(templateScriptPath, localScriptPath);
+            console.log(`✅ Scaffolded ${scriptName} to .clifford/afk/`);
           } else {
             console.error(`❌ Adapter script not found: ${localScriptPath}`);
             continue;
           }
         }
+
+        const pythonCmd = getPythonCommand();
 
         if (options.listen) {
           console.log(`📡 [${adapter.provider}] Waiting for handshake... Send a message to your bot.`);
@@ -193,7 +232,7 @@ program
           args.push('--listen');
 
           try {
-            const child = spawnSync('python3', args, { encoding: 'utf8', timeout: 60000 });
+            const child = spawnSync(pythonCmd, args, { encoding: 'utf8', timeout: 60000 });
             
             if (child.status !== 0) {
               console.error(`❌ [${adapter.provider}] Listen failed: ${child.stderr || 'Timeout'}`);
@@ -206,7 +245,7 @@ program
               adapter.chatId = output;
               const configPath = path.join(process.cwd(), 'clifford.json');
               const fullConfig = JSON.parse(fs.readFileSync(configPath, 'utf8')) as CliffordConfig;
-              const idx = fullConfig.afk?.findIndex(a => a.provider === adapter.provider) ?? -1;
+              const idx = fullConfig.afk?.findIndex((a: AfkAdapterConfig) => a.provider === adapter.provider) ?? -1;
               if (idx > -1 && fullConfig.afk) {
                 fullConfig.afk[idx].chatId = output;
                 fs.writeFileSync(configPath, JSON.stringify(fullConfig, null, 2));
@@ -217,7 +256,7 @@ program
               console.log(`✅ [${adapter.provider}] Found you! Setup complete. Received: ${output}`);
             }
           } catch (err) {
-            console.error(`❌ [${adapter.provider}] Failed to execute python3: ${(err as Error).message}`);
+            console.error(`❌ [${adapter.provider}] Failed to execute ${pythonCmd}: ${(err as Error).message}`);
           }
         } else {
           if (!adapter.chatId) {
@@ -226,7 +265,7 @@ program
           }
 
           console.log(`🚀 [${adapter.provider}] Sending test message...`);
-          const child = spawnSync('python3', [localScriptPath, '--token', adapter.token!, '--chat_id', adapter.chatId, '--test'], { encoding: 'utf8' });
+          const child = spawnSync(pythonCmd, [localScriptPath, '--token', adapter.token!, '--chat_id', adapter.chatId, '--test'], { encoding: 'utf8' });
           
           if (child.status === 0) {
             console.log(`✅ [${adapter.provider}] ${child.stdout.trim()}`);
@@ -247,47 +286,59 @@ program
         type: 'input',
         name: 'telegramToken',
         message: 'If you have a Telegram Bot Token, paste it here:',
-      },
-      {
-        type: 'input',
-        name: 'telegramChatId',
-        message: 'Enter your Chat ID (or leave blank to auto-detect on first message):',
-        when: (answers) => answers.telegramToken.length > 0
       }
     ]);
 
-    if (answers.telegramToken) {
-      // Update clifford.json
-      const configPath = path.join(process.cwd(), 'clifford.json');
-      if (fs.existsSync(configPath)) {
-        try {
-          const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as CliffordConfig;
-          if (!Array.isArray(config.afk)) {
-            config.afk = [];
-          }
-          const telegramIndex = config.afk.findIndex(a => a.provider === 'telegram');
-          const telegramConfig: AfkAdapterConfig = {
-            provider: 'telegram',
-            enabled: true,
-            token: answers.telegramToken,
-            chatId: answers.telegramChatId || undefined
-          };
-          
-          if (telegramIndex > -1) {
-            config.afk[telegramIndex] = telegramConfig;
-          } else {
-            config.afk.push(telegramConfig);
-          }
-          fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-          console.log('✅ Updated clifford.json with Telegram configuration.');
-        } catch (err) {
-          console.error(`❌ Error updating clifford.json: ${(err as Error).message}`);
+    // Update clifford.json regardless of token presence
+    const configPath = path.join(process.cwd(), 'clifford.json');
+    if (fs.existsSync(configPath)) {
+      try {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as CliffordConfig;
+        if (!Array.isArray(config.afk)) {
+          config.afk = [];
         }
-      } else {
-        console.log('⚠️ clifford.json not found. Configuration not saved.');
+        const telegramIndex = config.afk.findIndex(a => a.provider === 'telegram');
+        const telegramConfig: AfkAdapterConfig = {
+          provider: 'telegram',
+          enabled: answers.telegramToken.length > 0,
+          token: answers.telegramToken || '',
+        };
+        
+        if (telegramIndex > -1) {
+          // Preserve existing chatId if we have one
+          telegramConfig.chatId = config.afk[telegramIndex].chatId;
+          config.afk[telegramIndex] = telegramConfig;
+        } else {
+          config.afk.push(telegramConfig);
+        }
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        console.log('✅ Updated clifford.json with AFK configuration.');
+      } catch (err) {
+        console.error(`❌ Error updating clifford.json: ${(err as Error).message}`);
       }
     } else {
-      console.log('\nNo token provided. You can add it later to clifford.json.');
+      console.log('⚠️ clifford.json not found. Configuration not saved.');
+    }
+
+    // Scaffold the adapter file immediately
+    const scriptName = 'telegram.py';
+    const localScriptPath = path.join(afkDir, scriptName);
+    const templateDir = resolveTemplateDir();
+    const templateScriptPath = path.join(templateDir, '.clifford', 'afk', scriptName);
+
+    if (!fs.existsSync(localScriptPath)) {
+      if (fs.existsSync(templateScriptPath)) {
+        fs.copyFileSync(templateScriptPath, localScriptPath);
+        console.log(`✅ Scaffolded ${scriptName} to .clifford/afk/`);
+      } else {
+        console.warn(`⚠️ Template not found at ${templateScriptPath}. Adapter not scaffolded.`);
+      }
+    }
+
+    if (!answers.telegramToken) {
+      console.log('\nNo token provided. AFK is currently disabled. You can add it later to clifford.json.');
+    } else {
+      console.log('\nAFK configured! Run `npx clifford afk --test --listen` to verify and auto-detect your Chat ID.');
     }
   });
 

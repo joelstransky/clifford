@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { spawnSync } from 'child_process';
 import { SprintManifest } from './sprint.js';
 
 export interface AfkAdapterConfig {
@@ -17,6 +18,23 @@ export interface CliffordConfig {
   aiTool?: string;
   changelog?: boolean;
   afk?: AfkAdapterConfig[];
+}
+
+/**
+ * Detects the available Python command (python3 or python).
+ */
+export function getPythonCommand(): string {
+  try {
+    const check3 = spawnSync('python3', ['--version']);
+    if (check3.status === 0) return 'python3';
+  } catch { /* ignore */ }
+
+  try {
+    const check = spawnSync('python', ['--version']);
+    if (check.status === 0) return 'python';
+  } catch { /* ignore */ }
+
+  return 'python3'; // Fallback
 }
 
 /**

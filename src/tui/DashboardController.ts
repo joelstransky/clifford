@@ -1,9 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
+import { spawnSync, spawn, ChildProcess } from 'child_process';
 import { SprintRunner, SprintManifest } from '../utils/sprint.js';
 import { writeResponseFile } from '../utils/mcp-ipc.js';
 import { stripAnsi } from '../utils/text.js';
+import { loadProjectConfig, getPythonCommand } from '../utils/config.js';
 
 // ─── Shared Types ──────────────────────────────────────────────────────────────
 
@@ -90,6 +92,7 @@ export class DashboardController extends EventEmitter {
   // --- Blocker ---
   public activeBlocker: BlockRequest | null = null;
   public chatInput: string = '';
+  private afkProcesses: ChildProcess[] = [];
 
   // --- Timer ---
   public sprintStartTime: number | null = null;
@@ -251,8 +254,77 @@ export class DashboardController extends EventEmitter {
       this.chatInput = '';
       this.addLog(`🛑 ${data.reason}: ${data.task}`, 'error');
       this.switchTab('activity');
+      this.notifyAfk(this.activeBlocker);
       this.emit('blocker-active', this.activeBlocker);
     });
+  }
+
+  /**
+   * Broadcasts a notification to all enabled AFK adapters and starts listeners.
+   */
+  private notifyAfk(blocker: BlockRequest): void {
+    const config = loadProjectConfig();
+    const adapters = config.afk?.filter(a => a.enabled && a.token && a.chatId) || [];
+
+    if (adapters.length === 0) return;
+
+    const projectRoot = this.findProjectRoot();
+    const afkDir = path.join(projectRoot, '.clifford', 'afk');
+    const pythonCmd = getPythonCommand();
+
+    // Clear any stale processes
+    this.cleanupAfkProcesses();
+
+    for (const adapter of adapters) {
+      const scriptName = `${adapter.provider}.py`;
+      const localScriptPath = path.join(afkDir, scriptName);
+
+      if (fs.existsSync(localScriptPath)) {
+        const message = `🛑 <b>Clifford needs help!</b>\n\n<b>Task</b>: <code>${blocker.task || 'Unknown'}</code>\n<b>Reason</b>: ${blocker.reason || 'None'}\n\n<b>Question</b>:\n${blocker.question || 'No question provided'}`;
+        
+        try {
+          // 1. Send Notification (Async)
+          spawn(pythonCmd, [
+            localScriptPath,
+            '--token', adapter.token!,
+            '--chat_id', adapter.chatId!,
+            '--notify',
+            '--message', message
+          ]);
+          this.addLog(`📲 AFK notification sent via ${adapter.provider}`, 'info');
+
+          // 2. Start Listener (Async)
+          const listener = spawn(pythonCmd, [
+            localScriptPath,
+            '--token', adapter.token!,
+            '--chat_id', adapter.chatId!,
+            '--listen'
+          ]);
+
+          listener.stdout.on('data', (data) => {
+            const response = data.toString().trim();
+            if (response && this.activeBlocker) {
+              this.addLog(`📩 Received AFK response from ${adapter.provider}`, 'success');
+              this.handleBlockerSubmit(response);
+            }
+          });
+
+          this.afkProcesses.push(listener);
+        } catch (err) {
+          this.addLog(`❌ Failed to start AFK adapter (${adapter.provider}): ${(err as Error).message}`, 'error');
+        }
+      }
+    }
+  }
+
+  /**
+   * Kills all active AFK adapter processes.
+   */
+  private cleanupAfkProcesses(): void {
+    this.afkProcesses.forEach(p => {
+      try { p.kill(); } catch { /* ignore */ }
+    });
+    this.afkProcesses = [];
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -606,11 +678,12 @@ export class DashboardController extends EventEmitter {
     this.emitChange();
   }
 
-  public handleBlockerSubmit(): void {
-    if (!this.activeBlocker || this.chatInput.trim().length === 0) return;
+  public handleBlockerSubmit(externalResponse?: string): void {
+    if (!this.activeBlocker) return;
+    const response = (externalResponse || this.chatInput).trim();
+    if (response.length === 0) return;
 
     const blocker = this.activeBlocker;
-    const response = this.chatInput.trim();
 
     try {
       const projectRoot = this.findProjectRoot();
@@ -643,6 +716,7 @@ export class DashboardController extends EventEmitter {
 
     this.activeBlocker = null;
     this.chatInput = '';
+    this.cleanupAfkProcesses();
     this.emit('blocker-cleared');
     this.emitChange();
   }
@@ -660,6 +734,7 @@ export class DashboardController extends EventEmitter {
 
     this.activeBlocker = null;
     this.chatInput = '';
+    this.cleanupAfkProcesses();
     if (this.runner.getIsRunning()) this.runner.stop();
     this.addLog('Help dismissed, sprint stopped.', 'warning');
     this.emit('blocker-cleared');

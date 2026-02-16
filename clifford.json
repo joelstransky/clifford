@@ -1,3 +1,10 @@
 {
-  "model": "claude-3-7-sonnet-20250219"
+  "model": "claude-3-7-sonnet-20250219",
+  "afk": [
+    {
+      "provider": "telegram",
+      "enabled": false,
+      "token": ""
+    }
+  ]
 }

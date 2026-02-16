@@ -398,6 +398,7 @@ export interface ActivityViewComponents {
   infoTaskText: Renderable;
   infoTimerText: Renderable;
   infoProgressText: Renderable;
+  afkLabel: Renderable;
   mcpLabel: Renderable;
   // Activity Row
   activityRow: Renderable;
@@ -438,15 +439,22 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
   const infoTaskText = new TextRenderable(renderer, { id: 'info-task', content: '', width: '100%' });
   const infoTimerText = new TextRenderable(renderer, { id: 'info-timer', content: '', width: '100%' });
   const infoProgressText = new TextRenderable(renderer, { id: 'info-progress', content: '' });
+  const afkLabel = new TextRenderable(renderer, { id: 'afk-label', content: t`${fg(COLORS.dim)('AFK')}` });
   const mcpLabel = new TextRenderable(renderer, { id: 'mcp-label', content: t`${fg(COLORS.dim)('MCP')}` });
 
-  // Progress row: progress text left, MCP label right
+  // Progress row: progress text left, labels right
   const progressRow = new BoxRenderable(renderer, {
     id: 'progress-row', width: '100%', height: 1, flexDirection: 'row',
     justifyContent: 'space-between',
   });
   progressRow.add(infoProgressText);
-  progressRow.add(mcpLabel);
+
+  const labelBox = new BoxRenderable(renderer, {
+    id: 'label-box', flexDirection: 'row', gap: 2
+  });
+  labelBox.add(afkLabel);
+  labelBox.add(mcpLabel);
+  progressRow.add(labelBox);
 
   statusRow.add(infoSprintText);
   statusRow.add(infoTaskText);
@@ -555,7 +563,7 @@ export function createActivityView(renderer: Renderer, tui: OpenTuiModule): Acti
 
   return {
     activityPanel,
-    infoSprintText, infoTaskText, infoTimerText, infoProgressText, mcpLabel,
+    infoSprintText, infoTaskText, infoTimerText, infoProgressText, afkLabel, mcpLabel,
     activityRow, activityScroll, activityLogContainer,
     processRow, processScroll, processLogContainer,
     blockerContainer,
